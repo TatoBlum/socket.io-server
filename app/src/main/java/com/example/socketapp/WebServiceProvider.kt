@@ -13,18 +13,21 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import okio.ByteString
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "WebSocketClient"
 private const val NORMAL_CLOSURE_STATUS = 1000
 
 /**
- * Transport-only WebSocket client. Agnostic to payload and business.
+ * Transport-only WebSocket client.
  * The returned flow is cold: each collect opens a fresh socket; cancelling
  * the collecting coroutine closes it via [awaitClose].
+ *
+ * Left `open` so tests can subclass with a fake implementation that
+ * doesn't touch the network (e.g. to exercise retry/backoff with virtual time).
  */
-class WebSocketClient {
+open class WebSocketClient {
     private val okHttpClient = OkHttpClient.Builder()
         .readTimeout(30, TimeUnit.SECONDS)
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -34,7 +37,7 @@ class WebSocketClient {
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun connect(url: String): Flow<WebSocketEvent> = callbackFlow {
+    open fun connect(url: String): Flow<String> = callbackFlow {
         Log.d(TAG, "connect → $url")
         _connectionState.value = ConnectionState.Connecting
 
@@ -45,20 +48,17 @@ class WebSocketClient {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                val r = trySend(WebSocketEvent.Message(text))
-                Log.d(TAG, "onMessage(text, ${text.length} chars) → trySend success=${r.isSuccess}")
-            }
-
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                val r = trySend(WebSocketEvent.Binary(bytes))
-                Log.d(TAG, "onMessage(bytes) → trySend success=${r.isSuccess}")
+                trySend(text)
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "onClosing: $code $reason")
-                webSocket.close(NORMAL_CLOSURE_STATUS, null)
+                // OkHttp cierra el socket automáticamente tras este callback — no llamamos
+                // close() explícito para evitar doble acción con el cancel() del awaitClose.
                 _connectionState.value = ConnectionState.Disconnected
-                close()
+                // Cerramos el flow con excepción para que retryWhen reconecte. Sin esto,
+                // un cierre iniciado por el servidor deja la app congelada.
+                close(IOException("WebSocket closed by server: $code $reason"))
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -79,8 +79,7 @@ class WebSocketClient {
         awaitClose {
             // cancel() libera el Call subyacente de forma inmediata, haya conectado o no.
             // close() sólo funciona si el handshake ya estaba establecido, y puede dejar
-            // recursos colgando ("A resource failed to call close") si el socket murió
-            // durante el handshake.
+            // recursos colgando ("A resource failed to call close") si el socket murió durante el handshake.
             webSocket.cancel()
             _connectionState.value = ConnectionState.Disconnected
         }

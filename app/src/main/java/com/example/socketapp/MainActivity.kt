@@ -1,72 +1,75 @@
 package com.example.socketapp
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.example.socketapp.databinding.ActivityMainBinding
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private const val TAG = "MainActivity"
+private const val TAG = "MainScreen"
 
-class MainActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var mainViewModel: MainViewModel
-    private lateinit var checkNetworkConnection: CheckNetworkConnection
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
-        mainViewModel = ViewModelProvider(this, ViewModelFactory())[MainViewModel::class.java]
+        val mainViewModel = ViewModelProvider(this, ViewModelFactory())[MainViewModel::class.java]
+        val checkNetworkConnection = CheckNetworkConnection(application)
 
-        subscribeObserver()
-        callNetworkConnection()
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun subscribeObserver() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                combine(
-                    mainViewModel.bitcoin,
-                    mainViewModel.connectionState
-                ) { ticker, state -> renderLabel(ticker, state) }
-                    .distinctUntilChanged()
-                    .collect { label -> binding.btcPriceTv.text = label }
+        setContent {
+            MaterialTheme {
+                MainScreen(mainViewModel, checkNetworkConnection)
             }
         }
     }
+}
 
-    private fun renderLabel(ticker: BitcoinTicker?, state: ConnectionState): String {
-        val price = ticker?.price
-        return when {
-            price != null -> "1 BTC: $price €"
-            state is ConnectionState.Connecting -> "Conectando..."
-            state is ConnectionState.Failed -> "Error de conexión"
-            state is ConnectionState.Disconnected -> "Sin conexión"
-            else -> "1 BTC: — €"
+@Composable
+fun MainScreen(
+    viewModel: MainViewModel,
+    networkConnection: CheckNetworkConnection,
+) {
+    val ticker by viewModel.bitcoin.collectAsStateWithLifecycle()
+    val connection by viewModel.connectionState.collectAsStateWithLifecycle()
+    val isConnected by networkConnection.observeAsState(initial = false)
+
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            Log.i(TAG, "IS CONNECTED YEAH!!!")
+            viewModel.subscribeToSocketEvents()
+        } else {
+            Log.w(TAG, "IS DISCONNECTED OUCH!!!")
+            viewModel.stopSocket()
         }
     }
 
-    private fun callNetworkConnection() {
-        checkNetworkConnection = CheckNetworkConnection(application)
-        checkNetworkConnection.observe(this) { isConnected ->
-            if (isConnected) {
-                Log.i(TAG, "IS CONNECTED YEAH!!!")
-                mainViewModel.subscribeToSocketEvents()
-            } else {
-                Log.w(TAG, "IS DISCONNECTED OUCH!!!")
-                mainViewModel.stopSocket()
-            }
-        }
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = renderLabel(ticker, connection), fontSize = 40.sp)
+    }
+}
+
+private fun renderLabel(ticker: BitcoinTicker?, state: ConnectionState): String {
+    val price = ticker?.price
+    return when {
+        price != null -> "1 BTC: $price €"
+        state is ConnectionState.Connecting -> "Conectando..."
+        state is ConnectionState.Failed -> "Error de conexión"
+        state is ConnectionState.Disconnected -> "Sin conexión"
+        else -> "1 BTC: — €"
     }
 }
