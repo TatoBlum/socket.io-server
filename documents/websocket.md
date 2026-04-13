@@ -145,18 +145,33 @@ socketJob.cancel()
    ↓ CancellationException
 collect { } se cancela
    ↓
-.catch { } NO la captura (regla de Kotlin Flow: catch ignora cancel)
+.catch { } NO la invoca (Flow preserva la transparencia de cancelación:
+            cada operador chequea ensureActive() antes de correr su handler)
    ↓
-dataSource.start() unwind
+.retryWhen { } tampoco reintenta (el guard `cause is CancellationException`
+            es defensivo; aun sin él, respeta la cancelación del scope padre)
+   ↓
+.mapNotNull { } unwind
    ↓
 WebSocketClient.connect() → callbackFlow termina → awaitClose { } corre
    ↓
-webSocket.cancel() → socket TCP cerrado
+webSocket.cancel() → socket TCP cerrado (cancel inmediato, sin close frame 1000)
 ```
 
 El `awaitClose` del `callbackFlow` en `WebSocketClient` es lo que **realmente**
-cierra el socket. Si alguien olvidara esa línea, el socket seguiría abierto
-después del cancel.
+cierra el socket. Corre como cleanup unificado del `callbackFlow`: tanto al
+cancelar el collector desde el VM como cuando el propio cliente cierra el
+flow con `close(cause)` desde `onFailure` / `onClosing`. Si alguien olvidara
+esa línea, el socket seguiría abierto después del cancel.
+
+> **Nota sobre `.catch` y cancelación**: la regla no es "catch ignora
+> CancellationException" como excepción especial, sino que Flow re-chequea
+> `ensureActive()` en la jerarquía de coroutines antes de invocar cualquier
+> handler. Si el scope padre está cancelado, `ensureActive()` re-lanza y el
+> handler no corre. Una `CancellationException` "sintética" (no vinculada a
+> cancelación del scope) **sí** podría ser atrapada por `catch` — foot-gun
+> conocido a evitar tirando `CancellationException` a mano desde operadores
+> upstream.
 
 ---
 
