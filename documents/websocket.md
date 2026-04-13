@@ -11,10 +11,11 @@ capa y cómo se propaga el ciclo de vida.
 2. [Contrato del ViewModel ↔ DataSource](#contrato-del-viewmodel--datasource)
 3. [Abrir una suscripción](#abrir-una-suscripción)
 4. [Cerrar la suscripción](#cerrar-la-suscripción)
-5. [Ciclo de vida Android](#ciclo-de-vida-android)
-6. [Reconexión y errores](#reconexión-y-errores)
-7. [Observables expuestos al UI](#observables-expuestos-al-ui)
-8. [Testabilidad](#testabilidad)
+5. [Anatomía del transporte: `callbackFlow` + `awaitClose`](#anatomía-del-transporte-callbackflow--awaitclose)
+6. [Ciclo de vida Android](#ciclo-de-vida-android)
+7. [Reconexión y errores](#reconexión-y-errores)
+8. [Observables expuestos al UI](#observables-expuestos-al-ui)
+9. [Testabilidad](#testabilidad)
 
 ---
 
@@ -172,6 +173,99 @@ esa línea, el socket seguiría abierto después del cancel.
 > cancelación del scope) **sí** podría ser atrapada por `catch` — foot-gun
 > conocido a evitar tirando `CancellationException` a mano desde operadores
 > upstream.
+
+---
+
+## Anatomía del transporte: `callbackFlow` + `awaitClose`
+
+`WebSocketClient.connect()` usa `callbackFlow` para tender un puente entre
+una API callback-based (OkHttp `WebSocketListener`) y el mundo Flow.
+Entender cómo funciona es clave para no romperlo al modificarlo.
+
+### Qué hace `callbackFlow`
+
+Devuelve un `Flow` **frío**: el block **no corre al definirlo**, corre una
+vez por cada `collect()`. Dentro del block tenés un `ProducerScope` con:
+
+- `trySend(value)` / `send(value)` → empujar items al stream.
+- `close(cause?)` → cerrar el stream (con o sin error).
+- `awaitClose { cleanup }` → suspender la coroutina productora hasta que
+  el channel se cierre, y correr `cleanup` cuando eso pase.
+
+El block corre en una **coroutina propia** (hija del collector), no en la
+del collector directamente.
+
+### Timeline de un `collect()`
+
+```
+t=0   collector llama collect()
+      └─ callbackFlow arranca la coroutina productora
+         ejecutando el block de connect()
+t=1   _connectionState.value = Connecting
+t=2   se crea el WebSocketListener
+t=3   okHttpClient.newWebSocket(...) ← devuelve INMEDIATAMENTE
+      (OkHttp abre el socket en un thread interno, no bloquea)
+t=4   awaitClose { ... } ← la productora SUSPENDE acá
+      (NO sale del block, NO corre el cleanup todavía)
+```
+
+**Momento clave** — después de `newWebSocket()`, la coroutina productora
+**no termina**. Se queda dormida en `awaitClose`. Si el block terminara,
+`callbackFlow` asumiría que no hay más items y cerraría el channel — el
+socket quedaría huérfano.
+
+### Mientras tanto: OkHttp emite en su propio thread
+
+OkHttp invoca los callbacks del `WebSocketListener` desde su thread pool
+interno, sin saber nada de coroutines:
+
+```
+OkHttp thread interno:
+  └─ listener.onMessage(webSocket, "...")
+     └─ trySend("...") ← thread-safe, encola en el channel
+        └─ collector (otra coroutina) lo recibe
+```
+
+El `trySend` es el bridge: lo llama código no-coroutine y lo consume
+código coroutine.
+
+### Cómo despierta `awaitClose`
+
+`awaitClose` **no hace polling**. Suspende usando el `onCloseHandler` del
+channel interno, equivalente mental a:
+
+> *"Dormí hasta que el channel reciba señal de cierre. Cuando la reciba,
+> despertame y corré este lambda como cleanup."*
+
+Tres actores pueden disparar ese cierre:
+
+| Actor | Trigger | Camino |
+|---|---|---|
+| **Collector cancela** | `socketJob.cancel()` desde el VM | Cancela la productora (es hija del collector) → `awaitClose` corre cleanup |
+| **Listener llama `close(t)`** | `onFailure` / `onClosing` dentro del listener | Cierra el channel → `awaitClose` corre cleanup → downstream recibe la excepción en `.catch` / `retryWhen` |
+| **Excepción dentro del block** | `throw` antes de `awaitClose` | El block sale por excepción → el channel se cierra con ese cause |
+
+En los tres casos el lambda de `awaitClose` **siempre** corre. Es el
+`finally` del Flow.
+
+### Analogía mental
+
+`callbackFlow { ... awaitClose { cleanup } }` ≈ `try { ... } finally { cleanup }`
+en versión asíncrona, con el channel haciendo de bridge entre el thread de
+OkHttp y la coroutina del collector.
+
+### Reglas para no romperlo
+
+- **Nunca** cierres el socket fuera del `awaitClose`. Si lo hacés en un
+  listener, el teardown por cancel del collector lo vuelve a hacer → doble
+  acción (y en OkHttp, `cancel()` ya es thread-safe e idempotente, pero
+  otros recursos no).
+- Si el handshake falla, OkHttp te pasa el `Response` en `onFailure` y es
+  **tu** responsabilidad cerrarlo con `response?.close()`. Si no, vas a ver
+  `"A resource failed to call close"` en el log.
+- Usá `webSocket.cancel()` (no `close()`) en el `awaitClose`: `close()`
+  requiere handshake establecido y puede dejar recursos colgando si el
+  socket murió mid-handshake. `cancel()` es inmediato en cualquier estado.
 
 ---
 
