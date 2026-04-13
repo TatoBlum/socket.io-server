@@ -21,14 +21,14 @@ private const val MAX_BACKOFF_MS = 30_000L
  * payload→model mapping and the reconnect policy. Transport is delegated to
  * [WebSocketClient].
  */
-class BitcoinTickerDataSource(
+open class BitcoinTickerDataSource(
     private val client: WebSocketClient,
     private val url: String = Constants.WEB_SOCKET_URL,
 ) {
 
-    val connectionState: StateFlow<ConnectionState> = client.connectionState
+    open val connectionState: StateFlow<ConnectionState> = client.connectionState
 
-    fun start(): Flow<BitcoinTicker> = client.connect(url)
+    open fun start(): Flow<BitcoinTicker> = client.connect(url)
         .mapNotNull { text -> parse(text) }
         .retryWhen { cause, attempt ->
             if (cause is CancellationException) return@retryWhen false
