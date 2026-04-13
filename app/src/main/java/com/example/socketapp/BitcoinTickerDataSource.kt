@@ -15,6 +15,7 @@ private const val TAG = "BitcoinTickerDataSource"
 private const val MAX_RETRIES = 5L
 private const val BASE_BACKOFF_MS = 1_000L
 private const val MAX_BACKOFF_MS = 30_000L
+private const val MAX_JITTER_MS = 500L
 
 /**
  * Domain-level source for Bitcoin ticker data. Owns the endpoint URL, the
@@ -31,17 +32,30 @@ open class BitcoinTickerDataSource(
     open fun start(): Flow<BitcoinTicker> = client.connect(url)
         .mapNotNull { text -> parse(text) }
         .retryWhen { cause, attempt ->
-            if (cause is CancellationException) return@retryWhen false
-            if (attempt >= MAX_RETRIES) {
-                Log.e(TAG, "giving up after $MAX_RETRIES retries", cause)
-                return@retryWhen false
+            when {
+                cause is CancellationException -> false      // stop pedido por el collector
+                attempt >= MAX_RETRIES -> {
+                    Log.e(TAG, "giving up after $MAX_RETRIES retries", cause)
+                    false
+                }
+                else -> {
+                    val waitMs = nextBackoffMs(attempt)
+                    Log.w(TAG, "retry ${attempt + 1}/$MAX_RETRIES in ${waitMs}ms", cause)
+                    delay(waitMs)
+                    true
+                }
             }
-            val backoff = (BASE_BACKOFF_MS shl attempt.toInt()).coerceAtMost(MAX_BACKOFF_MS)
-            val jitter = Random.nextLong(0L, 500L)
-            Log.w(TAG, "retry ${attempt + 1}/$MAX_RETRIES in ${backoff + jitter}ms", cause)
-            delay(backoff + jitter)
-            true
         }
+
+    /**
+     * Backoff exponencial con jitter: 1s, 2s, 4s, 8s, 16s (tope 30s),
+     * +0-500ms random para evitar retry storms sincronizados.
+     */
+    private fun nextBackoffMs(attempt: Long): Long {
+        val exponential = (BASE_BACKOFF_MS shl attempt.toInt()).coerceAtMost(MAX_BACKOFF_MS)
+        val jitter = Random.nextLong(0L, MAX_JITTER_MS)
+        return exponential + jitter
+    }
 
     private fun parse(text: String): BitcoinTicker? {
         val ticker = try {
