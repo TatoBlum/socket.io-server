@@ -1,138 +1,177 @@
 ---
 name: patterns-templates
-description: Boilerplate / templates de código para developers. Solo lo cargan los developers.
+description: Boilerplate / templates de código para developers. Refleja el stack real del proyecto (XML + ViewBinding + MVVM simple + OkHttp).
 user_invocable: false
 ---
 
-# Patterns Templates
+# Patterns Templates — SocketAndroidPOC
 
-Boilerplate de referencia para crear componentes nuevos. Solo lo cargan los **developers**. Otros agentes (reviewer, security, etc.) no lo necesitan.
+Boilerplate de referencia. Solo lo cargan los **developers**. Adaptá nombres al feature.
 
-## 1. Contract (MVI)
+## 1. Activity con ViewBinding
 
 ```kotlin
-interface FeatureContract {
-    sealed interface Intent {
-        data object Load : Intent
-        data class Select(val id: String) : Intent
+package com.example.socketapp
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import com.example.socketapp.databinding.ActivityFeatureBinding
+import kotlinx.coroutines.flow.collectLatest
+
+class FeatureActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityFeatureBinding
+    private lateinit var viewModel: FeatureViewModel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityFeatureBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        viewModel = ViewModelProvider(this, ViewModelFactory())[FeatureViewModel::class.java]
     }
 
-    data class State(
-        val loading: Boolean = false,
-        val items: List<Item> = emptyList(),
-        val error: String? = null,
-    )
+    override fun onResume() {
+        super.onResume()
+        observeState()
+    }
 
-    sealed interface Effect {
-        data class ShowToast(val msg: String) : Effect
-        data class NavigateTo(val route: String) : Effect
+    private fun observeState() {
+        lifecycleScope.launchWhenStarted {
+            viewModel.state.collectLatest { state ->
+                binding.someText.text = state.someValue
+            }
+        }
     }
 }
 ```
 
-## 2. ViewModel (MVI)
+## 2. ViewModel con StateFlow
 
 ```kotlin
+package com.example.socketapp
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
 class FeatureViewModel(
-    private val useCase: GetFeatureUseCase,
-) : MVIViewModel<FeatureContract.Intent, FeatureContract.State, FeatureContract.Effect>(
-    initialState = FeatureContract.State()
-) {
-    override fun handleIntent(intent: FeatureContract.Intent) {
-        when (intent) {
-            is FeatureContract.Intent.Load -> load()
-            is FeatureContract.Intent.Select -> select(intent.id)
-        }
-    }
+    private val webServiceProvider: WebServiceProvider = WebServiceProvider(),
+) : ViewModel() {
 
-    private fun load() {
+    private val _state = MutableStateFlow(FeatureUiState())
+    val state = _state.asStateFlow()
+
+    fun loadSomething() {
         viewModelScope.launch {
-            setState { copy(loading = true) }
-            when (val res = useCase()) {
-                is Resource.Success -> setState { copy(loading = false, items = res.data) }
-                is Resource.Error -> {
-                    setState { copy(loading = false, error = res.message) }
-                    sendEffect(FeatureContract.Effect.ShowToast(res.message))
-                }
-                Resource.Loading -> Unit
-            }
+            // ... actualizar _state.value
         }
     }
 }
+
+data class FeatureUiState(
+    val loading: Boolean = false,
+    val someValue: String = "",
+    val error: String? = null,
+)
 ```
 
-## 3. Screen (Compose, stateful + stateless split)
+## 3. Factory (agregar rama nueva en ViewModelFactory)
 
 ```kotlin
-@Composable
-fun FeatureScreen(
-    viewModel: FeatureViewModel = koinViewModel(),
-    navController: NavController,
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is FeatureContract.Effect.ShowToast -> { /* ... */ }
-                is FeatureContract.Effect.NavigateTo -> navController.navigate(effect.route)
-            }
+class ViewModelFactory : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        when {
+            modelClass.isAssignableFrom(MainViewModel::class.java) -> MainViewModel() as T
+            modelClass.isAssignableFrom(FeatureViewModel::class.java) -> FeatureViewModel() as T
+            else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
+}
+```
+
+## 4. DTO con Moshi codegen
+
+```kotlin
+package com.example.socketapp
+
+import com.squareup.moshi.JsonClass
+
+@JsonClass(generateAdapter = true)
+data class FeatureDto(
+    val id: String,
+    val name: String,
+    val price: Double,
+)
+```
+
+Si se activa `minifyEnabled true`, agregar a `proguard-rules.pro`:
+```
+-keep class com.example.socketapp.FeatureDto { *; }
+```
+
+## 5. WebSocket listener
+
+```kotlin
+package com.example.socketapp
+
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+
+class FeatureListener(
+    private val onMessage: (String) -> Unit,
+    private val onError: (Throwable) -> Unit,
+) : WebSocketListener() {
+
+    override fun onOpen(webSocket: WebSocket, response: Response) { /* ... */ }
+
+    override fun onMessage(webSocket: WebSocket, text: String) {
+        onMessage(text)
     }
 
-    FeatureContent(
-        state = state,
-        onIntent = viewModel::sendIntent,
-    )
-}
+    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+        onError(t)
+    }
 
-@Composable
-private fun FeatureContent(
-    state: FeatureContract.State,
-    onIntent: (FeatureContract.Intent) -> Unit,
-) {
-    // UI stateless
-}
-```
-
-## 4. Repository
-
-```kotlin
-class FeatureRepositoryImpl(
-    private val api: FeatureApi,
-    private val mapper: FeatureDtoToEntityMapper,
-) : FeatureRepository {
-
-    override suspend fun getItems(): Resource<List<Item>> = try {
-        val dtos = api.getItems()
-        Resource.Success(dtos.map(mapper::map))
-    } catch (e: Exception) {
-        Resource.Error(e.message ?: "Unknown error")
+    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+        webSocket.close(code, reason)
     }
 }
 ```
 
-## 5. Koin module (feature)
+## 6. Unit test (JUnit 4, sin MockK, sin coroutines-test)
+
+Para código suspendible simple, `runBlocking` (solo en tests) o fakes manuales.
 
 ```kotlin
-val featureModule = module {
-    single<FeatureRepository> { FeatureRepositoryImpl(get(), get()) }
-    factory { FeatureDtoToEntityMapper() }
-    factory { GetFeatureUseCase(get()) }
-    viewModel { FeatureViewModel(get()) }
-}
-```
+package com.example.socketapp
 
-Registrar en `App.kt`:
-```kotlin
-startKoin {
-    androidContext(this@App)
-    modules(listOf(networkModule, featureModule, /* ... */))
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class FeatureMapperTest {
+
+    @Test
+    fun `maps dto to domain correctly`() {
+        // given
+        val dto = FeatureDto(id = "1", name = "BTC", price = 42000.0)
+
+        // when
+        val result = dto.toDomain()
+
+        // then
+        assertEquals("1", result.id)
+        assertEquals(42000.0, result.price, 0.0)
+    }
 }
 ```
 
 ## Reglas al usar templates
 
 - Adaptá nombres al feature. No dejes `Feature` literal.
-- Si el proyecto aún **no tiene** alguna de estas infraestructuras (p.ej. MVIViewModel base class, Koin), **no las inventes** — reportalo al orquestador en tu output.
-- No copies secciones que no necesitás.
+- Solo usá lo que aplica al scope asignado por el architect.
+- Si tu scope necesita infraestructura que **no existe** (ej. Retrofit, Koin, Room, Compose), **reportalo al orquestador en vez de inventarla**.
+- Si agregás un `@JsonClass` nuevo, dejá un TODO sobre ProGuard (o resolvelo si tenés el scope).

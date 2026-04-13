@@ -3,10 +3,15 @@ package com.example.socketapp
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "MainViewModel"
@@ -18,65 +23,46 @@ class MainViewModel(
     private val _bitcoin = MutableStateFlow<BitcoinTicker?>(null)
     val bitcoin = _bitcoin.asStateFlow()
 
-    private var isSubscribed = false
+    val connectionState: StateFlow<ConnectionState> = interactor.connectionState
+
     private var socketJob: Job? = null
 
     fun subscribeToSocketEvents() {
-        if (isSubscribed) return
-        isSubscribed = true
+        if (socketJob?.isActive == true) return
         socketJob = viewModelScope.launch(IO) {
-            try {
-                interactor.startSocket().collect { state ->
-                    state.exception?.let { ex ->
-                        Log.e(TAG, "socket state error", ex)
-                        return@collect
-                    }
-                    state.text?.let { bitcoin ->
-                        _bitcoin.value = bitcoin
-                    }
+            interactor.startSocket()
+                .catch { ex ->
+                    Log.e(TAG, "socket stream ended with error", ex)
+                    _bitcoin.value = null
                 }
-            } catch (ex: CancellationException) {
-                throw ex
-            } catch (ex: Exception) {
-                Log.e(TAG, "socket error", ex)
-            }
+                .collect { ticker ->
+                    Log.d(TAG, "ticker received: ${ticker.price}")
+                    _bitcoin.value = ticker
+                }
         }
     }
 
     fun stopSocket() {
-        isSubscribed = false
         socketJob?.cancel()
         socketJob = null
-        interactor.stopSocket()
+        _bitcoin.value = null
     }
 
     override fun onCleared() {
-        isSubscribed = false
         socketJob?.cancel()
         socketJob = null
-        interactor.stopSocket()
         super.onCleared()
     }
 }
 
 class MainInteractor(private val repository: MainRepository) {
-    // @ExperimentalCoroutinesApi
-    fun startSocket(): SharedFlow<DataState> = repository.startSocket()
+    val connectionState: StateFlow<ConnectionState> = repository.connectionState
 
-    // @ExperimentalCoroutinesApi
-    fun stopSocket() {
-        repository.closeSocket()
-    }
+    fun startSocket(): Flow<BitcoinTicker> = repository.startSocket()
 }
 
-class MainRepository(private val webServicesProvider: WebServicesProvider) {
+class MainRepository(private val dataSource: BitcoinTickerDataSource) {
+    val connectionState: StateFlow<ConnectionState> = dataSource.connectionState
 
-    // @ExperimentalCoroutinesApi
-    fun startSocket(): SharedFlow<DataState> =
-        webServicesProvider.startSocket()
-
-    // @ExperimentalCoroutinesApi
-    fun closeSocket() {
-        webServicesProvider.stopSocket()
-    }
+    fun startSocket(): Flow<BitcoinTicker> = dataSource.start()
 }

@@ -6,7 +6,13 @@ import androidx.lifecycle.ViewModelProvider
 class ViewModelFactory() : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-            return MainViewModel(MainInteractor(MainRepository(WebServicesProvider()))) as T
+            return MainViewModel(
+                MainInteractor(
+                    MainRepository(
+                        BitcoinTickerDataSource(WebSocketClient())
+                    )
+                )
+            ) as T
         }
         throw IllegalArgumentException("Unknown class name")
     }

@@ -1,13 +1,18 @@
 package com.example.socketapp
 
 import android.annotation.SuppressLint
+import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.socketapp.databinding.ActivityMainBinding
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 private const val TAG = "MainActivity"
 
@@ -29,12 +34,26 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun subscribeObserver() {
-        lifecycleScope.launchWhenStarted {
-            mainViewModel.bitcoin.collectLatest { bitcoin ->
-                binding.btcPriceTv.text = bitcoin?.price
-                    ?.let { "1 BTC: $it €" }
-                    ?: "1 BTC: — €"
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(
+                    mainViewModel.bitcoin,
+                    mainViewModel.connectionState
+                ) { ticker, state -> renderLabel(ticker, state) }
+                    .distinctUntilChanged()
+                    .collect { label -> binding.btcPriceTv.text = label }
             }
+        }
+    }
+
+    private fun renderLabel(ticker: BitcoinTicker?, state: ConnectionState): String {
+        val price = ticker?.price
+        return when {
+            price != null -> "1 BTC: $price €"
+            state is ConnectionState.Connecting -> "Conectando..."
+            state is ConnectionState.Failed -> "Error de conexión"
+            state is ConnectionState.Disconnected -> "Sin conexión"
+            else -> "1 BTC: — €"
         }
     }
 
