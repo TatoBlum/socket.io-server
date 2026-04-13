@@ -1,66 +1,65 @@
 package com.example.socketapp
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class MainViewModel constructor(
+private const val TAG = "MainViewModel"
+
+class MainViewModel(
     private val interactor: MainInteractor
 ): ViewModel() {
 
-    private val _bitcoin = MutableStateFlow(BitcoinTicker("0"))
+    private val _bitcoin = MutableStateFlow<BitcoinTicker?>(null)
     val bitcoin = _bitcoin.asStateFlow()
 
-    //@ExperimentalCoroutinesApi
-    fun subscribeToSocketEvents() {
-        viewModelScope.launch(IO) {
-            try {
-                interactor.startSocket().collect{
-                    println("COLLECTION ::: ${it.text}")
+    private var isSubscribed = false
+    private var socketJob: Job? = null
 
-                    it.text?.let {bitcoin->
+    fun subscribeToSocketEvents() {
+        if (isSubscribed) return
+        isSubscribed = true
+        socketJob = viewModelScope.launch(IO) {
+            try {
+                interactor.startSocket().collect { state ->
+                    state.exception?.let { ex ->
+                        Log.e(TAG, "socket state error", ex)
+                        return@collect
+                    }
+                    state.text?.let { bitcoin ->
                         _bitcoin.value = bitcoin
                     }
                 }
-                /*
-                interactor.startSocket().onEach {
-                    if (it.exception == null) {
-                        println("COLLECTION ::: ${it.text}")
-                        _bitcoin.value = it.text!!
-                    } else {
-                        onSocketError(it.exception!!)
-                    }
-                }
-                */
-            } catch (ex: java.lang.Exception) {
-               // onSocketError(ex)
-                println("vm exception ${ex.cause}")
-                println("vm exception ${ex.message}")
-                println("vm exception ${ex.localizedMessage}")
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (ex: Exception) {
+                Log.e(TAG, "socket error", ex)
             }
         }
     }
 
-    private fun onSocketError(ex: Throwable) {
-        println("Error occurred : ${ex.message}")
-    }
-
     fun stopSocket() {
+        isSubscribed = false
+        socketJob?.cancel()
+        socketJob = null
         interactor.stopSocket()
     }
 
     override fun onCleared() {
+        isSubscribed = false
+        socketJob?.cancel()
+        socketJob = null
         interactor.stopSocket()
         super.onCleared()
     }
 }
 
-class MainInteractor constructor(private val repository: MainRepository) {
-
+class MainInteractor(private val repository: MainRepository) {
     // @ExperimentalCoroutinesApi
     fun startSocket(): SharedFlow<DataState> = repository.startSocket()
 
@@ -70,7 +69,7 @@ class MainInteractor constructor(private val repository: MainRepository) {
     }
 }
 
-class MainRepository constructor(private val webServicesProvider: WebServicesProvider) {
+class MainRepository(private val webServicesProvider: WebServicesProvider) {
 
     // @ExperimentalCoroutinesApi
     fun startSocket(): SharedFlow<DataState> =

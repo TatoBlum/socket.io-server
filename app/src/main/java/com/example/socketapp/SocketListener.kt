@@ -1,80 +1,70 @@
 package com.example.socketapp
 
-import com.example.socketapp.Constants.NORMAL_CLOSURE_STATUS
+import android.util.Log
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.cancel
 import kotlinx.coroutines.launch
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 
-class SocketListener: WebSocketListener() {
+private const val TAG = "SocketListener"
 
-    //val socketBitcoinPriceEventChannel: Channel<DataState> = Channel()
-    private val _socketBitcoinPriceEventChannel = MutableSharedFlow<DataState>()
+class SocketListener(private val scope: CoroutineScope) : WebSocketListener() {
+
+    private val _socketBitcoinPriceEventChannel = MutableSharedFlow<DataState>(
+        replay = 1,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val socketBitcoinPriceEventChannel = _socketBitcoinPriceEventChannel.asSharedFlow()
 
+    companion object {
+        private val moshi = Moshi.Builder().build()
+        private val adapter: JsonAdapter<BitcoinTicker> = moshi.adapter(BitcoinTicker::class.java)
+    }
+
     override fun onOpen(webSocket: WebSocket, response: Response) {
-
-        webSocket.send(
-            "{\n" +
-                "    \"type\": \"subscribe\",\n" +
-                "    \"channels\": [{ \"name\": \"ticker\", \"product_ids\": [\"BTC-EUR\"] }]\n" +
-                "}"
-        )
-
-        GlobalScope.launch {
+        scope.launch {
             _socketBitcoinPriceEventChannel.emit(DataState(webSocket = webSocket))
         }
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
-        println("Text $text")
-        GlobalScope.launch {
-            _socketBitcoinPriceEventChannel.emit(DataState(textToBitcoinTicket(text)))
+        val ticker = textToBitcoinTicket(text) ?: return
+        if (ticker.price == null) return
+        scope.launch {
+            _socketBitcoinPriceEventChannel.emit(DataState(text = ticker))
         }
     }
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        println("ONCLOSING: $code $reason");
-
-        webSocket.send(
-            "{\n" +
-                "    \"type\": \"unsubscribe\",\n" +
-                "    \"channels\": [\"ticker\"]\n" +
-                "}"
-        )
-
-        GlobalScope.launch {
+        Log.d(TAG, "ONCLOSING: $code $reason")
+        webSocket.close(Constants.NORMAL_CLOSURE_STATUS, null)
+        scope.launch {
             _socketBitcoinPriceEventChannel.emit(DataState(exception = SocketAbortedException()))
         }
-
-        webSocket.close(NORMAL_CLOSURE_STATUS, null)
-        // _socketBitcoinPriceEventChannel.close()
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        println("ONFAILURE: $t ${response?.body}");
-        println("ONFAILURE cause: $t ${t.cause}");
-        println("stackTrace: $t ${t.stackTrace}");
-
-        GlobalScope.launch {
+        Log.e(TAG, "onFailure", t)
+        scope.launch {
             _socketBitcoinPriceEventChannel.emit(DataState(exception = t))
         }
     }
 
-    private fun textToBitcoinTicket(text: String): BitcoinTicker? {
-        val moshi = Moshi.Builder().build()
-        val adapter: JsonAdapter<BitcoinTicker> = moshi.adapter(BitcoinTicker::class.java)
-        val tempBitcoin = adapter.fromJson(text)
-        return tempBitcoin
-    }
+    private fun textToBitcoinTicket(text: String): BitcoinTicker? =
+        try {
+            adapter.fromJson(text)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse ticker payload", e)
+            null
+        }
 }
 
 class SocketAbortedException : Exception()

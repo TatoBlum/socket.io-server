@@ -17,4 +17,6 @@
 
 ---
 
-_(vacío — se llena con cada `/research`)_
+- [Market WebSocket Endpoints — Public No Auth](2026-04-13-market-websocket-endpoints.md) (2026-04-13)
+  - **When to use**: Reemplazar el endpoint WebSocket de precio de cripto; elegir entre Binance/Bitstamp/Kraken/Coinbase AT.
+  - **Key conclusion**: Binance `wss://stream.binance.com:9443/ws/btceur@ticker` es la opción con menos cambios (3 archivos, sin modelos nuevos); Bitstamp es la alternativa EU-nativa.
