@@ -6,45 +6,81 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "MainViewModel"
+private const val PUBLISH_INTERVAL_MS = 250L
 
 class MainViewModel(
-    private val tickerDataSource: BitcoinTickerDataSource,
+    private val tickerDataSource: CryptoTickerDataSource,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-): ViewModel() {
+) : ViewModel() {
 
-    private val _bitcoin = MutableStateFlow<BitcoinTicker?>(null)
-    val bitcoin = _bitcoin.asStateFlow()
+    private val _tickers = MutableStateFlow<Map<String, CryptoTicker>>(emptyMap())
+    val tickers: StateFlow<Map<String, CryptoTicker>> = _tickers.asStateFlow()
 
     val connectionState: StateFlow<ConnectionState> = tickerDataSource.connectionState
 
     private var socketJob: Job? = null
+    private val internalMap = mutableMapOf<String, CryptoTicker>()
 
     fun subscribeToSocketEvents() {
         if (socketJob?.isActive == true) return
+
         socketJob = viewModelScope.launch(ioDispatcher) {
-            tickerDataSource.start()
-                .catch { ex ->
-                    Log.e(TAG, "socket stream ended with error", ex)
-                    _bitcoin.value = null
+            // Coroutine 1: collect from datasource and accumulate
+            launch {
+                tickerDataSource.start()
+                    .catch { ex ->
+                        Log.e(TAG, "socket stream ended with error", ex)
+                        synchronized(internalMap) { internalMap.clear() }
+                        _tickers.value = emptyMap()
+                    }
+                    .collect { ticker ->
+                        synchronized(internalMap) {
+                            val existing = internalMap[ticker.symbol]
+                            val newPrice = ticker.price.toBigDecimalOrNull()
+                            val oldPrice = existing?.price?.toBigDecimalOrNull()
+                            val direction = when {
+                                newPrice == null || oldPrice == null -> PriceDirection.NEUTRAL
+                                newPrice > oldPrice -> PriceDirection.UP
+                                newPrice < oldPrice -> PriceDirection.DOWN
+                                else -> PriceDirection.NEUTRAL
+                            }
+                            internalMap[ticker.symbol] = ticker.copy(
+                                previousPrice = existing?.price,
+                                priceDirection = direction,
+                            )
+                        }
+                    }
+            }
+
+            // Coroutine 2: publish snapshot every PUBLISH_INTERVAL_MS
+            launch {
+                while (isActive) {
+                    delay(PUBLISH_INTERVAL_MS)
+                    val snapshot = synchronized(internalMap) {
+                        if (internalMap.isNotEmpty()) internalMap.toMap() else null
+                    }
+                    if (snapshot != null) {
+                        _tickers.value = snapshot
+                    }
                 }
-                .collect { ticker ->
-                    _bitcoin.value = ticker
-                    Log.d(TAG, "received price=${ticker.price}")
-                }
+            }
         }
     }
 
     fun stopSocket() {
         socketJob?.cancel()
         socketJob = null
-        _bitcoin.value = null
+        synchronized(internalMap) { internalMap.clear() }
+        _tickers.value = emptyMap()
     }
 
     override fun onCleared() {

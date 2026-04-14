@@ -26,6 +26,8 @@ Cuando una sección activa supera 60 entradas, mover las más antiguas a `## Arc
 
 - **[x1 | última: 2026-04-13]** Paralelizar research (🐬) + plan (🦧) en Step 1 cuando la tarea tiene dos sub-tareas independientes (ej. "review arquitectural" + "research endpoint"). Ahorra una vuelta completa. _Fuente: ciclo websocket fase 1_
 - **[x1 | última: 2026-04-13]** Dividir la Fase 1 en PR 1A (muy pequeño, solo Constants) + PR 1B (todo lo demás) permite paralelismo real con archivos disjuntos entre developers, evitando conflictos de merge. _Fuente: ciclo websocket fase 1_
+- **[x1 | última: 2026-04-14]** Dual-coroutine throttling en ViewModel (Coroutine 1 acumula, Coroutine 2 publica cada Nms) desacopla la frecuencia del WS de la UI. Usar `synchronized` en un solo bloque atómico para read+write del mapa interno. _Fuente: ciclo multi-ticker_
+- **[x1 | última: 2026-04-14]** Cuando el ViewModel tiene `while(isActive) { delay(N) }`, los tests con `runTest` cuelgan en `advanceUntilIdle()` al finalizar. Fix: cada test debe llamar `vm.stopSocket()` antes de salir del bloque `runTest` para cancelar el loop. _Fuente: ciclo multi-ticker (🐸)_
 
 ## Reglas del usuario
 
