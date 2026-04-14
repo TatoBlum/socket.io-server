@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,11 +16,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -58,6 +63,7 @@ fun MainScreen(
     val tickerMap by viewModel.tickers.collectAsStateWithLifecycle()
     val connection by viewModel.connectionState.collectAsStateWithLifecycle()
     val isConnected by networkConnection.observeAsState(initial = false)
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(isConnected) {
         if (isConnected) {
@@ -69,9 +75,14 @@ fun MainScreen(
         }
     }
 
-    // Convert map to sorted list (fixed order based on Constants.SYMBOLS)
-    val tickerList = remember(tickerMap) {
+    // Filter + sort: recomputes only when map or query changes
+    val tickerList = remember(tickerMap, searchQuery) {
         tickerMap.values
+            .filter { ticker ->
+                searchQuery.isBlank() ||
+                ticker.displayName.contains(searchQuery, ignoreCase = true) ||
+                ticker.symbol.contains(searchQuery, ignoreCase = true)
+            }
             .sortedBy { ticker ->
                 Constants.SYMBOLS.indexOf(ticker.symbol.lowercase())
                     .let { if (it == -1) Int.MAX_VALUE else it }
@@ -89,10 +100,30 @@ fun MainScreen(
 
         HorizontalDivider(color = Color(0xFF333333))
 
+        // Search bar
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Buscar moneda...", color = Color.Gray) },
+            singleLine = true,
+            colors = TextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedContainerColor = Color(0xFF1E1E1E),
+                unfocusedContainerColor = Color(0xFF1E1E1E),
+                cursorColor = Color(0xFF4CAF50),
+                focusedIndicatorColor = Color(0xFF4CAF50),
+                unfocusedIndicatorColor = Color.Transparent,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+
         if (tickerList.isEmpty() && connection == ConnectionState.Connected) {
-            // Loading state
+            val message = if (searchQuery.isBlank()) "Cargando precios..." else "Sin resultados"
             Text(
-                text = "Cargando precios...",
+                text = message,
                 color = Color.Gray,
                 fontSize = 16.sp,
                 modifier = Modifier
