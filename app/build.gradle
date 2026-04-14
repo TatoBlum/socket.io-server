@@ -76,6 +76,9 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version"
     implementation 'androidx.compose.runtime:runtime-livedata'
 
+    // Coil (image loading for Compose)
+    implementation "io.coil-kt:coil-compose:2.5.0"
+
     // okhttp3
     implementation "com.squareup.okhttp3:okhttp:4.9.0"
 }

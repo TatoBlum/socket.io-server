@@ -17,6 +17,11 @@ object Constants {
         return "wss://stream.binance.com:9443/stream?streams=$streams"
     }
 
+    fun iconUrl(symbol: String): String {
+        val coin = symbol.uppercase().removeSuffix("USDT").lowercase()
+        return "https://assets.coincap.io/assets/icons/${coin}@2x.png"
+    }
+
     fun displayName(symbol: String): String {
         val upper = symbol.uppercase()
         return if (upper.endsWith("USDT")) {
