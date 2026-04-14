@@ -48,6 +48,7 @@ open class WebSocketClient {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d(TAG, "onMessage: $text")
                 trySend(text)
             }
 
