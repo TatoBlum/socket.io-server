@@ -1,6 +1,7 @@
 package com.example.socketapp.ui.heatmap
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import com.example.socketapp.BuildConfig
@@ -94,7 +96,6 @@ enum class Market(val displayName: String, val config: HeatmapConfig) {
 private const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
 private const val TEMPLATE_ASSET = "heatmap/heatmap_template.html"
 
-@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun TradingViewHeatmapWebView(
     market: Market,
@@ -103,152 +104,21 @@ fun TradingViewHeatmapWebView(
     onError: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val templateHtml = remember {
+        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+    }
     val lastMarket = remember { mutableStateOf<Market?>(null) }
     val lastReloadKey = remember { mutableIntStateOf(-1) }
     val timeoutHolder = remember { TimeoutHolder() }
 
     AndroidView(
-        factory = { ctx ->
-            WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-            WebView(ctx).apply {
-                // Required by TradingView widget
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                @Suppress("DEPRECATION")
-                settings.allowFileAccessFromFileURLs = false
-                @Suppress("DEPRECATION")
-                settings.allowUniversalAccessFromFileURLs = false
-                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                settings.cacheMode = WebSettings.LOAD_DEFAULT
-
-                setBackgroundColor("#121212".toColorInt())
-
-                setOnTouchListener { _, _ -> true }
-
-                webViewClient = object : WebViewClient() {
-                    override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                        onLoadingChange(true)
-                        onError(null)
-                        timeoutHolder.cancel()
-                        val r = Runnable { onLoadingChange(false) }
-                        timeoutHolder.runnable = r
-                        timeoutHolder.handler.postDelayed(r, 15_000)
-                    }
-
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        timeoutHolder.cancel()
-                        onLoadingChange(false)
-                    }
-
-                    @RequiresApi(android.os.Build.VERSION_CODES.M)
-                    override fun onReceivedError(
-                        view: WebView?,
-                        request: WebResourceRequest?,
-                        error: WebResourceError?,
-                    ) {
-                        Log.e(
-                            "TVHeatmapWebView",
-                            "onReceivedError (M+): mainFrame=${request?.isForMainFrame} url=${request?.url} code=${error?.errorCode} desc=${error?.description}",
-                        )
-                        timeoutHolder.cancel()
-                        if (request?.isForMainFrame == true) {
-                            onError("${error?.description}")
-                        }
-                    }
-
-                    override fun onReceivedHttpError(
-                        view: WebView?,
-                        request: WebResourceRequest?,
-                        errorResponse: android.webkit.WebResourceResponse?,
-                    ) {
-                        Log.e(
-                            "TVHeatmapWebView",
-                            "onReceivedHttpError: url=${request?.url} status=${errorResponse?.statusCode} reason=${errorResponse?.reasonPhrase}",
-                        )
-                    }
-
-                    override fun onReceivedSslError(
-                        view: WebView?,
-                        handler: android.webkit.SslErrorHandler?,
-                        error: android.net.http.SslError?,
-                    ) {
-                        Log.e("TVHeatmapWebView", "onReceivedSslError: $error")
-                        super.onReceivedSslError(view, handler, error)
-                    }
-
-                    @Deprecated("Deprecated in Java")
-                    @Suppress("DEPRECATION", "OverridingDeprecatedMember")
-                    override fun onReceivedError(
-                        view: WebView?,
-                        errorCode: Int,
-                        description: String?,
-                        failingUrl: String?,
-                    ) {
-                        timeoutHolder.cancel()
-                        if (failingUrl == view?.url) {
-                            onError(description ?: "Error desconocido")
-                        }
-                    }
-
-                    @RequiresApi(android.os.Build.VERSION_CODES.N)
-                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        val uri = request?.url ?: return false
-                        val host = uri.host ?: return true
-                        if (isAllowedHost(host)) return false
-                        return true
-                    }
-
-                    @Deprecated("Deprecated in Java")
-                    @Suppress("DEPRECATION", "OverridingDeprecatedMember")
-                    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                        val uri = Uri.parse(url ?: return false)
-                        val host = uri.host ?: return true
-                        if (isAllowedHost(host)) return false
-                        return true
-                    }
-                }
-
-                webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
-                        Log.d(
-                            "TVHeatmapWebView",
-                            "[${message?.messageLevel()}] ${message?.message()} @ ${message?.sourceId()}:${message?.lineNumber()}",
-                        )
-                        return true
-                    }
-
-                    override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
-                        result?.cancel()
-                        return true
-                    }
-
-                    override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
-                        result?.cancel()
-                        return true
-                    }
-
-                    override fun onJsPrompt(
-                        view: WebView?,
-                        url: String?,
-                        message: String?,
-                        defaultValue: String?,
-                        result: JsPromptResult?,
-                    ): Boolean {
-                        result?.cancel()
-                        return true
-                    }
-                }
-            }
-        },
+        factory = { ctx -> createHeatmapWebView(ctx, onLoadingChange, onError, timeoutHolder) },
         update = { webView ->
             if (lastMarket.value != market || lastReloadKey.intValue != reloadKey) {
                 lastMarket.value = market
                 lastReloadKey.intValue = reloadKey
-                val template = webView.context.assets.open(TEMPLATE_ASSET)
-                    .bufferedReader().use { it.readText() }
-                val html = template.replace(CONFIG_PLACEHOLDER, market.config.toJson())
+                val html = templateHtml.replace(CONFIG_PLACEHOLDER, market.config.toJson())
                 webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
             }
         },
@@ -258,4 +128,155 @@ fun TradingViewHeatmapWebView(
         },
         modifier = modifier,
     )
+}
+
+@SuppressLint("ClickableViewAccessibility")
+private fun createHeatmapWebView(
+    ctx: Context,
+    onLoadingChange: (Boolean) -> Unit,
+    onError: (String?) -> Unit,
+    timeoutHolder: TimeoutHolder,
+): WebView {
+    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+    return WebView(ctx).apply {
+        // Required by TradingView widget
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.allowFileAccess = false
+        settings.allowContentAccess = false
+        @Suppress("DEPRECATION")
+        settings.allowFileAccessFromFileURLs = false
+        @Suppress("DEPRECATION")
+        settings.allowUniversalAccessFromFileURLs = false
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+
+        setBackgroundColor("#121212".toColorInt())
+
+        // Visual-only heatmap: swallow all touches so widget-internal tile clicks
+        // don't trigger navigation. Trade-off: disables TalkBack on this view.
+        setOnTouchListener { _, _ -> true }
+
+        webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                onLoadingChange(true)
+                onError(null)
+                timeoutHolder.cancel()
+                val r = Runnable { onLoadingChange(false) }
+                timeoutHolder.runnable = r
+                timeoutHolder.handler.postDelayed(r, 15_000)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                timeoutHolder.cancel()
+                onLoadingChange(false)
+            }
+
+            @RequiresApi(android.os.Build.VERSION_CODES.M)
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?,
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(
+                        "TVHeatmapWebView",
+                        "onReceivedError (M+): mainFrame=${request?.isForMainFrame} url=${request?.url} code=${error?.errorCode} desc=${error?.description}",
+                    )
+                }
+                timeoutHolder.cancel()
+                if (request?.isForMainFrame == true) {
+                    onError("${error?.description}")
+                }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: android.webkit.WebResourceResponse?,
+            ) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(
+                        "TVHeatmapWebView",
+                        "onReceivedHttpError: url=${request?.url} status=${errorResponse?.statusCode} reason=${errorResponse?.reasonPhrase}",
+                    )
+                }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: android.webkit.SslErrorHandler?,
+                error: android.net.http.SslError?,
+            ) {
+                if (BuildConfig.DEBUG) Log.e("TVHeatmapWebView", "onReceivedSslError: $error")
+                handler?.cancel()
+                timeoutHolder.cancel()
+                onError("SSL error: ${error?.primaryError}")
+            }
+
+            @Deprecated("Deprecated in Java")
+            @Suppress("DEPRECATION", "OverridingDeprecatedMember")
+            override fun onReceivedError(
+                view: WebView?,
+                errorCode: Int,
+                description: String?,
+                failingUrl: String?,
+            ) {
+                timeoutHolder.cancel()
+                if (failingUrl == view?.url) {
+                    onError(description ?: "Error desconocido")
+                }
+            }
+
+            @RequiresApi(android.os.Build.VERSION_CODES.N)
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val uri = request?.url ?: return false
+                val host = uri.host ?: return true
+                if (isAllowedHost(host)) return false
+                return true
+            }
+
+            @Deprecated("Deprecated in Java")
+            @Suppress("DEPRECATION", "OverridingDeprecatedMember")
+            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                val uri = Uri.parse(url ?: return false)
+                val host = uri.host ?: return true
+                if (isAllowedHost(host)) return false
+                return true
+            }
+        }
+
+        webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "TVHeatmapWebView",
+                        "[${message?.messageLevel()}] ${message?.message()} @ ${message?.sourceId()}:${message?.lineNumber()}",
+                    )
+                }
+                return true
+            }
+
+            override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                result?.cancel()
+                return true
+            }
+
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                result?.cancel()
+                return true
+            }
+
+            override fun onJsPrompt(
+                view: WebView?,
+                url: String?,
+                message: String?,
+                defaultValue: String?,
+                result: JsPromptResult?,
+            ): Boolean {
+                result?.cancel()
+                return true
+            }
+        }
+    }
 }

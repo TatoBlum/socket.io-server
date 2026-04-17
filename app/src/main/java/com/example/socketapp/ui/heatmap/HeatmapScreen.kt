@@ -2,12 +2,15 @@ package com.example.socketapp.ui.heatmap
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -76,6 +79,7 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .height(30.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(SegmentedTrackColor)
                         .padding(3.dp),
@@ -86,6 +90,7 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
+                                .fillMaxHeight()
                                 .then(
                                     if (selected) {
                                         Modifier.shadow(
@@ -100,8 +105,10 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
                                 .background(
                                     if (selected) SegmentedSelectedColor else Color.Transparent,
                                 )
-                                .clickable { selectedMarket = market }
-                                .padding(vertical = 8.dp),
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { selectedMarket = market },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
