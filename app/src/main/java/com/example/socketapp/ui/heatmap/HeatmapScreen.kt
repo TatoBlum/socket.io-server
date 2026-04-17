@@ -1,17 +1,22 @@
 package com.example.socketapp.ui.heatmap
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -75,48 +80,51 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
 
-                Row(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .height(30.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(SegmentedTrackColor)
-                        .padding(3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        .background(SegmentedTrackColor),
                 ) {
-                    markets.forEach { market ->
-                        val selected = selectedMarket == market
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .then(
-                                    if (selected) {
-                                        Modifier.shadow(
-                                            elevation = 2.dp,
-                                            shape = RoundedCornerShape(8.dp),
-                                        )
-                                    } else {
-                                        Modifier
-                                    },
+                    val segmentWidth = maxWidth / markets.size
+                    val selectedIdx = markets.indexOf(selectedMarket)
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = segmentWidth * selectedIdx,
+                        animationSpec = tween(durationMillis = 220),
+                        label = "segmentIndicator",
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .offset(x = indicatorOffset)
+                            .width(segmentWidth)
+                            .fillMaxHeight()
+                            .shadow(elevation = 2.dp, shape = RoundedCornerShape(10.dp))
+                            .background(SegmentedSelectedColor, RoundedCornerShape(10.dp)),
+                    )
+
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        markets.forEach { market ->
+                            val selected = selectedMarket == market
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { selectedMarket = market },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = market.displayName,
+                                    color = SegmentedTextColor,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 )
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (selected) SegmentedSelectedColor else Color.Transparent,
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                ) { selectedMarket = market },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = market.displayName,
-                                color = SegmentedTextColor,
-                                fontSize = 14.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            )
+                            }
                         }
                     }
                 }
