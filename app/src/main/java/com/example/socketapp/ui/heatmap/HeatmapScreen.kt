@@ -4,6 +4,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,20 +59,21 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
     var reloadTrigger by remember { mutableIntStateOf(0) }
     val isConnected by networkConnection.observeAsState(initial = true)
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
         Card(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.LightGray),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         ) {
             Column(modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .background(Color.LightGray)) {
                 Text(
                     text = "Mapa de calor",
@@ -131,8 +134,8 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
 
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
+                        .height(609.dp)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     if (!isConnected) {
@@ -168,7 +171,7 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
                                 modifier = Modifier
                                     .align(Alignment.Center)
                                     .background(CardBackgroundColor.copy(alpha = 0.8f)),
-                                color = IndicatorColor,
+                                color = Color.Red//IndicatorColor,
                             )
                         }
 
