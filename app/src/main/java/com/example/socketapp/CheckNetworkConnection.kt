@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -30,8 +31,16 @@ class CheckNetworkConnection (private val connectivityManager: ConnectivityManag
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onActive() {
         super.onActive()
-        val builder = NetworkRequest.Builder()
-        connectivityManager.registerNetworkCallback(builder.build(),networkCallback)
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+            .build()
+        connectivityManager.registerNetworkCallback(request, networkCallback)
+        val active = connectivityManager.activeNetwork
+        val caps = active?.let { connectivityManager.getNetworkCapabilities(it) }
+        postValue(caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
     }
 
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)

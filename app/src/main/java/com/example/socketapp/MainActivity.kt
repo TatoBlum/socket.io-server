@@ -34,6 +34,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.socketapp.ui.ConnectionStatusBar
 import com.example.socketapp.ui.CryptoTickerItem
+import com.example.socketapp.ui.RootScreen
 
 private const val TAG = "MainScreen"
 
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Color(0xFF121212),
                 ) {
-                    MainScreen(mainViewModel, checkNetworkConnection)
+                    RootScreen(mainViewModel, checkNetworkConnection)
                 }
             }
         }
