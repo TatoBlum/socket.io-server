@@ -16,24 +16,20 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import com.example.socketapp.BuildConfig
 
-private const val BASE_URL = "https://tradingview-heatmap.local/"
+internal const val BASE_URL = "https://tradingview-widget.local/"
+internal const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
+internal const val SCRIPT_PLACEHOLDER = "{{SCRIPT_SRC}}"
+internal const val TEMPLATE_ASSET = "tradingview/tradingview_widget_template.html"
 
 private val ALLOWED_HOSTS = listOf("tradingview.com", "tradingview-widget.com")
 
-private fun isAllowedHost(host: String): Boolean =
+internal fun isAllowedHost(host: String): Boolean =
     ALLOWED_HOSTS.any { host == it || host.endsWith(".$it") }
 
-private class TimeoutHolder {
+internal class TimeoutHolder {
     val handler = Handler(Looper.getMainLooper())
     var runnable: Runnable? = null
     fun cancel() {
@@ -42,96 +38,20 @@ private class TimeoutHolder {
     }
 }
 
-data class HeatmapConfig(
-    val dataSource: String,
-    val exchanges: List<String> = emptyList(),
-    val locale: String = "en",
-    val grouping: String = "sector",
-    val blockSize: String = "market_cap_basic",
-    val blockColor: String = "change",
-    val colorTheme: String = "dark",
-    val hasTopBar: Boolean = false,
-    val isDataSetEnabled: Boolean = false,
-    val isZoomEnabled: Boolean = true,
-    val hasSymbolTooltip: Boolean = true,
-    val isMonoSize: Boolean = false,
+internal fun loadTradingViewWidget(
+    webView: WebView,
+    templateHtml: String,
+    scriptSrc: String,
+    configJson: String,
 ) {
-    fun toJson(): String = org.json.JSONObject().apply {
-        put("dataSource", dataSource)
-        put("exchanges", org.json.JSONArray(exchanges))
-        put("locale", locale)
-        put("grouping", grouping)
-        put("blockSize", blockSize)
-        put("blockColor", blockColor)
-        put("colorTheme", colorTheme)
-        put("hasTopBar", hasTopBar)
-        put("isDataSetEnabled", isDataSetEnabled)
-        put("isZoomEnabled", isZoomEnabled)
-        put("hasSymbolTooltip", hasSymbolTooltip)
-        put("isMonoSize", isMonoSize)
-        put("symbolUrl", "")
-        put("width", "100%")
-        put("height", "100%")
-    }.toString()
-}
-
-enum class Market(val displayName: String, val config: HeatmapConfig) {
-    MERVAL(
-        displayName = "Merval",
-        config = HeatmapConfig(
-            dataSource = "BCBAIMV",
-            exchanges = listOf("BCBA"),
-            locale = "es",
-        ),
-    ),
-    SPY(
-        displayName = "SPY",
-        config = HeatmapConfig(
-            dataSource = "SPX500",
-            locale = "en",
-        ),
-    ),
-}
-
-private const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
-private const val TEMPLATE_ASSET = "heatmap/heatmap_template.html"
-
-@Composable
-fun TradingViewHeatmapWebView(
-    market: Market,
-    reloadKey: Int,
-    onLoadingChange: (Boolean) -> Unit,
-    onError: (String?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val templateHtml = remember {
-        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
-    }
-    val lastMarket = remember { mutableStateOf<Market?>(null) }
-    val lastReloadKey = remember { mutableIntStateOf(-1) }
-    val timeoutHolder = remember { TimeoutHolder() }
-
-    AndroidView(
-        factory = { ctx -> createHeatmapWebView(ctx, onLoadingChange, onError, timeoutHolder) },
-        update = { webView ->
-            if (lastMarket.value != market || lastReloadKey.intValue != reloadKey) {
-                lastMarket.value = market
-                lastReloadKey.intValue = reloadKey
-                val html = templateHtml.replace(CONFIG_PLACEHOLDER, market.config.toJson())
-                webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
-            }
-        },
-        onRelease = { webView ->
-            timeoutHolder.cancel()
-            webView.destroy()
-        },
-        modifier = modifier,
-    )
+    val html = templateHtml
+        .replace(CONFIG_PLACEHOLDER, configJson)
+        .replace(SCRIPT_PLACEHOLDER, scriptSrc)
+    webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
 }
 
 @SuppressLint("ClickableViewAccessibility")
-private fun createHeatmapWebView(
+internal fun createTradingViewWebView(
     ctx: Context,
     onLoadingChange: (Boolean) -> Unit,
     onError: (String?) -> Unit,
@@ -139,7 +59,6 @@ private fun createHeatmapWebView(
 ): WebView {
     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     return WebView(ctx).apply {
-        // Required by TradingView widget
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.allowFileAccess = false
@@ -153,8 +72,7 @@ private fun createHeatmapWebView(
 
         setBackgroundColor("#121212".toColorInt())
 
-        // Visual-only heatmap: swallow all touches so widget-internal tile clicks
-        // don't trigger navigation. Trade-off: disables TalkBack on this view.
+        // Visual-only: swallow touches para evitar navegación dentro del widget.
         setOnTouchListener { _, _ -> true }
 
         webViewClient = object : WebViewClient() {
@@ -180,7 +98,7 @@ private fun createHeatmapWebView(
             ) {
                 if (BuildConfig.DEBUG) {
                     Log.e(
-                        "TVHeatmapWebView",
+                        "TVWebView",
                         "onReceivedError (M+): mainFrame=${request?.isForMainFrame} url=${request?.url} code=${error?.errorCode} desc=${error?.description}",
                     )
                 }
@@ -197,7 +115,7 @@ private fun createHeatmapWebView(
             ) {
                 if (BuildConfig.DEBUG) {
                     Log.e(
-                        "TVHeatmapWebView",
+                        "TVWebView",
                         "onReceivedHttpError: url=${request?.url} status=${errorResponse?.statusCode} reason=${errorResponse?.reasonPhrase}",
                     )
                 }
@@ -208,7 +126,7 @@ private fun createHeatmapWebView(
                 handler: android.webkit.SslErrorHandler?,
                 error: android.net.http.SslError?,
             ) {
-                if (BuildConfig.DEBUG) Log.e("TVHeatmapWebView", "onReceivedSslError: $error")
+                if (BuildConfig.DEBUG) Log.e("TVWebView", "onReceivedSslError: $error")
                 handler?.cancel()
                 timeoutHolder.cancel()
                 onError("SSL error: ${error?.primaryError}")
@@ -250,7 +168,7 @@ private fun createHeatmapWebView(
             override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
                 if (BuildConfig.DEBUG) {
                     Log.d(
-                        "TVHeatmapWebView",
+                        "TVWebView",
                         "[${message?.messageLevel()}] ${message?.message()} @ ${message?.sourceId()}:${message?.lineNumber()}",
                     )
                 }

@@ -32,6 +32,8 @@ Cuando una sección activa supera 60 entradas, mover las más antiguas a `## Arc
 - **[x1 | última: 2026-04-14]** Cuando el ViewModel tiene `while(isActive) { delay(N) }`, los tests con `runTest` cuelgan en `advanceUntilIdle()` al finalizar. Fix: cada test debe llamar `vm.stopSocket()` antes de salir del bloque `runTest` para cancelar el loop. _Fuente: ciclo multi-ticker (🐸)_
 - **[x1 | última: 2026-04-17]** Cuando un developer falla en aplicar fixes complejos incrementalmente (iter 2+), relanzar con **Write del archivo completo** y darle el contenido exacto esperado es más robusto que Edit incremental. Incluir checklist de tokens a verificar en el prompt. _Fuente: ciclo TV heatmap_
 - **[x1 | última: 2026-04-17]** Para embeber widgets JS de TradingView en WebView Android, usar `loadDataWithBaseURL("https://tradingview-heatmap.local/", html, "text/html", "UTF-8", null)` en vez de `loadUrl("file://...")`. El WidgetSheriff de TV rechaza con 400 cuando el origin header es `null` (file:// scheme). _Fuente: ciclo TV heatmap_
+- **[x1 | última: 2026-04-17]** Para múltiples widgets TradingView (heatmap, hotlists, screener, etc.) un **template HTML único parametrizable** con placeholders `{{SCRIPT_SRC}}` + `{{CONFIG}}` evita duplicar la CSP + el fix de `syncSize()`. `loadTradingViewWidget(webView, template, scriptSrc, configJson)` hace el doble `replace` + `loadDataWithBaseURL`. _Fuente: ciclo TV hotlists_
+- **[x1 | última: 2026-04-17]** Unit tests JVM que usan `org.json.JSONObject` fallan con NPE porque el mockable android.jar stubs retornan null. Agregar `testImplementation 'org.json:json:20240303'` al `app/build.gradle` (solo afecta classpath de tests). _Fuente: ciclo TV hotlists (🐸)_
 
 ## Reglas del usuario
 
