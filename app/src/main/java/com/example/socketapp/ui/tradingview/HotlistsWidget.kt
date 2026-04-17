@@ -1,12 +1,7 @@
-package com.example.socketapp.ui.heatmap
+package com.example.socketapp.ui.tradingview
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import org.json.JSONObject
 
 private const val SCRIPT_HOTLISTS = "https://s3.tradingview.com/external-embedding/embed-widget-hotlists.js"
@@ -69,27 +64,12 @@ fun TradingViewHotlistsWebView(
     onError: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val templateHtml = remember {
-        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
-    }
-    val lastExchange = remember { mutableStateOf<Exchange?>(null) }
-    val lastReloadKey = remember { mutableIntStateOf(-1) }
-    val timeoutHolder = remember { TimeoutHolder() }
-
-    AndroidView(
-        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder) },
-        update = { webView ->
-            if (lastExchange.value != exchange || lastReloadKey.intValue != reloadKey) {
-                lastExchange.value = exchange
-                lastReloadKey.intValue = reloadKey
-                loadTradingViewWidget(webView, templateHtml, SCRIPT_HOTLISTS, exchange.config.toJson())
-            }
-        },
-        onRelease = { webView ->
-            timeoutHolder.cancel()
-            webView.destroy()
-        },
+    TradingViewWidgetWebView(
+        scriptSrc = SCRIPT_HOTLISTS,
+        configJson = exchange.config.toJson(),
+        reloadKey = reloadKey,
+        onLoadingChange = onLoadingChange,
+        onError = onError,
         modifier = modifier,
     )
 }

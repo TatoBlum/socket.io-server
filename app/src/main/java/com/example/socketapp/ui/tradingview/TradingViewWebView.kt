@@ -1,23 +1,35 @@
-package com.example.socketapp.ui.heatmap
+package com.example.socketapp.ui.tradingview
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
+import android.graphics.Bitmap
+import android.net.http.SslError
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.RequiresApi
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import com.example.socketapp.BuildConfig
+import androidx.core.net.toUri
 
 internal const val BASE_URL = "https://tradingview-widget.local/"
 internal const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
@@ -76,7 +88,7 @@ internal fun createTradingViewWebView(
         setOnTouchListener { _, _ -> true }
 
         webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 onLoadingChange(true)
                 onError(null)
                 timeoutHolder.cancel()
@@ -90,7 +102,7 @@ internal fun createTradingViewWebView(
                 onLoadingChange(false)
             }
 
-            @RequiresApi(android.os.Build.VERSION_CODES.M)
+            @RequiresApi(Build.VERSION_CODES.M)
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
@@ -104,14 +116,14 @@ internal fun createTradingViewWebView(
                 }
                 timeoutHolder.cancel()
                 if (request?.isForMainFrame == true) {
-                    onError("${error?.description}")
+                    onError(error?.description?.toString() ?: "Error desconocido")
                 }
             }
 
             override fun onReceivedHttpError(
                 view: WebView?,
                 request: WebResourceRequest?,
-                errorResponse: android.webkit.WebResourceResponse?,
+                errorResponse: WebResourceResponse?,
             ) {
                 if (BuildConfig.DEBUG) {
                     Log.e(
@@ -123,8 +135,8 @@ internal fun createTradingViewWebView(
 
             override fun onReceivedSslError(
                 view: WebView?,
-                handler: android.webkit.SslErrorHandler?,
-                error: android.net.http.SslError?,
+                handler: SslErrorHandler?,
+                error: SslError?,
             ) {
                 if (BuildConfig.DEBUG) Log.e("TVWebView", "onReceivedSslError: $error")
                 handler?.cancel()
@@ -146,7 +158,7 @@ internal fun createTradingViewWebView(
                 }
             }
 
-            @RequiresApi(android.os.Build.VERSION_CODES.N)
+            @RequiresApi(Build.VERSION_CODES.N)
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return false
                 val host = uri.host ?: return true
@@ -157,7 +169,7 @@ internal fun createTradingViewWebView(
             @Deprecated("Deprecated in Java")
             @Suppress("DEPRECATION", "OverridingDeprecatedMember")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                val uri = Uri.parse(url ?: return false)
+                val uri = (url ?: return false).toUri()
                 val host = uri.host ?: return true
                 if (isAllowedHost(host)) return false
                 return true
@@ -197,4 +209,38 @@ internal fun createTradingViewWebView(
             }
         }
     }
+}
+
+@Composable
+internal fun TradingViewWidgetWebView(
+    scriptSrc: String,
+    configJson: String,
+    reloadKey: Int,
+    onLoadingChange: (Boolean) -> Unit,
+    onError: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val templateHtml = remember {
+        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+    }
+    val lastConfigJson = remember { mutableStateOf<String?>(null) }
+    val lastReloadKey = remember { mutableIntStateOf(-1) }
+    val timeoutHolder = remember { TimeoutHolder() }
+
+    AndroidView(
+        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder) },
+        update = { webView ->
+            if (lastConfigJson.value != configJson || lastReloadKey.intValue != reloadKey) {
+                lastConfigJson.value = configJson
+                lastReloadKey.intValue = reloadKey
+                loadTradingViewWidget(webView, templateHtml, scriptSrc, configJson)
+            }
+        },
+        onRelease = { webView ->
+            timeoutHolder.cancel()
+            webView.destroy()
+        },
+        modifier = modifier,
+    )
 }

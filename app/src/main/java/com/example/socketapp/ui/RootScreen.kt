@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.Color
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.MainScreen
 import com.example.socketapp.MainViewModel
-import com.example.socketapp.ui.heatmap.HeatmapScreen
+import com.example.socketapp.ui.tradingview.TradingViewScreen
 
 @Composable
 fun RootScreen(
@@ -71,7 +71,7 @@ fun RootScreen(
         ) {
             when (selectedTab) {
                 RootTab.Prices -> MainScreen(viewModel, networkConnection)
-                RootTab.Heatmap -> HeatmapScreen(networkConnection)
+                RootTab.Heatmap -> TradingViewScreen(networkConnection)
             }
         }
     }

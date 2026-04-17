@@ -1,4 +1,4 @@
-package com.example.socketapp.ui.heatmap
+package com.example.socketapp.ui.tradingview
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

@@ -1,4 +1,4 @@
-package com.example.socketapp.ui.heatmap
+package com.example.socketapp.ui.tradingview
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -45,8 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
 
+private val HEATMAP_CARD_HEIGHT = 609.dp
+private val HOTLISTS_CARD_HEIGHT = 570.dp
+
 @Composable
-fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
+fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
     val markets = Market.entries
     val exchanges = Exchange.entries
     var selectedMarket by rememberSaveable { mutableStateOf(Market.MERVAL) }
@@ -71,9 +74,8 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
     ) {
         WidgetCard(
             title = "Mapa de calor",
-            widgetHeight = 609.dp,
         ) {
-            SegmentedControl(
+            TabSelector(
                 items = markets,
                 selected = selectedMarket,
                 displayName = { it.displayName },
@@ -81,7 +83,7 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
             )
 
             WidgetBox(
-                height = 609.dp,
+                height = HEATMAP_CARD_HEIGHT,
                 isConnected = isConnected,
                 isLoading = isHeatmapLoading,
                 errorMessage = heatmapError,
@@ -104,9 +106,8 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
 
         WidgetCard(
             title = null,
-            widgetHeight = 570.dp,
         ) {
-            SegmentedControl(
+            TabSelector(
                 items = exchanges,
                 selected = selectedExchange,
                 displayName = { it.displayName },
@@ -114,7 +115,7 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
             )
 
             WidgetBox(
-                height = 570.dp,
+                height = HOTLISTS_CARD_HEIGHT,
                 isConnected = isConnected,
                 isLoading = isHotlistsLoading,
                 errorMessage = hotlistsError,
@@ -138,19 +139,18 @@ fun HeatmapScreen(networkConnection: CheckNetworkConnection) {
 @Composable
 private fun WidgetCard(
     title: String?,
-    widgetHeight: Dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.LightGray),
+        colors = CardDefaults.cardColors(containerColor = CardSurfaceColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.LightGray),
+                .background(CardSurfaceColor),
         ) {
             if (title != null) {
                 Text(
@@ -235,7 +235,7 @@ private fun WidgetBox(
 }
 
 @Composable
-private fun <T> SegmentedControl(
+private fun <T> TabSelector(
     items: List<T>,
     selected: T,
     displayName: (T) -> String,
@@ -246,7 +246,7 @@ private fun <T> SegmentedControl(
     val animatedBias by animateFloatAsState(
         targetValue = targetBias,
         animationSpec = tween(durationMillis = 220),
-        label = "segmentIndicator",
+        label = "tabIndicator",
     )
 
     Box(

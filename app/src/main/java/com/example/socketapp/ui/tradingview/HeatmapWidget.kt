@@ -1,12 +1,7 @@
-package com.example.socketapp.ui.heatmap
+package com.example.socketapp.ui.tradingview
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -71,27 +66,12 @@ fun TradingViewHeatmapWebView(
     onError: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val templateHtml = remember {
-        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
-    }
-    val lastMarket = remember { mutableStateOf<Market?>(null) }
-    val lastReloadKey = remember { mutableIntStateOf(-1) }
-    val timeoutHolder = remember { TimeoutHolder() }
-
-    AndroidView(
-        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder) },
-        update = { webView ->
-            if (lastMarket.value != market || lastReloadKey.intValue != reloadKey) {
-                lastMarket.value = market
-                lastReloadKey.intValue = reloadKey
-                loadTradingViewWidget(webView, templateHtml, SCRIPT_HEATMAP, market.config.toJson())
-            }
-        },
-        onRelease = { webView ->
-            timeoutHolder.cancel()
-            webView.destroy()
-        },
+    TradingViewWidgetWebView(
+        scriptSrc = SCRIPT_HEATMAP,
+        configJson = market.config.toJson(),
+        reloadKey = reloadKey,
+        onLoadingChange = onLoadingChange,
+        onError = onError,
         modifier = modifier,
     )
 }
