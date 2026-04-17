@@ -1,6 +1,6 @@
 package com.example.socketapp.ui.heatmap
 
-import android.content.Intent
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
+import com.example.socketapp.BuildConfig
 
 private const val BASE_URL = "https://tradingview-heatmap.local/"
 
@@ -39,11 +40,61 @@ private class TimeoutHolder {
     }
 }
 
-enum class Market(val assetFileName: String, val displayName: String) {
-    MERVAL("heatmap/merval_heatmap.html", "Merval"),
-    SPY("heatmap/spy_heatmap.html", "SPY"),
+data class HeatmapConfig(
+    val dataSource: String,
+    val exchanges: List<String> = emptyList(),
+    val locale: String = "en",
+    val grouping: String = "sector",
+    val blockSize: String = "market_cap_basic",
+    val blockColor: String = "change",
+    val colorTheme: String = "dark",
+    val hasTopBar: Boolean = false,
+    val isDataSetEnabled: Boolean = false,
+    val isZoomEnabled: Boolean = true,
+    val hasSymbolTooltip: Boolean = true,
+    val isMonoSize: Boolean = false,
+) {
+    fun toJson(): String = org.json.JSONObject().apply {
+        put("dataSource", dataSource)
+        put("exchanges", org.json.JSONArray(exchanges))
+        put("locale", locale)
+        put("grouping", grouping)
+        put("blockSize", blockSize)
+        put("blockColor", blockColor)
+        put("colorTheme", colorTheme)
+        put("hasTopBar", hasTopBar)
+        put("isDataSetEnabled", isDataSetEnabled)
+        put("isZoomEnabled", isZoomEnabled)
+        put("hasSymbolTooltip", hasSymbolTooltip)
+        put("isMonoSize", isMonoSize)
+        put("symbolUrl", "")
+        put("width", "100%")
+        put("height", "100%")
+    }.toString()
 }
 
+enum class Market(val displayName: String, val config: HeatmapConfig) {
+    MERVAL(
+        displayName = "Merval",
+        config = HeatmapConfig(
+            dataSource = "BCBAIMV",
+            exchanges = listOf("BCBA"),
+            locale = "es",
+        ),
+    ),
+    SPY(
+        displayName = "SPY",
+        config = HeatmapConfig(
+            dataSource = "SPX500",
+            locale = "en",
+        ),
+    ),
+}
+
+private const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
+private const val TEMPLATE_ASSET = "heatmap/heatmap_template.html"
+
+@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun TradingViewHeatmapWebView(
     market: Market,
@@ -58,7 +109,7 @@ fun TradingViewHeatmapWebView(
 
     AndroidView(
         factory = { ctx ->
-            WebView.setWebContentsDebuggingEnabled(true)
+            WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
             WebView(ctx).apply {
                 // Required by TradingView widget
                 settings.javaScriptEnabled = true
@@ -73,6 +124,8 @@ fun TradingViewHeatmapWebView(
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
 
                 setBackgroundColor("#121212".toColorInt())
+
+                setOnTouchListener { _, _ -> true }
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -144,11 +197,6 @@ fun TradingViewHeatmapWebView(
                         val uri = request?.url ?: return false
                         val host = uri.host ?: return true
                         if (isAllowedHost(host)) return false
-                        val scheme = uri.scheme ?: return true
-                        if (scheme != "https" && scheme != "http") return true
-                        Intent(Intent.ACTION_VIEW, uri).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }.also { view?.context?.startActivity(it) }
                         return true
                     }
 
@@ -158,11 +206,6 @@ fun TradingViewHeatmapWebView(
                         val uri = Uri.parse(url ?: return false)
                         val host = uri.host ?: return true
                         if (isAllowedHost(host)) return false
-                        val scheme = uri.scheme ?: return true
-                        if (scheme != "https" && scheme != "http") return true
-                        Intent(Intent.ACTION_VIEW, uri).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }.also { view?.context?.startActivity(it) }
                         return true
                     }
                 }
@@ -203,8 +246,9 @@ fun TradingViewHeatmapWebView(
             if (lastMarket.value != market || lastReloadKey.intValue != reloadKey) {
                 lastMarket.value = market
                 lastReloadKey.intValue = reloadKey
-                val html = webView.context.assets.open(market.assetFileName)
+                val template = webView.context.assets.open(TEMPLATE_ASSET)
                     .bufferedReader().use { it.readText() }
+                val html = template.replace(CONFIG_PLACEHOLDER, market.config.toJson())
                 webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
             }
         },
