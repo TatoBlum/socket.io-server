@@ -1,5 +1,6 @@
 package com.example.socketapp.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -12,18 +13,40 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.MainViewModel
 import com.example.socketapp.ui.stocks.StocksScreen
 import com.example.socketapp.ui.tradingview.TradingViewScreen
+import com.example.socketapp.ui.tradingview.top5Favorites
+
+private const val TAG = "MainScreen"
 
 @Composable
 fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnection) {
+    val tickerMap by viewModel.tickers.collectAsStateWithLifecycle()
+    val isConnected by networkConnection.observeAsState(initial = false)
+
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            Log.i(TAG, "Network connected — subscribing")
+            viewModel.subscribeToSocketEvents()
+        } else {
+            Log.w(TAG, "Network disconnected — stopping")
+            viewModel.stopSocket()
+        }
+    }
+
+    val favoritesTop5 = remember(tickerMap) { top5Favorites(tickerMap) }
+
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
@@ -67,11 +90,10 @@ fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
             if (searchMode) {
                 StocksScreen(
                     viewModel = viewModel,
-                    networkConnection = networkConnection,
                     searchQuery = searchQuery,
                 )
             } else {
-                TradingViewScreen(networkConnection)
+                TradingViewScreen(networkConnection, favoritesTop5)
             }
         }
     }

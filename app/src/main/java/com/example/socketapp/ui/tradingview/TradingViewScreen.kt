@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
+import com.example.socketapp.model.StockTicker
+import com.example.socketapp.ui.stocks.StockTickerItem
 import com.example.socketapp.ui.theme.CardSurface
 import com.example.socketapp.ui.theme.SegmentedTrack
 
@@ -51,7 +53,7 @@ private val HEATMAP_CARD_HEIGHT = 609.dp
 private val HOTLISTS_CARD_HEIGHT = 570.dp
 
 @Composable
-fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
+fun TradingViewScreen(networkConnection: CheckNetworkConnection, favorites: List<StockTicker>) {
     val markets = Market.entries
     val exchanges = Exchange.entries
     var selectedMarket by rememberSaveable { mutableStateOf(Market.MERVAL) }
@@ -74,6 +76,20 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
+        if (favorites.isNotEmpty()) {
+            WidgetCard(title = "Favoritos") {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    favorites.forEachIndexed { index, ticker ->
+                        StockTickerItem(ticker = ticker)
+                        if (index < favorites.lastIndex) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         WidgetCard(
             title = "Mapa de calor",
         ) {

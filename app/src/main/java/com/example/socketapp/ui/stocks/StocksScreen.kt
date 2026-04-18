@@ -1,6 +1,5 @@
 package com.example.socketapp.ui.stocks
 
-import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,42 +11,25 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.Constants
 import com.example.socketapp.MainViewModel
 import com.example.socketapp.model.ConnectionState
 import java.util.Calendar
 import java.util.TimeZone
 
-private const val TAG = "StocksScreen"
-
 @Composable
 fun StocksScreen(
     viewModel: MainViewModel,
-    networkConnection: CheckNetworkConnection,
     searchQuery: String,
 ) {
     val tickerMap by viewModel.tickers.collectAsStateWithLifecycle()
     val connection by viewModel.connectionState.collectAsStateWithLifecycle()
-    val isConnected by networkConnection.observeAsState(initial = false)
-
-    LaunchedEffect(isConnected) {
-        if (isConnected) {
-            Log.i(TAG, "Network connected — subscribing")
-            viewModel.subscribeToSocketEvents()
-        } else {
-            Log.w(TAG, "Network disconnected — stopping")
-            viewModel.stopSocket()
-        }
-    }
 
     // Filter + sort: recomputes only when map or query changes
     val tickerList = remember(tickerMap, searchQuery) {
