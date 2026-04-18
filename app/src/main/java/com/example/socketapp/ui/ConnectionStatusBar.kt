@@ -6,18 +6,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.socketapp.ConnectionState
-
-private val ConnectedColor = Color(0xFF4CAF50)
-private val DisconnectedColor = Color(0xFFF44336)
-private val ConnectingColor = Color(0xFFFFC107)
+import com.example.socketapp.model.ConnectionState
+import com.example.socketapp.ui.theme.PriceUpText
+import com.example.socketapp.ui.theme.StatusWarning
 
 @Composable
 fun ConnectionStatusBar(
@@ -32,19 +30,23 @@ fun ConnectionStatusBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val errorColor = MaterialTheme.colorScheme.error
         val (label, color) = when (val state = connectionState) {
-            ConnectionState.Disconnected -> "Desconectado" to DisconnectedColor
-            ConnectionState.Connecting -> "Conectando..." to ConnectingColor
-            ConnectionState.Connected -> "Conectado" to ConnectedColor
-            is ConnectionState.Failed -> "Error: ${state.cause.message ?: "desconocido"}" to DisconnectedColor
+            ConnectionState.Disconnected -> "Desconectado" to errorColor
+            ConnectionState.Connecting -> "Conectando..." to StatusWarning
+            ConnectionState.Connected -> "Conectado" to PriceUpText
+            is ConnectionState.Failed -> "Error: ${state.cause.message ?: "desconocido"}" to errorColor
         }
-        Text(text = label, color = color, fontSize = 14.sp)
+        Text(text = label, color = color, style = MaterialTheme.typography.bodyMedium)
 
         when (connectionState) {
             ConnectionState.Connected -> {
                 Button(
                     onClick = onDisconnect,
-                    colors = ButtonDefaults.buttonColors(containerColor = DisconnectedColor),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = errorColor,
+                        contentColor = Color.White,
+                    ),
                 ) {
                     Text("Cerrar")
                 }
@@ -52,7 +54,10 @@ fun ConnectionStatusBar(
             ConnectionState.Disconnected, is ConnectionState.Failed -> {
                 Button(
                     onClick = onConnect,
-                    colors = ButtonDefaults.buttonColors(containerColor = ConnectedColor),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PriceUpText,
+                        contentColor = Color.White,
+                    ),
                 ) {
                     Text("Abrir")
                 }

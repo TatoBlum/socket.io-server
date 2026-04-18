@@ -24,10 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.toColorInt
 import com.example.socketapp.BuildConfig
 import androidx.core.net.toUri
 
@@ -68,6 +69,7 @@ internal fun createTradingViewWebView(
     onLoadingChange: (Boolean) -> Unit,
     onError: (String?) -> Unit,
     timeoutHolder: TimeoutHolder,
+    backgroundColor: Int,
 ): WebView {
     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
     return WebView(ctx).apply {
@@ -82,7 +84,7 @@ internal fun createTradingViewWebView(
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         settings.cacheMode = WebSettings.LOAD_DEFAULT
 
-        setBackgroundColor("#121212".toColorInt())
+        setBackgroundColor(backgroundColor)
 
         // Visual-only: swallow touches para evitar navegación dentro del widget.
         setOnTouchListener { _, _ -> true }
@@ -227,9 +229,10 @@ internal fun TradingViewWidgetWebView(
     val lastConfigJson = remember { mutableStateOf<String?>(null) }
     val lastReloadKey = remember { mutableIntStateOf(-1) }
     val timeoutHolder = remember { TimeoutHolder() }
+    val backgroundColor = MaterialTheme.colorScheme.surface.toArgb()
 
     AndroidView(
-        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder) },
+        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder, backgroundColor) },
         update = { webView ->
             if (lastConfigJson.value != configJson || lastReloadKey.intValue != reloadKey) {
                 lastConfigJson.value = configJson

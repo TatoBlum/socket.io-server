@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.MainScreen
 import com.example.socketapp.MainViewModel
@@ -23,7 +22,6 @@ fun RootScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
-        containerColor = Color(0xFF121212),
         topBar = {
             SearchableTopBar(
                 title = "Trading View",

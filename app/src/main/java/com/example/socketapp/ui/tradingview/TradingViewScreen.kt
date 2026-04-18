@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,12 +39,12 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
+import com.example.socketapp.ui.theme.SegmentedTrack
 
 private val HEATMAP_CARD_HEIGHT = 609.dp
 private val HOTLISTS_CARD_HEIGHT = 570.dp
@@ -68,7 +69,7 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundColor)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
@@ -144,19 +145,19 @@ private fun WidgetCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurfaceColor),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardSurfaceColor),
+                .background(MaterialTheme.colorScheme.surface),
         ) {
             if (title != null) {
                 Text(
                     text = title,
-                    color = SegmentedTextColor,
-                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
@@ -187,14 +188,14 @@ private fun WidgetBox(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(CardBackgroundColor),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(text = "📵", fontSize = 48.sp)
                 Text(
                     text = "Sin conexión",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 18.sp,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -206,8 +207,8 @@ private fun WidgetBox(
                 CircularProgressIndicator(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .background(CardBackgroundColor.copy(alpha = 0.8f)),
-                    color = IndicatorColor,
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
 
@@ -215,13 +216,13 @@ private fun WidgetBox(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(CardBackgroundColor.copy(alpha = 0.8f)),
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = "Error al cargar: $errorMessage",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                     )
@@ -255,7 +256,7 @@ private fun <T> TabSelector(
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .height(30.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(SegmentedTrackColor),
+            .background(SegmentedTrack),
     ) {
         Box(
             modifier = Modifier
@@ -263,7 +264,7 @@ private fun <T> TabSelector(
                 .fillMaxWidth(1f / items.size)
                 .fillMaxHeight()
                 .shadow(elevation = 2.dp, shape = RoundedCornerShape(10.dp))
-                .background(SegmentedSelectedColor, RoundedCornerShape(10.dp)),
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
         )
 
         Row(modifier = Modifier.fillMaxSize()) {
@@ -281,7 +282,7 @@ private fun <T> TabSelector(
                 ) {
                     Text(
                         text = displayName(item),
-                        color = SegmentedTextColor,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     )

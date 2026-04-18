@@ -8,7 +8,7 @@ private const val SCRIPT_HOTLISTS = "https://s3.tradingview.com/external-embeddi
 
 data class HotlistsConfig(
     val exchange: String,
-    val colorTheme: String = "dark",
+    val colorTheme: String = "light",
     val dateRange: String = "12M",
     val showChart: Boolean = true,
     val locale: String = "es",
@@ -19,7 +19,7 @@ data class HotlistsConfig(
     val plotLineColorGrowing: String = "rgba(41, 98, 255, 1)",
     val plotLineColorFalling: String = "rgba(41, 98, 255, 1)",
     val gridLineColor: String = "rgba(240, 243, 250, 0)",
-    val scaleFontColor: String = "#DBDBDB",
+    val scaleFontColor: String = "#5C6B7A",
     val belowLineFillColorGrowing: String = "rgba(41, 98, 255, 0.12)",
     val belowLineFillColorFalling: String = "rgba(41, 98, 255, 0.12)",
     val belowLineFillColorGrowingBottom: String = "rgba(41, 98, 255, 0)",

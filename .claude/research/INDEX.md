@@ -24,3 +24,11 @@
 - [TradingView widgets para Android](tradingview-android-widgets.md) (2026-04-17)
   - **When to use**: Evaluar cómo integrar un gráfico candlestick tipo TradingView en la app; elegir entre TradingView Lightweight Charts, Advanced Charts, Vico o MPAndroidChart.
   - **Key conclusion**: TradingView NO tiene SDK nativo Android (todo WebView). Recomendación: **Vico** (Compose-native, Apache 2.0, v3.1.0 abr 2026) para este stack; **lightweight-charts-android** si se necesita look TV o indicadores.
+
+- [Stocks via WebSocket — Feasibility](2026-04-17-stocks-websocket-feasibility.md) (2026-04-17)
+  - **When to use**: Reemplazar el feed cripto Binance por precios de acciones/títulos (US y/o Merval) en tiempo real.
+  - **Key conclusion**: Binance WS NO ofrece equities. US stocks → **Alpaca IEX** (`wss://stream.data.alpaca.markets/v2/iex`, API key gratis). Merval → no hay WS público gratuito; solo Primary (comercial) o Yahoo REST con delay ~15 min.
+
+- [Light Theme Design](2026-04-17-light-theme-design.md) (2026-04-17)
+  - **When to use**: Migrar la app a light theme; definir paleta, tipografía y tokens M3; flip de TradingView widgets a light.
+  - **Key conclusion**: Paleta **"Soft Sky"** (azul pastel bancario, primary `#7FA8D1`, bg `#F7FAFC`, onSurface `#2B3A4A`) + semantic sage/coral (`#4CAF7F`/`#E88B8B`) + Inter bundleada con `fontFeatureSettings="tnum"`. 13 puntos hardcoded a reemplazar + crear `ui/theme/{Color,Theme,Typography}.kt`.

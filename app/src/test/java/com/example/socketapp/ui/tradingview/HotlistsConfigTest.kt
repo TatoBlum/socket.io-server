@@ -19,13 +19,13 @@ class HotlistsConfigTest {
     }
 
     @Test
-    fun `toJson default colorTheme is dark`() {
+    fun `toJson default colorTheme is light`() {
         // given
         val config = HotlistsConfig(exchange = "NASDAQ")
         // when
         val json = config.toJson()
         // then
-        assertTrue(json.contains("\"colorTheme\":\"dark\""))
+        assertTrue(json.contains("\"colorTheme\":\"light\""))
     }
 
     @Test

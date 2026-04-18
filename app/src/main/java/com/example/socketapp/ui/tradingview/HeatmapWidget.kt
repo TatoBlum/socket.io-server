@@ -14,7 +14,7 @@ data class HeatmapConfig(
     val grouping: String = "sector",
     val blockSize: String = "market_cap_basic",
     val blockColor: String = "change",
-    val colorTheme: String = "dark",
+    val colorTheme: String = "light",
     val hasTopBar: Boolean = false,
     val isDataSetEnabled: Boolean = false,
     val isZoomEnabled: Boolean = true,

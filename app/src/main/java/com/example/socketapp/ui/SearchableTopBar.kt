@@ -153,7 +153,7 @@ private fun TitleLabel(text: String) {
         style = TextStyle(
             fontSize = 22.sp,
             lineHeight = 26.4.sp,
-            fontWeight = FontWeight(900),
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         ),
     )
