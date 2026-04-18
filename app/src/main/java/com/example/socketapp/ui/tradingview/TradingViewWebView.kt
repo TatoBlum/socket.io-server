@@ -1,12 +1,12 @@
 package com.example.socketapp.ui.tradingview
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JsPromptResult
@@ -30,17 +30,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.socketapp.BuildConfig
-import androidx.core.net.toUri
 
 internal const val BASE_URL = "https://tradingview-widget.local/"
 internal const val CONFIG_PLACEHOLDER = "{{CONFIG}}"
 internal const val SCRIPT_PLACEHOLDER = "{{SCRIPT_SRC}}"
 internal const val TEMPLATE_ASSET = "tradingview/tradingview_widget_template.html"
-
-private val ALLOWED_HOSTS = listOf("tradingview.com", "tradingview-widget.com")
-
-internal fun isAllowedHost(host: String): Boolean =
-    ALLOWED_HOSTS.any { host == it || host.endsWith(".$it") }
 
 internal class TimeoutHolder {
     val handler = Handler(Looper.getMainLooper())
@@ -63,7 +57,6 @@ internal fun loadTradingViewWidget(
     webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
 }
 
-@SuppressLint("ClickableViewAccessibility")
 internal fun createTradingViewWebView(
     ctx: Context,
     onLoadingChange: (Boolean) -> Unit,
@@ -83,11 +76,10 @@ internal fun createTradingViewWebView(
         settings.allowUniversalAccessFromFileURLs = false
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.setSupportMultipleWindows(true)
+        settings.javaScriptCanOpenWindowsAutomatically = false
 
         setBackgroundColor(backgroundColor)
-
-        // Visual-only: swallow touches para evitar navegación dentro del widget.
-        setOnTouchListener { _, _ -> true }
 
         webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -162,23 +154,24 @@ internal fun createTradingViewWebView(
 
             @RequiresApi(Build.VERSION_CODES.N)
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val uri = request?.url ?: return false
-                val host = uri.host ?: return true
-                if (isAllowedHost(host)) return false
-                return true
+                return request?.isForMainFrame == true
             }
 
             @Deprecated("Deprecated in Java")
             @Suppress("DEPRECATION", "OverridingDeprecatedMember")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                val uri = (url ?: return false).toUri()
-                val host = uri.host ?: return true
-                if (isAllowedHost(host)) return false
                 return true
             }
         }
 
         webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?,
+            ): Boolean = false
+
             override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
                 if (BuildConfig.DEBUG) {
                     Log.d(
