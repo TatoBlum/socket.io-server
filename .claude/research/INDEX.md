@@ -31,4 +31,12 @@
 
 - [Light Theme Design](2026-04-17-light-theme-design.md) (2026-04-17)
   - **When to use**: Migrar la app a light theme; definir paleta, tipografía y tokens M3; flip de TradingView widgets a light.
-  - **Key conclusion**: Paleta **"Soft Sky"** (azul pastel bancario, primary `#7FA8D1`, bg `#F7FAFC`, onSurface `#2B3A4A`) + semantic sage/coral (`#4CAF7F`/`#E88B8B`) + Inter bundleada con `fontFeatureSettings="tnum"`. 13 puntos hardcoded a reemplazar + crear `ui/theme/{Color,Theme,Typography}.kt`.
+  - **Key conclusion**: Paleta **"Soft Sky"** (azul pastel bancario, primary `#7FA8D1`, bg `#F7FAFC`, onSurface `#2B3A4A`) + semantic sage/coral (`#4CAF7F`/`#E88B8B`) + Inter bundleada con `fontFeatureSettings="tnum"`. 13 puntos hardcoded a reemplazar + crear `ui/theme/{Color,Theme,Typography}.kt`. _Superseded por 2026-04-18 — usuario rechazó el look pastel._
+
+- [Light Theme con Carácter](2026-04-18-light-theme-with-character.md) (2026-04-18)
+  - **When to use**: Despastelizar la app manteniendo light mode; paleta editorial con personalidad; Naranja Galicia como signature accent.
+  - **Key conclusion**: **Option D Monocromo + Naranja Galicia `#E67B21`** (bg `#FFFFFF`, onSurface `#0A0A0A`, outline `#EBEBEB`, surfaceContainer `#F4F4F4`, PriceUp `#16A34A`, PriceDown `#DC2626`). Paleta Galicia extraída del SVG oficial (Wikimedia). Accent solo en focus/CTA/spinner/chip activo. Rework de `SoftAvatarPalette` a grises neutros + inicial en naranja. Implementación en 4-6 fases (ver doc).
+
+- [TradingView widgets — tap abre navegador](2026-04-18-tradingview-widgets-click-redirect.md) (2026-04-18)
+  - **When to use**: Evitar que los widgets TV (Stock Heatmap, Hotlists) abran tradingview.com al tocar dentro de la app; dejarlos como vitrina.
+  - **Key conclusion**: Es diseño de los widgets `embed-widget-*.js`. Fix: en `TradingViewWebView.kt` devolver `true` en `shouldOverrideUrlLoading` cuando `isForMainFrame`; agregar `WebChromeClient.onCreateWindow { false }`; `setSupportMultipleWindows(true)` + `javaScriptCanOpenWindowsAutomatically = false`. Los scripts embed no tienen parámetro de "custom link" (eso es solo en Web Components `<tv-*>`).
