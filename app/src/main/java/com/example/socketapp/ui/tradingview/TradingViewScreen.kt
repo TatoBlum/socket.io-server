@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
+import com.example.socketapp.ui.theme.CardSurface
 import com.example.socketapp.ui.theme.SegmentedTrack
 
 private val HEATMAP_CARD_HEIGHT = 609.dp
@@ -145,13 +146,13 @@ private fun WidgetCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface),
+                .background(CardSurface),
         ) {
             if (title != null) {
                 Text(

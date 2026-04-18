@@ -38,8 +38,11 @@ val PriceDownFlash = PriceDown.copy(alpha = 0.18f)
 // Semantic — estado de conexión (ámbar legible sobre fondo claro)
 val StatusWarning = Color(0xFFE0A84A)
 
-// Segmented control — track con matiz azul para destacar sobre Card blanca
+// Segmented control — track con matiz azul para destacar sobre Card
 val SegmentedTrack = Color(0xFFDDE5EF)
+
+// Card surface — un escalón más oscuro que surface para elevar las cards del background
+val CardSurface = Color(0xFFECF1F6)
 
 // Avatars — 8 tonos pastel armónicos con Soft Sky
 val SoftAvatarPalette = listOf(
