@@ -18,12 +18,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.socketapp.CheckNetworkConnection
-import com.example.socketapp.MainScreen
 import com.example.socketapp.MainViewModel
+import com.example.socketapp.ui.stocks.StocksScreen
 import com.example.socketapp.ui.tradingview.TradingViewScreen
 
 @Composable
-fun RootScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnection) {
+fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnection) {
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
@@ -65,7 +65,7 @@ fun RootScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
             modifier = Modifier.padding(innerPadding).fillMaxSize(),
         ) { searchMode ->
             if (searchMode) {
-                MainScreen(
+                StocksScreen(
                     viewModel = viewModel,
                     networkConnection = networkConnection,
                     searchQuery = searchQuery,

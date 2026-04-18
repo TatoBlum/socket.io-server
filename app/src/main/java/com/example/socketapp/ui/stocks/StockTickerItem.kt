@@ -1,4 +1,4 @@
-package com.example.socketapp.ui
+package com.example.socketapp.ui.stocks
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween

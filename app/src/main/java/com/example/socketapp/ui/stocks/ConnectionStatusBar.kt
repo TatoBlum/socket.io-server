@@ -1,4 +1,4 @@
-package com.example.socketapp.ui
+package com.example.socketapp.ui.stocks
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
