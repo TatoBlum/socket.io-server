@@ -3,6 +3,7 @@ package com.example.socketapp.ui.tradingview
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -144,10 +144,12 @@ private fun WidgetCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
@@ -264,7 +266,7 @@ private fun <T> TabSelector(
                 .align(BiasAlignment(animatedBias, 0f))
                 .fillMaxWidth(1f / items.size)
                 .fillMaxHeight()
-                .shadow(elevation = 2.dp, shape = RoundedCornerShape(10.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
         )
 

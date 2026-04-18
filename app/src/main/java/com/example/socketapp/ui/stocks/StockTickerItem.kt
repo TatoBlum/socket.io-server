@@ -34,13 +34,14 @@ import com.example.socketapp.ui.theme.PriceDown
 import com.example.socketapp.ui.theme.PriceDownFlash
 import com.example.socketapp.ui.theme.PricePctTextStyle
 import com.example.socketapp.ui.theme.PriceTextStyle
+import com.example.socketapp.ui.theme.GaliciaAvatarInitial
+import com.example.socketapp.ui.theme.GaliciaAvatarPalette
 import com.example.socketapp.ui.theme.PriceUp
 import com.example.socketapp.ui.theme.PriceUpFlash
-import com.example.socketapp.ui.theme.SoftAvatarPalette
 import kotlinx.coroutines.delay
 
 private fun avatarColor(symbol: String): Color =
-    SoftAvatarPalette[(symbol.hashCode() and 0x7FFFFFFF) % SoftAvatarPalette.size]
+    GaliciaAvatarPalette[(symbol.hashCode() and 0x7FFFFFFF) % GaliciaAvatarPalette.size]
 
 @Composable
 fun StockTickerItem(ticker: StockTicker) {
@@ -81,7 +82,7 @@ fun StockTickerItem(ticker: StockTicker) {
             ) {
                 Text(
                     text = ticker.symbol.take(2),
-                    color = Color.White,
+                    color = GaliciaAvatarInitial,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium,
                 )

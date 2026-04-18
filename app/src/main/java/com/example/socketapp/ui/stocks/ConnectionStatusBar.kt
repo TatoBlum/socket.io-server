@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.socketapp.model.ConnectionState
 import com.example.socketapp.ui.theme.PriceUpText
@@ -45,7 +44,7 @@ fun ConnectionStatusBar(
                     onClick = onDisconnect,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = errorColor,
-                        contentColor = Color.White,
+                        contentColor = MaterialTheme.colorScheme.onError,
                     ),
                 ) {
                     Text("Cerrar")
@@ -55,8 +54,8 @@ fun ConnectionStatusBar(
                 Button(
                     onClick = onConnect,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PriceUpText,
-                        contentColor = Color.White,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 ) {
                     Text("Abrir")
