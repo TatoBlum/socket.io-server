@@ -1,9 +1,9 @@
-package com.example.socketapp
+package com.example.socketapp.model
 
 import androidx.compose.runtime.Immutable
 
 @Immutable
-data class CryptoTicker(
+data class StockTicker(
     val symbol: String,
     val displayName: String,
     val price: String,

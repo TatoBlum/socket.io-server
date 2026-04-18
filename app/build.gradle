@@ -4,6 +4,12 @@ plugins {
     id 'kotlin-kapt'
 }
 
+def localPropsFile = rootProject.file("local.properties")
+def localProps = new Properties()
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+
 android {
     namespace 'com.example.socketapp'
     compileSdk 34
@@ -16,6 +22,9 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "ALPACA_KEY_ID", "\"${localProps.getProperty('ALPACA_KEY_ID', '')}\""
+        buildConfigField "String", "ALPACA_SECRET_KEY", "\"${localProps.getProperty('ALPACA_SECRET_KEY', '')}\""
     }
 
     buildTypes {
@@ -77,9 +86,6 @@ dependencies {
     implementation "androidx.activity:activity-compose:$activity_version"
     implementation "androidx.lifecycle:lifecycle-runtime-compose:$lifecycle_version"
     implementation 'androidx.compose.runtime:runtime-livedata'
-
-    // Coil (image loading for Compose)
-    implementation "io.coil-kt:coil-compose:2.5.0"
 
     // okhttp3
     implementation "com.squareup.okhttp3:okhttp:4.9.0"

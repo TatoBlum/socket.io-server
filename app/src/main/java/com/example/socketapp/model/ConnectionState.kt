@@ -1,4 +1,4 @@
-package com.example.socketapp
+package com.example.socketapp.model
 
 sealed class ConnectionState {
     object Disconnected : ConnectionState()

@@ -1,6 +1,7 @@
-package com.example.socketapp
+package com.example.socketapp.socket
 
 import android.util.Log
+import com.example.socketapp.model.ConnectionState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +38,7 @@ open class WebSocketClient {
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    open fun connect(url: String): Flow<String> = callbackFlow {
+    open fun connect(url: String, onOpen: (WebSocket) -> Unit = {}): Flow<String> = callbackFlow {
         Log.d(TAG, "connect → $url")
         _connectionState.value = ConnectionState.Connecting
 
@@ -45,10 +46,11 @@ open class WebSocketClient {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d(TAG, "onOpen: ${response.code}")
                 _connectionState.value = ConnectionState.Connected
+                onOpen(webSocket)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d(TAG, "onMessage: $text")
+                Log.d(TAG, "onMessage: ${text.take(200)}")
                 trySend(text)
             }
 

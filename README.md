@@ -84,3 +84,15 @@ Binance WSS (combined streams, 24 pares)
 - `BitcoinTickerParsingTest` — 4 tests del parseo Moshi legacy.
 
 Total: 24 tests.
+
+## Configurar API key Alpaca
+
+1. Registrate en [Alpaca paper trading](https://app.alpaca.markets/paper/dashboard/overview) y copiá tu `API Key ID` y `Secret Key`.
+2. Copiá el archivo de ejemplo: `cp local.properties.example local.properties`
+3. Abrí `local.properties` y reemplazá los placeholders con tus keys:
+   ```
+   ALPACA_KEY_ID=tu_key_id
+   ALPACA_SECRET_KEY=tu_secret_key
+   ```
+
+> `local.properties` está en `.gitignore` y nunca se commitea. Los streams de trades solo fluyen durante el horario de mercado (9:30–16:00 ET, días hábiles).

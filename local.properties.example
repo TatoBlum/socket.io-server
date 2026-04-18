@@ -1,0 +1,7 @@
+# Alpaca Markets API keys (paper trading)
+# Obtené las tuyas en: https://app.alpaca.markets/paper/dashboard/overview
+# Copiá este archivo como local.properties y pegá tus keys.
+# NUNCA commitees local.properties — está en .gitignore.
+
+ALPACA_KEY_ID=YOUR_ALPACA_KEY_ID_HERE
+ALPACA_SECRET_KEY=YOUR_ALPACA_SECRET_KEY_HERE

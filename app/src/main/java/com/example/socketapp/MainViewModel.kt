@@ -3,6 +3,10 @@ package com.example.socketapp
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.socketapp.model.ConnectionState
+import com.example.socketapp.model.PriceDirection
+import com.example.socketapp.model.StockTicker
+import com.example.socketapp.socket.StockTickerDataSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,17 +22,17 @@ private const val TAG = "MainViewModel"
 private const val PUBLISH_INTERVAL_MS = 250L
 
 class MainViewModel(
-    private val tickerDataSource: CryptoTickerDataSource,
+    private val tickerDataSource: StockTickerDataSource,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
-    private val _tickers = MutableStateFlow<Map<String, CryptoTicker>>(emptyMap())
-    val tickers: StateFlow<Map<String, CryptoTicker>> = _tickers.asStateFlow()
+    private val _tickers = MutableStateFlow<Map<String, StockTicker>>(emptyMap())
+    val tickers: StateFlow<Map<String, StockTicker>> = _tickers.asStateFlow()
 
     val connectionState: StateFlow<ConnectionState> = tickerDataSource.connectionState
 
     private var socketJob: Job? = null
-    private val internalMap = mutableMapOf<String, CryptoTicker>()
+    private val internalMap = mutableMapOf<String, StockTicker>()
 
     fun subscribeToSocketEvents() {
         if (socketJob?.isActive == true) return

@@ -31,11 +31,6 @@
 }
 -keepnames @com.squareup.moshi.JsonClass class *
 
-# --- App domain models ---
--keep class com.example.socketapp.BitcoinTicker { *; }
--keep class com.example.socketapp.CombinedStreamMessage { *; }
--keep class com.example.socketapp.TickerData { *; }
-
 # --- OkHttp / Okio (publicly recommended subset) ---
 -dontwarn okhttp3.**
 -dontwarn okio.**
