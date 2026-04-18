@@ -62,6 +62,7 @@ fun SearchableTopBar(
     onOpenSearch: () -> Unit,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    showNavigationIcon: Boolean = true,
     searchPlaceholder: String = "Buscar",
     extraActions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -80,11 +81,13 @@ fun SearchableTopBar(
             containerColor = MaterialTheme.colorScheme.background,
         ),
         navigationIcon = {
-            IconButton(onClick = { if (isSearchMode) onCloseSearch() else onBack() }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "back",
-                )
+            if (showNavigationIcon) {
+                IconButton(onClick = { if (isSearchMode) onCloseSearch() else onBack() }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "back",
+                    )
+                }
             }
         },
         title = {
