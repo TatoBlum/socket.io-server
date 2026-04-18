@@ -1,7 +1,5 @@
-package com.example.socketapp
+package com.example.socketapp.socket
 
-import com.example.socketapp.socket.StockTickerDataSource
-import com.example.socketapp.socket.WebSocketClient
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
