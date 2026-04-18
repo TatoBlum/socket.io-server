@@ -20,15 +20,24 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.example.socketapp.BuildConfig
 
 internal const val BASE_URL = "https://tradingview-widget.local/"
@@ -239,4 +248,54 @@ internal fun TradingViewWidgetWebView(
         },
         modifier = modifier,
     )
+}
+
+@Composable
+internal fun <T> TradingViewTabbedWidgetWebView(
+    items: List<T>,
+    selected: T,
+    scriptSrc: String,
+    configJsonFor: (T) -> String,
+    reloadKey: Int,
+    onLoadingChange: (Boolean) -> Unit,
+    onError: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val loadingStates = remember { mutableStateMapOf<T, Boolean>() }
+    val errorStates = remember { mutableStateMapOf<T, String?>() }
+    val perItemReloadKey = remember { mutableStateMapOf<T, Int>() }
+    var lastReloadKey by remember { mutableIntStateOf(reloadKey) }
+
+    LaunchedEffect(reloadKey) {
+        if (reloadKey != lastReloadKey) {
+            lastReloadKey = reloadKey
+            perItemReloadKey[selected] = (perItemReloadKey[selected] ?: 0) + 1
+            errorStates[selected] = null
+        }
+    }
+
+    val currentLoading = loadingStates[selected] ?: true
+    val currentError = errorStates[selected]
+    LaunchedEffect(currentLoading) { onLoadingChange(currentLoading) }
+    LaunchedEffect(currentError) { onError(currentError) }
+
+    Box(modifier = modifier) {
+        items.forEach { item ->
+            val isSelected = item == selected
+            key(item) {
+                val configJson = remember { configJsonFor(item) }
+                TradingViewWidgetWebView(
+                    scriptSrc = scriptSrc,
+                    configJson = configJson,
+                    reloadKey = perItemReloadKey[item] ?: 0,
+                    onLoadingChange = { loadingStates[item] = it },
+                    onError = { errorStates[item] = it },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(if (isSelected) 1f else 0f)
+                        .alpha(if (isSelected) 1f else 0f),
+                )
+            }
+        }
+    }
 }

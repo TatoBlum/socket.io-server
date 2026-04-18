@@ -95,7 +95,8 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
                 },
             ) {
                 TradingViewHeatmapWebView(
-                    market = selectedMarket,
+                    markets = markets,
+                    selected = selectedMarket,
                     reloadKey = heatmapReloadTrigger,
                     onLoadingChange = { isHeatmapLoading = it },
                     onError = { heatmapError = it },
@@ -127,7 +128,8 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection) {
                 },
             ) {
                 TradingViewHotlistsWebView(
-                    exchange = selectedExchange,
+                    exchanges = exchanges,
+                    selected = selectedExchange,
                     reloadKey = hotlistsReloadTrigger,
                     onLoadingChange = { isHotlistsLoading = it },
                     onError = { hotlistsError = it },

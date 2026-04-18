@@ -58,15 +58,18 @@ enum class Exchange(val displayName: String, val config: HotlistsConfig) {
 
 @Composable
 fun TradingViewHotlistsWebView(
-    exchange: Exchange,
+    exchanges: List<Exchange>,
+    selected: Exchange,
     reloadKey: Int,
     onLoadingChange: (Boolean) -> Unit,
     onError: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    TradingViewWidgetWebView(
+    TradingViewTabbedWidgetWebView(
+        items = exchanges,
+        selected = selected,
         scriptSrc = SCRIPT_HOTLISTS,
-        configJson = exchange.config.toJson(),
+        configJsonFor = { it.config.toJson() },
         reloadKey = reloadKey,
         onLoadingChange = onLoadingChange,
         onError = onError,

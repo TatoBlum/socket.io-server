@@ -17,7 +17,7 @@ data class HeatmapConfig(
     val colorTheme: String = "light",
     val hasTopBar: Boolean = false,
     val isDataSetEnabled: Boolean = false,
-    val isZoomEnabled: Boolean = true,
+    val isZoomEnabled: Boolean = false,
     val hasSymbolTooltip: Boolean = true,
     val isMonoSize: Boolean = false,
 ) {
@@ -60,15 +60,18 @@ enum class Market(val displayName: String, val config: HeatmapConfig) {
 
 @Composable
 fun TradingViewHeatmapWebView(
-    market: Market,
+    markets: List<Market>,
+    selected: Market,
     reloadKey: Int,
     onLoadingChange: (Boolean) -> Unit,
     onError: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    TradingViewWidgetWebView(
+    TradingViewTabbedWidgetWebView(
+        items = markets,
+        selected = selected,
         scriptSrc = SCRIPT_HEATMAP,
-        configJson = market.config.toJson(),
+        configJsonFor = { it.config.toJson() },
         reloadKey = reloadKey,
         onLoadingChange = onLoadingChange,
         onError = onError,
