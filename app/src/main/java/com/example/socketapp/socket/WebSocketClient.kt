@@ -65,7 +65,7 @@ open class WebSocketClient {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "onFailure (response=${response?.code})", t)
+                Log.d(TAG, "onFailure (response=${response?.code})", t)
                 // Si el handshake HTTP falló, OkHttp nos pasa el Response y es
                 // responsabilidad nuestra cerrarlo; si no, dispara el warning al GC.
                 response?.close()
