@@ -48,7 +48,6 @@ fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
     val favoritesTop5 = remember(tickerMap) { top5Favorites(tickerMap) }
 
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -56,15 +55,15 @@ fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
                 title = "Trading View",
                 searchPlaceholder = "Buscar",
                 isSearchMode = isSearchMode,
-                searchQuery = searchQuery,
+                searchQuery = viewModel.searchQuery,
                 showNavigationIcon = isSearchMode,
                 onBack = {},
                 onCloseSearch = {
                     isSearchMode = false
-                    searchQuery = ""
+                    viewModel.onSearchQueryChange("")
                 },
                 onOpenSearch = { isSearchMode = true },
-                onQueryChange = { searchQuery = it },
+                onQueryChange = viewModel::onSearchQueryChange,
             )
         },
     ) { innerPadding ->
@@ -90,7 +89,7 @@ fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnecti
             if (searchMode) {
                 StocksScreen(
                     viewModel = viewModel,
-                    searchQuery = searchQuery,
+                    searchQuery = viewModel.searchQuery,
                 )
             } else {
                 TradingViewScreen(networkConnection, favoritesTop5)
