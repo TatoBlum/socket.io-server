@@ -42,12 +42,12 @@ val StatusWarning = Color(0xFFCA8A04)
 // Segmented control — track neutro
 val SegmentedTrack = Color(0xFFF4F4F4)
 
-// Card surface — un escalón más oscuro que surface para elevar las cards del background
-val CardSurface = Color(0xFFF4F4F4)
+// Card surface — un escalón más claro que SegmentedTrack para que el tab row se diferencie sobre la card
+val CardSurface = Color(0xFFFAFAFA)
 
 // Avatars — 8 shades gris neutro editorial
 val GaliciaAvatarPalette = listOf(
     Color(0xFF5A5A5A), Color(0xFF4F4F4F), Color(0xFF454545), Color(0xFF3B3B3B),
     Color(0xFF5F5F5F), Color(0xFF4A4A4A), Color(0xFF3F3F3F), Color(0xFF353535),
 )
-val GaliciaAvatarInitial = Color(0xFFE67B21)
+val AvatarInitial = Color(0xFFE67B21)

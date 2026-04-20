@@ -198,7 +198,7 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `priceDirection NEUTRAL — precio no cambia`() = runTest {
+    fun `priceDirection null — precio no cambia`() = runTest {
         val fake = FakeStockTickerDataSource()
         val vm = MainViewModel(fake, testDispatcher)
 
@@ -208,7 +208,7 @@ class MainViewModelTest {
         fake.send(ticker("AAPL", "150.00"))
         advanceTimeBy(300)
 
-        assertEquals(PriceDirection.NEUTRAL, vm.tickers.value["AAPL"]?.priceDirection)
+        assertEquals(null, vm.tickers.value["AAPL"]?.priceDirection)
         vm.stopSocket()
     }
 

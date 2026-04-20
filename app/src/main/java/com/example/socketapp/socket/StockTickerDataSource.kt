@@ -3,7 +3,6 @@ package com.example.socketapp.socket
 import android.util.Log
 import com.example.socketapp.Constants
 import com.example.socketapp.model.ConnectionState
-import com.example.socketapp.model.PriceDirection
 import com.example.socketapp.model.StockTicker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -107,7 +106,6 @@ open class StockTickerDataSource(
             displayName = Constants.displayName(symbol),
             price = String.format(Locale.US, "%.2f", price),
             previousPrice = "0.00",
-            priceDirection = PriceDirection.NEUTRAL,
             percentChange = "0.00",
         )
     }

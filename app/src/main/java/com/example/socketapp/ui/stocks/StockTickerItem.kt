@@ -34,7 +34,7 @@ import com.example.socketapp.ui.theme.PriceDown
 import com.example.socketapp.ui.theme.PriceDownFlash
 import com.example.socketapp.ui.theme.PricePctTextStyle
 import com.example.socketapp.ui.theme.PriceTextStyle
-import com.example.socketapp.ui.theme.GaliciaAvatarInitial
+import com.example.socketapp.ui.theme.AvatarInitial
 import com.example.socketapp.ui.theme.GaliciaAvatarPalette
 import com.example.socketapp.ui.theme.PriceUp
 import com.example.socketapp.ui.theme.PriceUpFlash
@@ -82,7 +82,7 @@ fun StockTickerItem(ticker: StockTicker) {
             ) {
                 Text(
                     text = ticker.symbol.take(2),
-                    color = GaliciaAvatarInitial,
+                    color = AvatarInitial,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium,
                 )

@@ -62,10 +62,10 @@ class MainViewModel(
                             val newPrice = ticker.price.toBigDecimalOrNull()
                             val oldPrice = existing?.price?.toBigDecimalOrNull()
                             val direction = when {
-                                newPrice == null || oldPrice == null -> PriceDirection.NEUTRAL
+                                newPrice == null || oldPrice == null -> null
                                 newPrice > oldPrice -> PriceDirection.UP
                                 newPrice < oldPrice -> PriceDirection.DOWN
-                                else -> PriceDirection.NEUTRAL
+                                else -> null
                             }
                             internalMap[ticker.symbol] = ticker.copy(
                                 previousPrice = existing?.price,
