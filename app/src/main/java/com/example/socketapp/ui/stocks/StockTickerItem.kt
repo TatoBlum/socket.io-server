@@ -53,21 +53,21 @@ fun StockTickerItem(ticker: StockTicker) {
         isFlashing = false
     }
 
-    val backgroundColor by animateColorAsState(
-        targetValue = when {
-            isFlashing && ticker.priceDirection == PriceDirection.UP -> PriceUpFlash
-            isFlashing && ticker.priceDirection == PriceDirection.DOWN -> PriceDownFlash
-            else -> Color.Transparent
-        },
-        animationSpec = tween(durationMillis = 500),
-        label = "tickerBgColor",
-    )
+//    val backgroundColor by animateColorAsState(
+//        targetValue = when {
+//            isFlashing && ticker.priceDirection == PriceDirection.UP -> PriceUpFlash
+//            isFlashing && ticker.priceDirection == PriceDirection.DOWN -> PriceDownFlash
+//            else -> Color.Transparent
+//        },
+//        animationSpec = tween(durationMillis = 500),
+//        label = "tickerBgColor",
+//    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(backgroundColor)
+//            .background(backgroundColor)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

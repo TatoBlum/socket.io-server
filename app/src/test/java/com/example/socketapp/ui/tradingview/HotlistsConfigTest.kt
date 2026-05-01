@@ -112,13 +112,13 @@ class HotlistsConfigTest {
     }
 
     @Test
-    fun `Exchange NASDAQ locale is en`() {
-        assertEquals("en", Exchange.NASDAQ.config.locale)
+    fun `Exchange NASDAQ locale is es`() {
+        assertEquals("es", Exchange.NASDAQ.config.locale)
     }
 
     @Test
-    fun `Exchange NYSE locale is en`() {
-        assertEquals("en", Exchange.NYSE.config.locale)
+    fun `Exchange NYSE locale is es`() {
+        assertEquals("es", Exchange.NYSE.config.locale)
     }
 
     @Test

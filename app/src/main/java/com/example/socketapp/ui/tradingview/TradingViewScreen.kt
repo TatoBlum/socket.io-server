@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.model.StockTicker
+import com.example.socketapp.ui.ExpandingDotStepperDemo
 import com.example.socketapp.ui.stocks.StockTickerItem
 import com.example.socketapp.ui.theme.CardSurface
 import com.example.socketapp.ui.theme.SegmentedTrack
@@ -152,6 +153,12 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection, favorites: List
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(title = "Stepper (demo)") {
+            ExpandingDotStepperDemo(totalSteps = 5)
         }
     }
 }

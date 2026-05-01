@@ -53,7 +53,7 @@ enum class Market(val displayName: String, val config: HeatmapConfig) {
         displayName = "SPY",
         config = HeatmapConfig(
             dataSource = "SPX500",
-            locale = "en",
+            locale = "es",
         ),
     ),
 }
