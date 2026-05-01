@@ -12,11 +12,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val mainViewModel = ViewModelProvider(this, ViewModelFactory())[MainViewModel::class.java]
+        val factory = ViewModelFactory()
+        val mainViewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
         val checkNetworkConnection = CheckNetworkConnection(application)
         setContent {
             AppTheme {
-                MainScreen(mainViewModel, checkNetworkConnection)
+                MainScreen(mainViewModel, factory, checkNetworkConnection)
             }
         }
     }

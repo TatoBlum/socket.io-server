@@ -1,14 +1,6 @@
 package com.example.socketapp.ui
 
 import android.util.Log
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -16,84 +8,123 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.MainViewModel
-import com.example.socketapp.ui.stocks.StocksScreen
+import com.example.socketapp.SecuritiesViewModel
+import com.example.socketapp.ViewModelFactory
+import com.example.socketapp.ui.securities.SecuritiesRoute
 import com.example.socketapp.ui.tradingview.TradingViewScreen
 import com.example.socketapp.ui.tradingview.top5Favorites
+import kotlinx.serialization.Serializable
 
 private const val TAG = "MainScreen"
 
 @Composable
-fun MainScreen(viewModel: MainViewModel, networkConnection: CheckNetworkConnection) {
-    val tickerMap by viewModel.tickers.collectAsStateWithLifecycle()
+fun MainScreen(
+    mainViewModel: MainViewModel,
+    viewModelFactory: ViewModelFactory,
+    networkConnection: CheckNetworkConnection,
+) {
+    val tickerMap by mainViewModel.tickers.collectAsStateWithLifecycle()
     val isConnected by networkConnection.observeAsState(initial = false)
+    val navController = rememberNavController()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
+    val isSecuritiesRoute = currentRoute == MainRoute.Securities.route
+    val isTitlesRoute = currentRoute == MainRoute.Titles.route
+    val isDetailRoute = isSecuritiesRoute || isTitlesRoute
 
     LaunchedEffect(isConnected) {
         if (isConnected) {
             Log.i(TAG, "Network connected — subscribing")
-            viewModel.subscribeToSocketEvents()
+            mainViewModel.subscribeToSocketEvents()
         } else {
             Log.w(TAG, "Network disconnected — stopping")
-            viewModel.stopSocket()
+            mainViewModel.stopSocket()
         }
     }
 
     val favoritesTop5 = remember(tickerMap) { top5Favorites(tickerMap) }
 
-    var isSearchMode by rememberSaveable { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             SearchableTopBar(
-                title = "Trading View",
-                searchPlaceholder = "Buscar",
-                isSearchMode = isSearchMode,
-                searchQuery = viewModel.searchQuery,
-                showNavigationIcon = isSearchMode,
-                onBack = {},
-                onCloseSearch = {
-                    isSearchMode = false
-                    viewModel.onSearchQueryChange("")
+                title = when {
+                    isSecuritiesRoute -> "Acciones"
+                    isTitlesRoute -> "Titulos"
+                    else -> "Trading View"
                 },
-                onOpenSearch = { isSearchMode = true },
-                onQueryChange = viewModel::onSearchQueryChange,
+                searchPlaceholder = "Buscar",
+                isSearchMode = false,
+                searchQuery = "",
+                showNavigationIcon = isDetailRoute,
+                showSearchAction = !isDetailRoute,
+                onBack = {
+                    navController.popBackStack()
+                },
+                onCloseSearch = {
+                    navController.popBackStack()
+                },
+                onOpenSearch = {
+                    if (!isSecuritiesRoute) {
+                        navController.navigate(MainRoute.Securities.route) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                onQueryChange = {},
             )
         },
     ) { innerPadding ->
-        AnimatedContent(
-            targetState = isSearchMode,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(durationMillis = 320)) +
-                    slideInVertically(
-                        animationSpec = tween(durationMillis = 320),
-                        initialOffsetY = { fullHeight -> fullHeight / 10 },
-                    )) togetherWith
-                    (fadeOut(animationSpec = tween(durationMillis = 220)) +
-                        slideOutVertically(
-                            animationSpec = tween(durationMillis = 220),
-                            targetOffsetY = { fullHeight -> -fullHeight / 10 },
-                        )) using SizeTransform(clip = false) { _, _ ->
-                    tween(durationMillis = 0)
-                }
-            },
-            label = "titulos-body",
+        NavHost(
+            navController = navController,
+            startDestination = MainRoute.Home.route,
             modifier = Modifier.padding(innerPadding).fillMaxSize(),
-        ) { searchMode ->
-            if (searchMode) {
-                StocksScreen(
-                    viewModel = viewModel,
-                    searchQuery = viewModel.searchQuery,
+        ) {
+            composable(MainRoute.Home.route) {
+                TradingViewScreen(
+                    networkConnection = networkConnection,
+                    favorites = favoritesTop5,
+                    onOpenTitles = {
+                        navController.navigate(MainRoute.Titles.route) {
+                            launchSingleTop = true
+                        }
+                    },
                 )
-            } else {
-                TradingViewScreen(networkConnection, favoritesTop5)
+            }
+
+            composable(MainRoute.Securities.route) { backStackEntry ->
+                val routeViewModel = viewModel<SecuritiesViewModel>(
+                    viewModelStoreOwner = backStackEntry, factory = viewModelFactory,
+                )
+                SecuritiesRoute(viewModel = routeViewModel)
+            }
+
+            composable(MainRoute.Titles.route) {
+                TitlesPagerScreen(
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }
+}
+
+@Serializable
+private sealed class MainRoute(val route: String) {
+    @Serializable
+    data object Home : MainRoute("home")
+
+    @Serializable
+    data object Securities : MainRoute("securities")
+
+    @Serializable
+    data object Titles : MainRoute("titles")
 }

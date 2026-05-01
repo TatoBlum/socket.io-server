@@ -54,7 +54,11 @@ private val HEATMAP_CARD_HEIGHT = 609.dp
 private val HOTLISTS_CARD_HEIGHT = 570.dp
 
 @Composable
-fun TradingViewScreen(networkConnection: CheckNetworkConnection, favorites: List<StockTicker>) {
+fun TradingViewScreen(
+    networkConnection: CheckNetworkConnection,
+    favorites: List<StockTicker>,
+    onOpenTitles: () -> Unit,
+) {
     val markets = Market.entries
     val exchanges = Exchange.entries
     var selectedMarket by rememberSaveable { mutableStateOf(Market.MERVAL) }
@@ -159,6 +163,15 @@ fun TradingViewScreen(networkConnection: CheckNetworkConnection, favorites: List
 
         WidgetCard(title = "Stepper (demo)") {
             ExpandingDotStepperDemo(totalSteps = 5)
+            Button(
+                onClick = onOpenTitles,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+            ) {
+                Text("Ver títulos")
+            }
         }
     }
 }

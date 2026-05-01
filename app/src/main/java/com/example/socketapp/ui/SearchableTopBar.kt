@@ -63,6 +63,7 @@ fun SearchableTopBar(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     showNavigationIcon: Boolean = true,
+    showSearchAction: Boolean = true,
     searchPlaceholder: String = "Buscar",
     extraActions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -126,11 +127,11 @@ fun SearchableTopBar(
         },
         actions = {
             Crossfade(
-                targetState = isSearchMode,
+                targetState = isSearchMode || !showSearchAction,
                 animationSpec = tween(durationMillis = ENTER_MS, easing = FastOutSlowInEasing),
                 label = "searchable-topbar-search-icon",
-            ) { searchMode ->
-                if (!searchMode) {
+            ) { hideSearchAction ->
+                if (!hideSearchAction) {
                     IconButton(onClick = onOpenSearch) {
                         Icon(
                             imageVector = Icons.Filled.Search,

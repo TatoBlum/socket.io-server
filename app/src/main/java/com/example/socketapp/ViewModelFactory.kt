@@ -2,6 +2,7 @@ package com.example.socketapp
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.socketapp.data.MockSecuritiesRepository
 import com.example.socketapp.socket.StockTickerDataSource
 import com.example.socketapp.socket.WebSocketClient
 
@@ -15,6 +16,9 @@ class ViewModelFactory() : ViewModelProvider.Factory {
                     secret = BuildConfig.ALPACA_SECRET_KEY,
                 )
             ) as T
+        }
+        if (modelClass.isAssignableFrom(SecuritiesViewModel::class.java)) {
+            return SecuritiesViewModel(MockSecuritiesRepository()) as T
         }
         throw IllegalArgumentException("Unknown class name")
     }
