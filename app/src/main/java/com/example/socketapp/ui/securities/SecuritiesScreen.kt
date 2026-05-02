@@ -58,12 +58,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.socketapp.PriceVariationDirection
 import com.example.socketapp.SecuritiesUiState
 import com.example.socketapp.SecuritiesViewModel
 import com.example.socketapp.SecurityFilters
 import com.example.socketapp.SecuritySortOption
-import com.example.socketapp.SecurityUiItem
+import com.example.socketapp.model.Security
 import com.example.socketapp.model.SecurityCurrency
 import com.example.socketapp.model.SecurityPanel
 import com.example.socketapp.model.SecuritySector
@@ -73,6 +72,8 @@ import com.example.socketapp.ui.theme.PriceDown
 import com.example.socketapp.ui.theme.PricePctTextStyle
 import com.example.socketapp.ui.theme.PriceTextStyle
 import com.example.socketapp.ui.theme.PriceUp
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Composable
 fun SecuritiesRoute(
@@ -192,7 +193,7 @@ fun SecuritiesScreen(
 
 @Composable
 private fun SecurityItem(
-    item: SecurityUiItem,
+    item: Security,
     onFavouriteClick: () -> Unit,
     modifier: Modifier = Modifier,
     showFavouriteIcon: Boolean = true,
@@ -253,21 +254,22 @@ private fun SecurityItem(
 }
 
 @Composable
-private fun SecurityPriceColumn(item: SecurityUiItem) {
+private fun SecurityPriceColumn(item: Security) {
     Column(horizontalAlignment = Alignment.End) {
         Text(
-            text = item.price,
+            text = item.formattedPrice(),
             color = MaterialTheme.colorScheme.onSurface,
             style = PriceTextStyle,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val variationColor = when (item.variationDirection) {
+            val variationDirection = item.variationDirection()
+            val variationColor = when (variationDirection) {
                 PriceVariationDirection.Up -> PriceUp
                 PriceVariationDirection.Down -> PriceDown
                 PriceVariationDirection.Neutral -> MaterialTheme.colorScheme.onSurfaceVariant
             }
 
-            when (item.variationDirection) {
+            when (variationDirection) {
                 PriceVariationDirection.Up -> Icon(
                     imageVector = Icons.Filled.ArrowUpward,
                     contentDescription = "Subio",
@@ -284,7 +286,7 @@ private fun SecurityPriceColumn(item: SecurityUiItem) {
             }
             Spacer(modifier = Modifier.width(2.dp))
             Text(
-                text = item.variation,
+                text = item.formattedVariation(),
                 color = variationColor,
                 style = PricePctTextStyle,
             )
@@ -451,3 +453,27 @@ private fun FilterSection(
 
 private fun avatarColor(symbol: String): Color =
     GaliciaAvatarPalette[(symbol.hashCode() and 0x7FFFFFFF) % GaliciaAvatarPalette.size]
+
+private enum class PriceVariationDirection {
+    Up,
+    Down,
+    Neutral,
+}
+
+private fun Security.variationDirection(): PriceVariationDirection =
+    when {
+        priceChange > BigDecimal.ZERO -> PriceVariationDirection.Up
+        priceChange < BigDecimal.ZERO -> PriceVariationDirection.Down
+        else -> PriceVariationDirection.Neutral
+    }
+
+private fun Security.formattedPrice(): String =
+    "$ ${price.setScale(2, RoundingMode.HALF_UP)}"
+
+private fun Security.formattedVariation(): String {
+    val sign = if (priceChange > BigDecimal.ZERO) "+" else ""
+
+    return "$sign${priceChange.setScale(2, RoundingMode.HALF_UP)} ($sign${
+        percentageChange.setScale(2, RoundingMode.HALF_UP)
+    }%)"
+}

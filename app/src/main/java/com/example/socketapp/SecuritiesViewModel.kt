@@ -11,8 +11,6 @@ import com.example.socketapp.model.Security
 import com.example.socketapp.model.SecurityCurrency
 import com.example.socketapp.model.SecurityPanel
 import com.example.socketapp.model.SecuritySector
-import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -24,25 +22,9 @@ data class SecuritiesUiState(
     val isLoading: Boolean = true,
     val searchQuery: String = "",
     val filters: SecurityFilters = SecurityFilters(),
-    val items: List<SecurityUiItem> = emptyList(),
+    val items: List<Security> = emptyList(),
     val errorMessage: String? = null,
 )
-
-data class SecurityUiItem(
-    val id: String,
-    val symbol: String,
-    val name: String,
-    val price: String,
-    val variation: String,
-    val variationDirection: PriceVariationDirection,
-    val isFavourite: Boolean,
-)
-
-enum class PriceVariationDirection {
-    Up,
-    Down,
-    Neutral,
-}
 
 class SecuritiesViewModel(
     private val repository: SecuritiesRepository,
@@ -54,6 +36,7 @@ class SecuritiesViewModel(
         private set
 
     private var allSecurities: List<Security> = emptyList()
+    private val pendingFavouriteUpdates = mutableMapOf<String, Boolean>()
 
     init {
         loadSecurities()
@@ -96,9 +79,13 @@ class SecuritiesViewModel(
     }
 
     fun onFavouriteClick(securityId: String) {
+        val selectedSecurity = allSecurities.firstOrNull { security -> security.id == securityId } ?: return
+        val newFavourite = !selectedSecurity.isFavourite
+
+        pendingFavouriteUpdates[securityId] = newFavourite
         allSecurities = allSecurities.map { security ->
             if (security.id == securityId) {
-                security.copy(isFavourite = !security.isFavourite)
+                security.copy(isFavourite = newFavourite)
             } else {
                 security
             }
@@ -131,14 +118,14 @@ class SecuritiesViewModel(
                 repository.getSecurities()
             }
         }.onSuccess { securities ->
-            val favouriteIds = allSecurities
-                .filter { security -> security.isFavourite }
-                .map { security -> security.id }
-                .toSet()
-
             allSecurities = securities.map { security ->
-                security.copy(isFavourite = security.isFavourite || security.id in favouriteIds)
+                val pendingFavourite = pendingFavouriteUpdates[security.id]
+
+                clearPendingFavouriteUpdateIfServerIsSynced(security, pendingFavourite)
+
+                security.copy(isFavourite = pendingFavourite ?: security.isFavourite)
             }
+
             applyFiltersImmediately()
             uiState = uiState.copy(isLoading = false, errorMessage = null)
         }.onFailure { error ->
@@ -146,6 +133,15 @@ class SecuritiesViewModel(
                 isLoading = false,
                 errorMessage = error.message ?: "No se pudieron actualizar los securities",
             )
+        }
+    }
+
+    private fun clearPendingFavouriteUpdateIfServerIsSynced(
+        security: Security,
+        pendingFavourite: Boolean?,
+    ) {
+        if (pendingFavourite != null && security.isFavourite == pendingFavourite) {
+            pendingFavouriteUpdates.remove(security.id)
         }
     }
 
@@ -161,10 +157,10 @@ class SecuritiesViewModel(
         val securities = allSecurities
 
         val filteredItems = withContext(defaultDispatcher) {
-            val filteredSecurities = securities.filter { security ->
+            val filteredSecurities: List<Security> = securities.filter { security ->
                 val matchesQuery = query.isBlank() ||
-                    security.symbol.contains(query, ignoreCase = true) ||
-                    security.name.contains(query, ignoreCase = true)
+                        security.symbol.contains(query, ignoreCase = true) ||
+                        security.name.contains(query, ignoreCase = true)
                 val matchesCurrency = filters.currencies.isEmpty() || security.currency in filters.currencies
                 val matchesPanel = filters.panels.isEmpty() || security.panel in filters.panels
                 val matchesSector = filters.sectors.isEmpty() || security.sector in filters.sectors
@@ -179,7 +175,7 @@ class SecuritiesViewModel(
                 SecuritySortOption.LowestPrice -> filteredSecurities.sortedBy { it.price }
             }
 
-            sortedSecurities.map { security -> security.toUiItem() }
+            sortedSecurities
         }
 
         uiState = uiState.copy(items = filteredItems)
@@ -200,24 +196,3 @@ data class SecurityFilters(
     val panels: Set<SecurityPanel> = emptySet(),
     val sectors: Set<SecuritySector> = emptySet(),
 )
-
-private fun Security.toUiItem(): SecurityUiItem {
-    val direction = when {
-        priceChange > BigDecimal.ZERO -> PriceVariationDirection.Up
-        priceChange < BigDecimal.ZERO -> PriceVariationDirection.Down
-        else -> PriceVariationDirection.Neutral
-    }
-    val sign = if (priceChange > BigDecimal.ZERO) "+" else ""
-
-    return SecurityUiItem(
-        id = id,
-        symbol = symbol,
-        name = name,
-        price = "$ ${price.setScale(2, RoundingMode.HALF_UP)}",
-        variation = "$sign${priceChange.setScale(2, RoundingMode.HALF_UP)} ($sign${
-            percentageChange.setScale(2, RoundingMode.HALF_UP)
-        }%)",
-        variationDirection = direction,
-        isFavourite = isFavourite,
-    )
-}
