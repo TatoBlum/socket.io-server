@@ -61,12 +61,12 @@ import androidx.compose.ui.unit.dp
 import com.example.socketapp.PriceVariationDirection
 import com.example.socketapp.SecuritiesUiState
 import com.example.socketapp.SecuritiesViewModel
+import com.example.socketapp.SecurityFilters
+import com.example.socketapp.SecuritySortOption
 import com.example.socketapp.SecurityUiItem
 import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityFilters
 import com.example.socketapp.model.SecurityPanel
 import com.example.socketapp.model.SecuritySector
-import com.example.socketapp.model.SecuritySortOption
 import com.example.socketapp.ui.theme.AvatarInitial
 import com.example.socketapp.ui.theme.GaliciaAvatarPalette
 import com.example.socketapp.ui.theme.PriceDown
@@ -82,10 +82,7 @@ fun SecuritiesRoute(
     SecuritiesScreen(
         uiState = viewModel.uiState,
         onSearchQueryChange = viewModel::onSearchQueryChange,
-        onSortOptionChange = viewModel::onSortOptionChange,
-        onCurrencyToggle = viewModel::onCurrencyToggle,
-        onPanelToggle = viewModel::onPanelToggle,
-        onSectorToggle = viewModel::onSectorToggle,
+        onApplyFilters = viewModel::applyFilters,
         onClearFilters = viewModel::clearFilters,
         onFavouriteClick = viewModel::onFavouriteClick,
         modifier = modifier,
@@ -97,10 +94,7 @@ fun SecuritiesRoute(
 fun SecuritiesScreen(
     uiState: SecuritiesUiState,
     onSearchQueryChange: (String) -> Unit,
-    onSortOptionChange: (SecuritySortOption) -> Unit,
-    onCurrencyToggle: (SecurityCurrency) -> Unit,
-    onPanelToggle: (SecurityPanel) -> Unit,
-    onSectorToggle: (SecuritySector) -> Unit,
+    onApplyFilters: (SecurityFilters) -> Unit,
     onClearFilters: () -> Unit,
     onFavouriteClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -174,18 +168,23 @@ fun SecuritiesScreen(
     }
 
     if (showFilters) {
+        var draftFilters by remember { mutableStateOf(uiState.filters) }
+
         ModalBottomSheet(
             onDismissRequest = { showFilters = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
             SecuritiesFilterSheet(
-                filters = uiState.filters,
-                onSortOptionChange = onSortOptionChange,
-                onCurrencyToggle = onCurrencyToggle,
-                onPanelToggle = onPanelToggle,
-                onSectorToggle = onSectorToggle,
-                onClearFilters = onClearFilters,
-                onApply = { showFilters = false },
+                filters = draftFilters,
+                onFiltersChange = { draftFilters = it },
+                onClearFilters = {
+                    draftFilters = SecurityFilters()
+                    onClearFilters()
+                },
+                onApply = {
+                    onApplyFilters(draftFilters)
+                    showFilters = false
+                },
             )
         }
     }
@@ -330,10 +329,7 @@ private fun FavouriteIconButton(
 @Composable
 private fun SecuritiesFilterSheet(
     filters: SecurityFilters,
-    onSortOptionChange: (SecuritySortOption) -> Unit,
-    onCurrencyToggle: (SecurityCurrency) -> Unit,
-    onPanelToggle: (SecurityPanel) -> Unit,
-    onSectorToggle: (SecuritySector) -> Unit,
+    onFiltersChange: (SecurityFilters) -> Unit,
     onClearFilters: () -> Unit,
     onApply: () -> Unit,
 ) {
@@ -367,7 +363,7 @@ private fun SecuritiesFilterSheet(
             ) {
                 RadioButton(
                     selected = filters.sortOption == option,
-                    onClick = { onSortOptionChange(option) },
+                    onClick = { onFiltersChange(filters.copy(sortOption = option)) },
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -382,7 +378,7 @@ private fun SecuritiesFilterSheet(
             SecurityCurrency.entries.forEach { currency ->
                 FilterChip(
                     selected = currency in filters.currencies,
-                    onClick = { onCurrencyToggle(currency) },
+                    onClick = { onFiltersChange(filters.copy(currencies = setOf(currency))) },
                     label = { Text(currency.label) },
                 )
             }
@@ -392,7 +388,7 @@ private fun SecuritiesFilterSheet(
             SecurityPanel.entries.forEach { panel ->
                 FilterChip(
                     selected = panel in filters.panels,
-                    onClick = { onPanelToggle(panel) },
+                    onClick = { onFiltersChange(filters.copy(panels = setOf(panel))) },
                     label = { Text(panel.label) },
                 )
             }
@@ -402,7 +398,7 @@ private fun SecuritiesFilterSheet(
             SecuritySector.entries.forEach { sector ->
                 FilterChip(
                     selected = sector in filters.sectors,
-                    onClick = { onSectorToggle(sector) },
+                    onClick = { onFiltersChange(filters.copy(sectors = setOf(sector))) },
                     label = { Text(sector.label) },
                 )
             }

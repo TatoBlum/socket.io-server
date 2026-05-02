@@ -42,18 +42,3 @@ enum class SecuritySector(val label: String) {
     Transport("Transporte"),
     Finance("Finanzas"),
 }
-
-enum class SecuritySortOption(val label: String) {
-    HighestYield("Mayor rendimiento"),
-    LowestYield("Menor rendimiento"),
-    HighestPrice("Mayor precio"),
-    LowestPrice("Menor precio"),
-}
-
-@Immutable
-data class SecurityFilters(
-    val sortOption: SecuritySortOption = SecuritySortOption.HighestYield,
-    val currencies: Set<SecurityCurrency> = emptySet(),
-    val panels: Set<SecurityPanel> = emptySet(),
-    val sectors: Set<SecuritySector> = emptySet(),
-)

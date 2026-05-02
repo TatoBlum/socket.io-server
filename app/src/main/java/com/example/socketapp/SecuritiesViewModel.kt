@@ -1,5 +1,6 @@
 package com.example.socketapp
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,10 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.socketapp.data.SecuritiesRepository
 import com.example.socketapp.model.Security
 import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityFilters
 import com.example.socketapp.model.SecurityPanel
 import com.example.socketapp.model.SecuritySector
-import com.example.socketapp.model.SecuritySortOption
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlinx.coroutines.CoroutineDispatcher
@@ -71,30 +70,23 @@ class SecuritiesViewModel(
         applyFilters()
     }
 
-    fun onCurrencyToggle(currency: SecurityCurrency) {
-        uiState = uiState.copy(
-            filters = uiState.filters.copy(
-                currencies = uiState.filters.currencies.toggle(currency),
-            ),
-        )
+    fun onCurrencySelected(currency: SecurityCurrency) {
+        uiState = uiState.copy(filters = uiState.filters.copy(currencies = setOf(currency)))
         applyFilters()
     }
 
-    fun onPanelToggle(panel: SecurityPanel) {
-        uiState = uiState.copy(
-            filters = uiState.filters.copy(
-                panels = uiState.filters.panels.toggle(panel),
-            ),
-        )
+    fun onPanelSelected(panel: SecurityPanel) {
+        uiState = uiState.copy(filters = uiState.filters.copy(panels = setOf(panel)))
         applyFilters()
     }
 
-    fun onSectorToggle(sector: SecuritySector) {
-        uiState = uiState.copy(
-            filters = uiState.filters.copy(
-                sectors = uiState.filters.sectors.toggle(sector),
-            ),
-        )
+    fun onSectorSelected(sector: SecuritySector) {
+        uiState = uiState.copy(filters = uiState.filters.copy(sectors = setOf(sector)))
+        applyFilters()
+    }
+
+    fun applyFilters(filters: SecurityFilters) {
+        uiState = uiState.copy(filters = filters)
         applyFilters()
     }
 
@@ -115,13 +107,13 @@ class SecuritiesViewModel(
     }
 
     private fun loadSecurities() {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             refreshSecurities(showLoading = true)
         }
     }
 
     private fun startPolling() {
-        viewModelScope.launch {
+        viewModelScope.launch(ioDispatcher) {
             while (isActive) {
                 delay(60_000)
                 refreshSecurities(showLoading = false)
@@ -140,7 +132,6 @@ class SecuritiesViewModel(
             }
         }.onSuccess { securities ->
             val favouriteIds = allSecurities
-                .asSequence()
                 .filter { security -> security.isFavourite }
                 .map { security -> security.id }
                 .toSet()
@@ -170,31 +161,45 @@ class SecuritiesViewModel(
         val securities = allSecurities
 
         val filteredItems = withContext(defaultDispatcher) {
-            securities
-                .asSequence()
-                .filter { security ->
-                    query.isBlank() ||
-                        security.symbol.contains(query, ignoreCase = true) ||
-                        security.name.contains(query, ignoreCase = true)
-                }
-                .filter { security -> filters.currencies.isEmpty() || security.currency in filters.currencies }
-                .filter { security -> filters.panels.isEmpty() || security.panel in filters.panels }
-                .filter { security -> filters.sectors.isEmpty() || security.sector in filters.sectors }
-                .let { sequence ->
-                    when (filters.sortOption) {
-                        SecuritySortOption.HighestYield -> sequence.sortedByDescending { it.percentageChange }
-                        SecuritySortOption.LowestYield -> sequence.sortedBy { it.percentageChange }
-                        SecuritySortOption.HighestPrice -> sequence.sortedByDescending { it.price }
-                        SecuritySortOption.LowestPrice -> sequence.sortedBy { it.price }
-                    }
-                }
-                .map { security -> security.toUiItem() }
-                .toList()
+            val filteredSecurities = securities.filter { security ->
+                val matchesQuery = query.isBlank() ||
+                    security.symbol.contains(query, ignoreCase = true) ||
+                    security.name.contains(query, ignoreCase = true)
+                val matchesCurrency = filters.currencies.isEmpty() || security.currency in filters.currencies
+                val matchesPanel = filters.panels.isEmpty() || security.panel in filters.panels
+                val matchesSector = filters.sectors.isEmpty() || security.sector in filters.sectors
+
+                matchesQuery && matchesCurrency && matchesPanel && matchesSector
+            }
+
+            val sortedSecurities = when (filters.sortOption) {
+                SecuritySortOption.HighestYield -> filteredSecurities.sortedByDescending { it.percentageChange }
+                SecuritySortOption.LowestYield -> filteredSecurities.sortedBy { it.percentageChange }
+                SecuritySortOption.HighestPrice -> filteredSecurities.sortedByDescending { it.price }
+                SecuritySortOption.LowestPrice -> filteredSecurities.sortedBy { it.price }
+            }
+
+            sortedSecurities.map { security -> security.toUiItem() }
         }
 
         uiState = uiState.copy(items = filteredItems)
     }
 }
+
+enum class SecuritySortOption(val label: String) {
+    HighestYield("Mayor rendimiento"),
+    LowestYield("Menor rendimiento"),
+    HighestPrice("Mayor precio"),
+    LowestPrice("Menor precio"),
+}
+
+@Immutable
+data class SecurityFilters(
+    val sortOption: SecuritySortOption = SecuritySortOption.HighestYield,
+    val currencies: Set<SecurityCurrency> = emptySet(),
+    val panels: Set<SecurityPanel> = emptySet(),
+    val sectors: Set<SecuritySector> = emptySet(),
+)
 
 private fun Security.toUiItem(): SecurityUiItem {
     val direction = when {
@@ -216,6 +221,3 @@ private fun Security.toUiItem(): SecurityUiItem {
         isFavourite = isFavourite,
     )
 }
-
-private fun <T> Set<T>.toggle(value: T): Set<T> =
-    if (value in this) this - value else this + value
