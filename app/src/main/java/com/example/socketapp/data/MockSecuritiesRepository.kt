@@ -23,9 +23,9 @@ class MockSecuritiesRepository : SecuritiesRepository {
                 .setScale(2, RoundingMode.HALF_UP)
 
             security.copy(
-                price = nextPrice.setScale(2, RoundingMode.HALF_UP),
-                priceChange = movement,
-                percentageChange = percent,
+                rawPrice = nextPrice.setScale(2, RoundingMode.HALF_UP).toPlainString(),
+                rawPriceChange = movement.toPlainString(),
+                rawPercentageChange = percent.toPlainString(),
             )
         }
         return securities
@@ -74,8 +74,8 @@ class MockSecuritiesRepository : SecuritiesRepository {
         return List(1_000) { index ->
             val symbol = symbols[index % symbols.size]
             val suffix = index / symbols.size
-            val price = BigDecimal(Random.nextDouble(40.0, 10_000.0)).setScale(2, RoundingMode.HALF_UP)
-            val change = BigDecimal(Random.nextDouble(-8.0, 8.0)).setScale(2, RoundingMode.HALF_UP)
+            val price = randomDecimalCents(4_000, 1_000_001)
+            val change = randomDecimalCents(-800, 801)
             val percent = change
                 .divide(price, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal("100"))
@@ -85,13 +85,16 @@ class MockSecuritiesRepository : SecuritiesRepository {
                 id = "$symbol-$suffix",
                 symbol = if (suffix == 0) symbol else "$symbol$suffix",
                 name = names.getValue(symbol),
-                price = price,
-                priceChange = change,
-                percentageChange = percent,
+                rawPrice = price.toPlainString(),
+                rawPriceChange = change.toPlainString(),
+                rawPercentageChange = percent.toPlainString(),
                 currency = if (index % 3 == 0) SecurityCurrency.Dollars else SecurityCurrency.Pesos,
                 panel = if (index % 4 == 0) SecurityPanel.General else SecurityPanel.Merval,
                 sector = SecuritySector.entries[index % SecuritySector.entries.size],
             )
         }
     }
+
+    private fun randomDecimalCents(fromCents: Long, untilCents: Long): BigDecimal =
+        BigDecimal.valueOf(Random.nextLong(fromCents, untilCents), 2)
 }

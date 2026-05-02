@@ -1,3 +1,44 @@
 <resources>
     <string name="app_name">Socket App</string>
+
+    <string name="titles_pager_category_actions">Acciones</string>
+    <string name="titles_pager_skip">Omitir</string>
+    <string name="titles_pager_next">Siguiente</string>
+    <string name="titles_pager_finish">Finalizar</string>
+
+    <string name="titles_pager_step_1_title">Forma parte de las empresas que conocés</string>
+    <string name="titles_pager_step_1_subtitle">Podés invertir en compañías que te interesen y acompañar sus posibles ganancias.</string>
+    <string name="titles_pager_step_1_helper_1">Accedés a empresas que cotizan en el mercado local.</string>
+    <string name="titles_pager_step_1_helper_2">Aprovechás el potencial de crecimiento a largo plazo.</string>
+    <string name="titles_pager_step_1_helper_3">En algunas podés cobrar dividendos.</string>
+
+    <string name="titles_pager_step_2_title">Manejás tus inversiones cuando quieras</string>
+    <string name="titles_pager_step_2_subtitle">Cuando comprás títulos, tu dinero acompaña el movimiento de cada empresa o sector.</string>
+    <string name="titles_pager_step_2_helper_1">Sabés de antemano el precio de referencia.</string>
+    <string name="titles_pager_step_2_helper_2">Recibís información para seguir cada posición.</string>
+    <string name="titles_pager_step_2_helper_3">Podés vender cuando quieras volver a pesos.</string>
+
+    <string name="titles_pager_step_3_title">Diversificá desde un solo lugar</string>
+    <string name="titles_pager_step_3_subtitle">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.</string>
+    <string name="titles_pager_step_3_helper_1">Lorem ipsum dolor sit amet.</string>
+    <string name="titles_pager_step_3_helper_2">Consectetur adipiscing elit.</string>
+    <string name="titles_pager_step_3_helper_3">Sed do eiusmod tempor incididunt.</string>
+
+    <string name="titles_pager_step_4_title">Seguí la evolución de cada título</string>
+    <string name="titles_pager_step_4_subtitle">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.</string>
+    <string name="titles_pager_step_4_helper_1">Revisás precios, variaciones y datos clave.</string>
+    <string name="titles_pager_step_4_helper_2">Comparás alternativas antes de operar.</string>
+    <string name="titles_pager_step_4_helper_3">Tenés información actualizada para decidir.</string>
+
+    <string name="titles_pager_step_5_title">Invertí con el monto que prefieras</string>
+    <string name="titles_pager_step_5_subtitle">Podés empezar de forma simple y ajustar tu posición según tus objetivos.</string>
+    <string name="titles_pager_step_5_helper_1">Elegís cuánto querés invertir.</string>
+    <string name="titles_pager_step_5_helper_2">Confirmás la operación antes de enviarla.</string>
+    <string name="titles_pager_step_5_helper_3">Consultás el detalle desde tu cartera.</string>
+
+    <string name="titles_pager_step_6_title">Organizá tus próximos movimientos</string>
+    <string name="titles_pager_step_6_subtitle">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.</string>
+    <string name="titles_pager_step_6_helper_1">Guardás favoritos para seguirlos de cerca.</string>
+    <string name="titles_pager_step_6_helper_2">Revisás oportunidades del mercado.</string>
+    <string name="titles_pager_step_6_helper_3">Volvés a operar cuando lo necesites.</string>
 </resources>

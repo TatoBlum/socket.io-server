@@ -17,7 +17,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.json.JSONTokener
-import java.util.Locale
+import java.math.RoundingMode
 import kotlin.random.Random
 
 private const val TAG = "StockTickerDataSource"
@@ -100,11 +100,14 @@ open class StockTickerDataSource(
     private fun toTicker(obj: JSONObject): StockTicker? {
         if (obj.optString("T") != "t") return null
         val symbol = obj.optString("S").takeIf { it.isNotEmpty() } ?: return null
-        val price = obj.optDouble("p", Double.NaN).takeIf { !it.isNaN() } ?: return null
+        val price = obj.opt("p")
+            ?.toString()
+            ?.toBigDecimalOrNull()
+            ?: return null
         return StockTicker(
             symbol = symbol,
             displayName = Constants.displayName(symbol),
-            price = String.format(Locale.US, "%.2f", price),
+            price = price.setScale(2, RoundingMode.HALF_UP).toPlainString(),
             previousPrice = "0.00",
             percentChange = "0.00",
         )

@@ -76,6 +76,13 @@ class AlpacaTradesParsingTest {
     }
 
     @Test
+    fun `trade with string p parses as decimal and formats to two decimals`() {
+        val result = dataSource.parse("""[{"T":"t","S":"AAPL","p":"1234.567890123"}]""")
+        assertEquals(1, result.size)
+        assertEquals("1234.57", result[0].price)
+    }
+
+    @Test
     fun `bare object (not array) returns empty without crashing`() {
         val result = dataSource.parse("""{"T":"success","msg":"connected"}""")
         assertTrue(result.isEmpty())

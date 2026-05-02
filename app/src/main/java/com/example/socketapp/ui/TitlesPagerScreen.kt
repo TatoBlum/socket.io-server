@@ -1,5 +1,8 @@
 package com.example.socketapp.ui
 
+import androidx.annotation.StringRes
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +19,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Insights
@@ -32,85 +33,93 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.socketapp.R
 import kotlinx.coroutines.launch
 
 private data class TitlePagerStep(
-    val title: String,
-    val subtitle: String,
-    val helperTexts: List<String>,
+    @StringRes val titleRes: Int,
+    @StringRes val subtitleRes: Int,
+    val helperTextRes: List<Int>,
     val background: Color,
     val icon: ImageVector,
 )
 
 private val titlePagerSteps = listOf(
     TitlePagerStep(
-        title = "Forma parte de las empresas que conoces",
-        subtitle = "Podes invertir en companias que te interesen y acompanar sus posibles ganancias.",
-        helperTexts = listOf(
-            "Accedes a empresas que cotizan en el mercado local.",
-            "Aprovechas el potencial de crecimiento a largo plazo.",
-            "En algunas podes cobrar dividendos.",
+        titleRes = R.string.titles_pager_step_1_title,
+        subtitleRes = R.string.titles_pager_step_1_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_1_helper_1,
+            R.string.titles_pager_step_1_helper_2,
+            R.string.titles_pager_step_1_helper_3,
         ),
         background = Color(0xFFFFF0DF),
         icon = Icons.Outlined.Business,
     ),
     TitlePagerStep(
-        title = "Maneja tus inversiones cuando quieras",
-        subtitle = "Cuando compras titulos, tu dinero acompana el movimiento de cada empresa o sector.",
-        helperTexts = listOf(
-            "Sabes de antemano el precio de referencia.",
-            "Recibis informacion para seguir cada posicion.",
-            "Podes vender cuando quieras volver a pesos.",
+        titleRes = R.string.titles_pager_step_2_title,
+        subtitleRes = R.string.titles_pager_step_2_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_2_helper_1,
+            R.string.titles_pager_step_2_helper_2,
+            R.string.titles_pager_step_2_helper_3,
         ),
         background = Color(0xFFEAF6FF),
         icon = Icons.Outlined.Insights,
     ),
     TitlePagerStep(
-        title = "Diversifica desde un solo lugar",
-        subtitle = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.",
-        helperTexts = listOf(
-            "Lorem ipsum dolor sit amet.",
-            "Consectetur adipiscing elit.",
-            "Sed do eiusmod tempor incididunt.",
+        titleRes = R.string.titles_pager_step_3_title,
+        subtitleRes = R.string.titles_pager_step_3_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_3_helper_1,
+            R.string.titles_pager_step_3_helper_2,
+            R.string.titles_pager_step_3_helper_3,
         ),
         background = Color(0xFFEFF7EA),
         icon = Icons.Outlined.Payments,
     ),
     TitlePagerStep(
-        title = "Segui la evolucion de cada titulo",
-        subtitle = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.",
-        helperTexts = listOf(
-            "Revisas precios, variaciones y datos clave.",
-            "Comparas alternativas antes de operar.",
-            "Tenes informacion actualizada para decidir.",
+        titleRes = R.string.titles_pager_step_4_title,
+        subtitleRes = R.string.titles_pager_step_4_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_4_helper_1,
+            R.string.titles_pager_step_4_helper_2,
+            R.string.titles_pager_step_4_helper_3,
         ),
         background = Color(0xFFF3EEFF),
         icon = Icons.Outlined.Insights,
     ),
     TitlePagerStep(
-        title = "Inverti con el monto que prefieras",
-        subtitle = "Podes empezar de forma simple y ajustar tu posicion segun tus objetivos.",
-        helperTexts = listOf(
-            "Elegis cuanto queres invertir.",
-            "Confirmas la operacion antes de enviarla.",
-            "Consultas el detalle desde tu cartera.",
+        titleRes = R.string.titles_pager_step_5_title,
+        subtitleRes = R.string.titles_pager_step_5_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_5_helper_1,
+            R.string.titles_pager_step_5_helper_2,
+            R.string.titles_pager_step_5_helper_3,
         ),
         background = Color(0xFFFFF7D8),
         icon = Icons.Outlined.Payments,
     ),
     TitlePagerStep(
-        title = "Organiza tus proximos movimientos",
-        subtitle = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.",
-        helperTexts = listOf(
-            "Guardas favoritos para seguirlos de cerca.",
-            "Revisas oportunidades del mercado.",
-            "Volves a operar cuando lo necesites.",
+        titleRes = R.string.titles_pager_step_6_title,
+        subtitleRes = R.string.titles_pager_step_6_subtitle,
+        helperTextRes = listOf(
+            R.string.titles_pager_step_6_helper_1,
+            R.string.titles_pager_step_6_helper_2,
+            R.string.titles_pager_step_6_helper_3,
         ),
         background = Color(0xFFE9F4EF),
         icon = Icons.Outlined.Business,
@@ -138,7 +147,9 @@ fun TitlesPagerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = true),
+            beyondBoundsPageCount = 0,
             verticalAlignment = Alignment.CenterVertically,
+            key = { page -> titlePagerSteps[page].titleRes },
         ) { page ->
             TitlePagerPage(step = titlePagerSteps[page])
         }
@@ -158,16 +169,18 @@ fun TitlesPagerScreen(
                 onClick = onBack,
                 modifier = Modifier.weight(1f),
             ) {
-                Text("Omitir")
+                Text(stringResource(R.string.titles_pager_skip))
             }
             Button(
+                enabled = !pagerState.isScrollInProgress,
                 onClick = {
                     if (pagerState.currentPage < titlePagerSteps.lastIndex) {
+                        val nextPage = pagerState.currentPage + 1
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(
-                                page = pagerState.currentPage + 1,
+                                page = nextPage,
                                 animationSpec = tween(
-                                    durationMillis = 450,
+                                    durationMillis = 180,
                                     easing = FastOutSlowInEasing,
                                 ),
                             )
@@ -178,7 +191,15 @@ fun TitlesPagerScreen(
                 },
                 modifier = Modifier.weight(1f),
             ) {
-                Text(if (pagerState.currentPage == titlePagerSteps.lastIndex) "Finalizar" else "Siguiente")
+                Text(
+                    stringResource(
+                        if (pagerState.currentPage == titlePagerSteps.lastIndex) {
+                            R.string.titles_pager_finish
+                        } else {
+                            R.string.titles_pager_next
+                        },
+                    ),
+                )
             }
         }
     }
@@ -223,7 +244,7 @@ private fun TitlePagerPage(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "Acciones",
+            text = stringResource(R.string.titles_pager_category_actions),
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
@@ -236,7 +257,7 @@ private fun TitlePagerPage(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = step.title,
+            text = stringResource(step.titleRes),
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 24.sp,
             lineHeight = 28.sp,
@@ -247,7 +268,7 @@ private fun TitlePagerPage(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = step.subtitle,
+            text = stringResource(step.subtitleRes),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 19.sp,
@@ -258,10 +279,13 @@ private fun TitlePagerPage(
         Spacer(modifier = Modifier.height(18.dp))
 
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .dashedBorder()
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            step.helperTexts.forEach { helperText ->
+            step.helperTextRes.forEach { helperTextRes ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.Top,
@@ -274,7 +298,7 @@ private fun TitlePagerPage(
                             .background(MaterialTheme.colorScheme.primary),
                     )
                     Text(
-                        text = helperText,
+                        text = stringResource(helperTextRes),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
@@ -282,5 +306,40 @@ private fun TitlePagerPage(
                 }
             }
         }
+    }
+}
+
+private fun Modifier.dashedBorder(
+    color: Color = Color.Black,
+    strokeWidth: Dp = 1.dp,
+    dashWidth: Dp = 4.dp,
+    dashGap: Dp = 4.dp,
+    cornerRadius: Dp = 12.dp,
+): Modifier = drawWithCache {
+    val strokeWidthPx = strokeWidth.toPx()
+    val cornerRadiusPx = cornerRadius.toPx()
+    val stroke = Stroke(
+        width = strokeWidthPx,
+        pathEffect = PathEffect.dashPathEffect(
+            intervals = floatArrayOf(dashWidth.toPx(), dashGap.toPx()),
+        ),
+    )
+    val topLeft = Offset(
+        x = strokeWidthPx / 2,
+        y = strokeWidthPx / 2,
+    )
+    val borderSize = size.copy(
+        width = size.width - strokeWidthPx,
+        height = size.height - strokeWidthPx,
+    )
+
+    onDrawBehind {
+        drawRoundRect(
+            color = color,
+            size = borderSize,
+            topLeft = topLeft,
+            cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+            style = stroke,
+        )
     }
 }
