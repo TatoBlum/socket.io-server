@@ -1,0 +1,300 @@
+Feature: listado de securities
+Documento para sociabilizar con backend
+
+Resumen
+El feature muestra un listado de acciones/securities dentro de la ruta "Acciones".
+La pantalla permite buscar por texto, ordenar, filtrar por atributos del instrumento
+y marcar/desmarcar favoritos. Hoy la implementacion usa un repositorio mock local,
+pero ya existe un contrato simple para reemplazarlo por una fuente real:
+
+interface SecuritiesRepository {
+    suspend fun getSecurities(): List<Security>
+}
+
+La pantalla no consume backend directamente. La UI habla con SecuritiesViewModel y
+el ViewModel habla con SecuritiesRepository. Esto permite cambiar MockSecuritiesRepository
+por un repository HTTP/real sin modificar la pantalla.
+
+
+Flujo funcional
+1. Al entrar a la ruta "securities", se crea un SecuritiesViewModel.
+2. El ViewModel dispara la primera carga con loadSecurities().
+3. El repository devuelve una lista de Security.
+4. El ViewModel guarda esa lista como cache en memoria en allSecurities.
+5. El ViewModel aplica busqueda, filtros y ordenamiento sobre allSecurities.
+6. La UI renderiza una lista de SecurityUiItem.
+7. Cada 60 segundos corre un polling silencioso para refrescar precios/variaciones.
+8. Si el usuario marca favoritos, el ViewModel preserva esos ids durante los refresh.
+
+
+Modelo de datos actual de dominio
+Security:
+- id: String
+  Identificador estable del security. Es clave para diff de UI, favoritos y merge
+  entre refreshes. Para backend deberia ser inmutable y unico.
+
+- symbol: String
+  Ticker visible. Ejemplos actuales: GGAL, YPFD, AAPL.
+
+- name: String
+  Nombre largo visible. Ejemplos: Grupo Financiero Galicia, YPF, Apple.
+
+- price: BigDecimal
+  Precio actual. En UI se muestra con 2 decimales.
+
+- priceChange: BigDecimal
+  Variacion absoluta del ultimo refresh o ventana definida por negocio.
+
+- percentageChange: BigDecimal
+  Variacion porcentual. Se usa para mostrar rendimiento y para ordenar.
+
+- currency: SecurityCurrency
+  Valores actuales:
+  - Pesos
+  - Dollars
+
+- panel: SecurityPanel
+  Valores actuales:
+  - Merval
+  - General
+
+- sector: SecuritySector
+  Valores actuales:
+  - Energy
+  - Technology
+  - Ai
+  - Industrial
+  - Transport
+  - Finance
+
+- isFavourite: Boolean
+  Estado de favorito. Hoy es local/in-memory. En una integracion real conviene
+  definir si este dato viene de backend, de una API de usuario, de cache local,
+  o de una combinacion.
+
+
+Modelo de UI
+El ViewModel transforma Security a SecurityUiItem para desacoplar UI del modelo crudo:
+- id
+- symbol
+- name
+- price: String formateado, ejemplo "$ 123.45"
+- variation: String formateado, ejemplo "+1.20 (+0.80%)"
+- variationDirection: Up, Down o Neutral
+- isFavourite
+
+La direccion se calcula con priceChange:
+- priceChange > 0: Up
+- priceChange < 0: Down
+- priceChange = 0: Neutral
+
+
+Cacheo actual de la app
+El cache actual es en memoria, dentro de SecuritiesViewModel:
+
+private var allSecurities: List<Security> = emptyList()
+
+Este cache cumple tres funciones:
+- Evita pedir datos de nuevo ante cada busqueda/filtro/ordenamiento.
+- Permite recalcular items visibles de forma local.
+- Permite preservar favoritos entre refreshes por polling.
+
+Limitaciones actuales:
+- No persiste si se destruye el ViewModel o se reinicia la app.
+- No hay TTL explicito ni metadata de freshness.
+- No hay cache offline en disco.
+- No hay estrategia de paginado ni incremental updates.
+
+Implicancia para backend:
+La app puede consumir un endpoint que devuelva el snapshot completo y refrescarlo
+por polling. Si el universo de securities crece mucho, conviene discutir paginado,
+delta updates o un endpoint separado para precios.
+
+
+Polling
+El ViewModel inicia polling en init:
+
+while (isActive) {
+    delay(60_000)
+    refreshSecurities(showLoading = false)
+}
+
+Comportamiento:
+- La primera carga muestra loading.
+- Los refresh posteriores son silenciosos, sin bloquear la UI.
+- Si el repository falla, se setea errorMessage y se conserva el ultimo allSecurities
+  que ya estuviera en memoria.
+- El polling queda atado al ciclo de vida del ViewModel. Cuando el ViewModel se limpia,
+  viewModelScope cancela la corutina.
+
+Contrato sugerido para backend:
+- Endpoint snapshot: GET /securities
+- Frecuencia cliente actual: cada 60 segundos.
+- Respuesta ideal: lista completa con id estable, symbol, name, price, priceChange,
+  percentageChange, currency, panel, sector.
+- Definir semantica de priceChange y percentageChange: intradiaria, ultimos 24h,
+  contra cierre anterior, u otra ventana.
+
+Puntos a definir:
+- Si backend recomienda polling de 60 segundos o una frecuencia distinta.
+- Si hay rate limits.
+- Si hay ETag, Last-Modified o version para evitar transferir datos sin cambios.
+- Si conviene separar metadata del instrumento y datos de mercado.
+
+
+Impacto en UI durante polling
+El polling puede disparar recomposiciones de la pantalla porque cada snapshot nuevo
+puede cambiar price, priceChange y percentageChange de muchos securities. La lista usa
+LazyColumn con key por id, por lo que Compose solo compone lo necesario para viewport,
+pero igual se recomponen los rows visibles cuyos datos cambian.
+
+Para evitar lag en main thread, la app mantiene esta separacion:
+- Fetch de datos en Dispatchers.IO.
+- Filtrado, ordenamiento y mapeo a SecurityUiItem en Dispatchers.Default.
+- Publicacion final del uiState en main thread.
+
+La implementacion se mantiene simple para el POC: no cancela recomputos intermedios
+de filtros/busqueda. Si el dataset crece o aparecen cambios de filtro muy frecuentes,
+se puede agregar cancelacion del trabajo anterior o migrar el estado a Flows con
+mapLatest/debounce.
+
+Riesgo actual:
+- Bajo para el POC con 1.000 securities y polling cada 60 segundos.
+- Medio/alto si el universo crece mucho, si se baja la frecuencia de polling, o si
+  backend devuelve snapshots completos con muchos cambios por tick.
+
+Riesgo estimado segun frecuencia de polling:
+- 30s: bajo.
+- 20s: bajo a medio, dependiendo del tamaño real del listado y peso del JSON.
+- 10s o menos: ya empezaria a medir y poner protecciones.
+
+Mitigaciones futuras si escala el dataset:
+- Endpoint paginado.
+- Filtros y ordenamiento server-side.
+- Separar metadata de instrumentos y quotes/precios.
+- Delta updates en lugar de snapshot completo.
+- ETag, Last-Modified o version de mercado para evitar procesamiento innecesario.
+
+
+Filtros y ordenamiento
+La busqueda y filtros se aplican localmente sobre allSecurities.
+
+Busqueda:
+- Campo searchQuery.
+- Matchea symbol o name.
+- Case-insensitive.
+- Trim de espacios alrededor.
+
+Filtros multi-seleccion:
+- currencies: Set<SecurityCurrency>
+- panels: Set<SecurityPanel>
+- sectors: Set<SecuritySector>
+
+Regla:
+- Si el set esta vacio, no filtra por ese atributo.
+- Si el set tiene valores, el security debe pertenecer a alguno de esos valores.
+
+Ordenamiento:
+- HighestYield: percentageChange descendente.
+- LowestYield: percentageChange ascendente.
+- HighestPrice: price descendente.
+- LowestPrice: price ascendente.
+
+Default:
+- SecuritySortOption.HighestYield.
+
+Implicancia para backend:
+Hoy backend no necesita soportar filtros ni ordenamiento porque se resuelven localmente.
+Si el dataset se vuelve grande, podemos mover parte del filtrado/ordenamiento al servidor
+con parametros como:
+- q
+- currencies
+- panels
+- sectors
+- sort
+- page
+- pageSize
+
+
+Toggle de favoritos
+La UI muestra una estrella por security. Al tocarla:
+1. La pantalla llama onFavouriteClick(item.id).
+2. El ViewModel recorre allSecurities.
+3. Para el id seleccionado invierte isFavourite.
+4. Reaplica filtros y actualiza la UI.
+
+Durante un refresh por polling, el ViewModel preserva favoritos actuales:
+1. Toma favouriteIds desde allSecurities.
+2. Recibe una nueva lista desde repository.
+3. Para cada security nuevo, setea isFavourite = security.isFavourite || id in favouriteIds.
+
+Esto permite que un favorito local no se pierda cuando llega un nuevo snapshot.
+
+Limitaciones actuales:
+- Favoritos no persisten entre sesiones.
+- No estan asociados a un usuario real.
+- No hay sincronizacion con backend.
+- No hay estado de loading/error especifico para marcar favorito.
+- No hay resolucion de conflictos si backend y app difieren.
+
+Opciones para backend/producto:
+1. Favoritos locales solamente:
+   La app persiste ids localmente, por ejemplo DataStore/Room. Backend no interviene.
+
+2. Favoritos server-side:
+   Backend expone endpoints por usuario:
+   - GET /users/{userId}/security-favorites
+   - PUT/POST /users/{userId}/security-favorites/{securityId}
+   - DELETE /users/{userId}/security-favorites/{securityId}
+
+3. Favoritos incluidos en el snapshot:
+   GET /securities devuelve isFavourite segun el usuario autenticado. Es simple para
+   la app, pero mezcla datos de mercado con preferencias de usuario.
+
+Recomendacion:
+Separar datos de mercado de preferencias de usuario. Mantener /securities como
+snapshot de instrumentos y tener endpoints especificos para favoritos. La app puede
+hacer optimistic update al tocar la estrella y reconciliar si backend falla.
+
+
+Contrato JSON sugerido para /securities
+[
+  {
+    "id": "GGAL-BCBA",
+    "symbol": "GGAL",
+    "name": "Grupo Financiero Galicia",
+    "price": "1234.56",
+    "priceChange": "12.34",
+    "percentageChange": "1.01",
+    "currency": "Pesos",
+    "panel": "Merval",
+    "sector": "Finance"
+  }
+]
+
+Notas:
+- Enviar decimales como string evita errores de precision binaria.
+- id debe ser estable aunque cambie symbol/name.
+- currency, panel y sector deberian ser enums acordados o codigos versionados.
+- isFavourite se puede omitir si se maneja en endpoint separado de favoritos.
+
+
+Preguntas abiertas para backend
+- Cual es el identificador canonico del security?
+- Los valores de moneda/panel/sector vienen como enum, codigo o texto?
+- Cual es la ventana correcta para priceChange y percentageChange?
+- El snapshot completo cada 60 segundos es aceptable para volumen y rate limits?
+- Hay soporte para ETag, Last-Modified, version o timestamp de mercado?
+- Favoritos deben ser locales, server-side o parte del snapshot autenticado?
+- El backend va a devolver solo acciones o tambien otros tipos de instrumentos?
+- Necesitamos paginado desde el inicio?
+- Hay horarios de mercado o estados de instrumento que deban mostrarse?
+
+
+Archivos relevantes en la app
+- app/src/main/java/com/example/socketapp/SecuritiesViewModel.kt
+- app/src/main/java/com/example/socketapp/model/Security.kt
+- app/src/main/java/com/example/socketapp/data/SecuritiesRepository.kt
+- app/src/main/java/com/example/socketapp/data/MockSecuritiesRepository.kt
+- app/src/main/java/com/example/socketapp/ui/securities/SecuritiesScreen.kt
+- app/src/main/java/com/example/socketapp/ViewModelFactory.kt
