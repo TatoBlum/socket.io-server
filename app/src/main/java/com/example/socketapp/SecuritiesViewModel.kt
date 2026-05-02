@@ -107,13 +107,13 @@ class SecuritiesViewModel(
     }
 
     private fun loadSecurities() {
-        viewModelScope.launch(ioDispatcher) {
+        viewModelScope.launch {
             refreshSecurities(showLoading = true)
         }
     }
 
     private fun startPolling() {
-        viewModelScope.launch(ioDispatcher) {
+        viewModelScope.launch {
             while (isActive) {
                 delay(60_000)
                 refreshSecurities(showLoading = false)
