@@ -48,26 +48,6 @@ class SecuritiesViewModel(
         applyFilters()
     }
 
-    fun onSortOptionChange(option: SecuritySortOption) {
-        uiState = uiState.copy(filters = uiState.filters.copy(sortOption = option))
-        applyFilters()
-    }
-
-    fun onCurrencySelected(currency: SecurityCurrency) {
-        uiState = uiState.copy(filters = uiState.filters.copy(currencies = setOf(currency)))
-        applyFilters()
-    }
-
-    fun onPanelSelected(panel: SecurityPanel) {
-        uiState = uiState.copy(filters = uiState.filters.copy(panels = setOf(panel)))
-        applyFilters()
-    }
-
-    fun onSectorSelected(sector: SecuritySector) {
-        uiState = uiState.copy(filters = uiState.filters.copy(sectors = setOf(sector)))
-        applyFilters()
-    }
-
     fun applyFilters(filters: SecurityFilters) {
         uiState = uiState.copy(filters = filters)
         applyFilters()
