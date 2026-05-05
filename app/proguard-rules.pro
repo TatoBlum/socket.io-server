@@ -20,17 +20,6 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# --- Moshi ---
-# Keep generated adapters. Moshi codegen emits *JsonAdapter alongside the data class.
--keep class **.*JsonAdapter { *; }
-# Keep @JsonClass-annotated data classes and their members (used via reflection by the adapter).
--keep @com.squareup.moshi.JsonClass class * { *; }
--keepclassmembers @com.squareup.moshi.JsonClass class * {
-    <init>(...);
-    <fields>;
-}
--keepnames @com.squareup.moshi.JsonClass class *
-
 # --- OkHttp / Okio (publicly recommended subset) ---
 -dontwarn okhttp3.**
 -dontwarn okio.**

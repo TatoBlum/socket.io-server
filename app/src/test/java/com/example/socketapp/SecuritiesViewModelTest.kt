@@ -5,9 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import com.example.socketapp.data.SecuritiesRepository
 import com.example.socketapp.model.Security
-import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityPanel
-import com.example.socketapp.model.SecuritySector
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -91,8 +88,8 @@ private fun security(
     rawPrice = "100.00",
     rawPriceChange = "1.00",
     rawPercentageChange = "1.00",
-    currency = SecurityCurrency.Pesos,
-    panel = SecurityPanel.Merval,
-    sector = SecuritySector.Technology,
+    currency = "Pesos",
+    panel = "S&P Merval",
+    sector = "Tecnologia",
     isFavourite = isFavourite,
 )

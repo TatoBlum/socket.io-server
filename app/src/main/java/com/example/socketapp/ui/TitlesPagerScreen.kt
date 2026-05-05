@@ -147,7 +147,6 @@ fun TitlesPagerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f, fill = true),
-            beyondBoundsPageCount = 0,
             verticalAlignment = Alignment.CenterVertically,
             key = { page -> titlePagerSteps[page].titleRes },
         ) { page ->

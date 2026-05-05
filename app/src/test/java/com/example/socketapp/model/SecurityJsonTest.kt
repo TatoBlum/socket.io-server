@@ -1,15 +1,13 @@
 package com.example.socketapp.model
 
-import com.squareup.moshi.Moshi
+import com.google.gson.Gson
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class SecurityJsonTest {
-    private val adapter = Moshi.Builder()
-        .build()
-        .adapter(Security::class.java)
+    private val gson = Gson()
 
     @Test
     fun `security parses decimal strings from json and exposes big decimals`() {
@@ -28,10 +26,9 @@ class SecurityJsonTest {
             }
         """.trimIndent()
 
-        val security = adapter.fromJson(json)
+        val security = gson.fromJson(json, Security::class.java)
 
         assertNotNull(security)
-        requireNotNull(security)
         assertEquals("1234.567890123", security.rawPrice)
         assertEquals("-8.125", security.rawPriceChange)
         assertEquals("-0.6579", security.rawPercentageChange)

@@ -48,24 +48,24 @@ Security:
 - percentageChange: BigDecimal
   Variacion porcentual. Se usa para mostrar rendimiento y para ordenar.
 
-- currency: SecurityCurrency
-  Valores actuales:
+- currency: String
+  Valor dinamico enviado por el servidor. Ejemplos:
   - Pesos
-  - Dollars
+  - Dolares
 
-- panel: SecurityPanel
-  Valores actuales:
-  - Merval
+- panel: String
+  Valor dinamico enviado por el servidor. Ejemplos:
+  - S&P Merval
   - General
 
-- sector: SecuritySector
-  Valores actuales:
-  - Energy
-  - Technology
-  - Ai
-  - Industrial
-  - Transport
-  - Finance
+- sector: String
+  Valor dinamico enviado por el servidor. Ejemplos:
+  - Energia
+  - Tecnologia
+  - IA
+  - Industriales
+  - Transporte
+  - Finanzas
 
 - isFavourite: Boolean
   Estado de favorito. Hoy es local/in-memory. En una integracion real conviene
@@ -186,9 +186,9 @@ Busqueda:
 - Trim de espacios alrededor.
 
 Filtros multi-seleccion:
-- currencies: Set<SecurityCurrency>
-- panels: Set<SecurityPanel>
-- sectors: Set<SecuritySector>
+- currencies: Set<String>
+- panels: Set<String>
+- sectors: Set<String>
 
 Regla:
 - Si el set esta vacio, no filtra por ese atributo.

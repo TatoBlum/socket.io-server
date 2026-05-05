@@ -8,9 +8,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.socketapp.data.SecuritiesRepository
 import com.example.socketapp.model.Security
-import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityPanel
-import com.example.socketapp.model.SecuritySector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -172,7 +169,7 @@ enum class SecuritySortOption(val label: String) {
 @Immutable
 data class SecurityFilters(
     val sortOption: SecuritySortOption = SecuritySortOption.HighestYield,
-    val currencies: Set<SecurityCurrency> = emptySet(),
-    val panels: Set<SecurityPanel> = emptySet(),
-    val sectors: Set<SecuritySector> = emptySet(),
+    val currencies: Set<String> = emptySet(),
+    val panels: Set<String> = emptySet(),
+    val sectors: Set<String> = emptySet(),
 )

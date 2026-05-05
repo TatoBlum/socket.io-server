@@ -1,9 +1,6 @@
 package com.example.socketapp.data
 
 import com.example.socketapp.model.Security
-import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityPanel
-import com.example.socketapp.model.SecuritySector
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.random.Random
@@ -70,6 +67,7 @@ class MockSecuritiesRepository : SecuritiesRepository {
             "JPM" to "JPMorgan Chase",
             "V" to "Visa",
         )
+        val sectors = listOf("Energia", "Tecnologia", "IA", "Industriales", "Transporte", "Finanzas")
 
         return List(1_000) { index ->
             val symbol = symbols[index % symbols.size]
@@ -88,9 +86,9 @@ class MockSecuritiesRepository : SecuritiesRepository {
                 rawPrice = price.toPlainString(),
                 rawPriceChange = change.toPlainString(),
                 rawPercentageChange = percent.toPlainString(),
-                currency = if (index % 3 == 0) SecurityCurrency.Dollars else SecurityCurrency.Pesos,
-                panel = if (index % 4 == 0) SecurityPanel.General else SecurityPanel.Merval,
-                sector = SecuritySector.entries[index % SecuritySector.entries.size],
+                currency = if (index % 3 == 0) "Dolares" else "Pesos",
+                panel = if (index % 4 == 0) "General" else "S&P Merval",
+                sector = sectors[index % sectors.size],
             )
         }
     }

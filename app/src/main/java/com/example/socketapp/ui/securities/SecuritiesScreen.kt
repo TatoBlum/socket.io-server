@@ -63,9 +63,6 @@ import com.example.socketapp.SecuritiesViewModel
 import com.example.socketapp.SecurityFilters
 import com.example.socketapp.SecuritySortOption
 import com.example.socketapp.model.Security
-import com.example.socketapp.model.SecurityCurrency
-import com.example.socketapp.model.SecurityPanel
-import com.example.socketapp.model.SecuritySector
 import com.example.socketapp.ui.theme.AvatarInitial
 import com.example.socketapp.ui.theme.GaliciaAvatarPalette
 import com.example.socketapp.ui.theme.PriceDown
@@ -284,7 +281,6 @@ private fun SecurityPriceColumn(item: Security) {
                 )
                 PriceVariationDirection.Neutral -> Unit
             }
-            Spacer(modifier = Modifier.width(2.dp))
             Text(
                 text = item.formattedVariation(),
                 color = variationColor,
@@ -377,31 +373,31 @@ private fun SecuritiesFilterSheet(
         }
 
         FilterSection(title = "Moneda") {
-            SecurityCurrency.entries.forEach { currency ->
+            SecurityCurrencyFilters.forEach { currency ->
                 FilterChip(
                     selected = currency in filters.currencies,
                     onClick = { onFiltersChange(filters.copy(currencies = setOf(currency))) },
-                    label = { Text(currency.label) },
+                    label = { Text(currency) },
                 )
             }
         }
 
         FilterSection(title = "Panel") {
-            SecurityPanel.entries.forEach { panel ->
+            SecurityPanelFilters.forEach { panel ->
                 FilterChip(
                     selected = panel in filters.panels,
                     onClick = { onFiltersChange(filters.copy(panels = setOf(panel))) },
-                    label = { Text(panel.label) },
+                    label = { Text(panel) },
                 )
             }
         }
 
         FilterSection(title = "Sector") {
-            SecuritySector.entries.forEach { sector ->
+            SecuritySectorFilters.forEach { sector ->
                 FilterChip(
                     selected = sector in filters.sectors,
                     onClick = { onFiltersChange(filters.copy(sectors = setOf(sector))) },
-                    label = { Text(sector.label) },
+                    label = { Text(sector) },
                 )
             }
         }
@@ -427,6 +423,17 @@ private fun SecuritiesFilterSheet(
         }
     }
 }
+
+private val SecurityCurrencyFilters = listOf("Pesos", "Dolares")
+private val SecurityPanelFilters = listOf("S&P Merval", "General")
+private val SecuritySectorFilters = listOf(
+    "Energia",
+    "Tecnologia",
+    "IA",
+    "Industriales",
+    "Transporte",
+    "Finanzas",
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -471,9 +478,8 @@ private fun Security.formattedPrice(): String =
     "$ ${price.setScale(2, RoundingMode.HALF_UP)}"
 
 private fun Security.formattedVariation(): String {
-    val sign = if (priceChange > BigDecimal.ZERO) "+" else ""
+    val roundedPriceChange = priceChange.abs().setScale(2, RoundingMode.HALF_UP)
+    val roundedPercentageChange = percentageChange.abs().setScale(2, RoundingMode.HALF_UP)
 
-    return "$sign${priceChange.setScale(2, RoundingMode.HALF_UP)} ($sign${
-        percentageChange.setScale(2, RoundingMode.HALF_UP)
-    }%)"
+    return "$roundedPriceChange ($roundedPercentageChange%)"
 }
