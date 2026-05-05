@@ -17,9 +17,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.socketapp.CheckNetworkConnection
+import com.example.socketapp.BuySecurityViewModel
 import com.example.socketapp.MainViewModel
 import com.example.socketapp.SecuritiesViewModel
 import com.example.socketapp.ViewModelFactory
+import com.example.socketapp.ui.securities.BuySecurityScreen
 import com.example.socketapp.ui.securities.SecuritiesRoute
 import com.example.socketapp.ui.tradingview.TradingViewScreen
 import com.example.socketapp.ui.tradingview.top5Favorites
@@ -59,7 +61,7 @@ fun MainScreen(
             SearchableTopBar(
                 title = when {
                     isSecuritiesRoute -> "Acciones"
-                    isTitlesRoute -> "Titulos"
+                    isTitlesRoute -> "Comprar PAMP"
                     else -> "Trading View"
                 },
                 searchPlaceholder = "Buscar",
@@ -109,8 +111,14 @@ fun MainScreen(
             }
 
             composable(MainRoute.Titles.route) {
-                TitlesPagerScreen(
-                    onBack = { navController.popBackStack() },
+                val buySecurityViewModel = viewModel<BuySecurityViewModel>(
+                    viewModelStoreOwner = it,
+                    factory = viewModelFactory,
+                )
+                BuySecurityScreen(
+                    uiState = buySecurityViewModel.uiState,
+                    onInputModeChange = buySecurityViewModel::onInputModeChange,
+                    onInputChange = buySecurityViewModel::onInputChange,
                 )
             }
         }

@@ -20,6 +20,9 @@ class ViewModelFactory() : ViewModelProvider.Factory {
         if (modelClass.isAssignableFrom(SecuritiesViewModel::class.java)) {
             return SecuritiesViewModel(MockSecuritiesRepository()) as T
         }
+        if (modelClass.isAssignableFrom(BuySecurityViewModel::class.java)) {
+            return BuySecurityViewModel() as T
+        }
         throw IllegalArgumentException("Unknown class name")
     }
 }
