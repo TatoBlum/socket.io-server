@@ -119,6 +119,8 @@ fun MainScreen(
                     uiState = buySecurityViewModel.uiState,
                     onInputModeChange = buySecurityViewModel::onInputModeChange,
                     onInputChange = buySecurityViewModel::onInputChange,
+                    onOrderTypeChange = buySecurityViewModel::onOrderTypeChange,
+                    onLimitPriceChange = buySecurityViewModel::onLimitPriceChange,
                 )
             }
         }

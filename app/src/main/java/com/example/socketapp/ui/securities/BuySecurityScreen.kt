@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyInputMode
+import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
 import com.example.socketapp.BuyableInstrument
 import com.example.socketapp.ui.theme.GaliciaPrimary
@@ -75,45 +76,17 @@ private enum class SettlementTerm(
     ),
 }
 
-private enum class OrderType(
-    val label: String,
-    val description: String,
-) {
-    Market(
-        label = "A mercado",
-        description = "Se ejecuta al mejor precio disponible en el mercado.",
-    ),
-    Limit(
-        label = "Limite",
-        description = "Podes definir un precio maximo de compra.",
-    ),
-}
-
-private data class OrderBookRow(
-    val buyQuantity: String,
-    val buyPrice: String,
-    val sellPrice: String,
-    val sellQuantity: String,
-)
-
-private val orderBookRows = listOf(
-    OrderBookRow("11.411", "$19.610,00", "$19.580,00", "92"),
-    OrderBookRow("4.270", "$19.620,00", "$19.560,00", "7.643"),
-    OrderBookRow("10.056", "$19.630,00", "$19.550,00", "200"),
-    OrderBookRow("40.021", "$19.640,00", "$19.540,00", "9.375"),
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuySecurityScreen(
     uiState: BuySecurityUiState,
     onInputModeChange: (BuyInputMode) -> Unit,
     onInputChange: (String) -> Unit,
+    onOrderTypeChange: (BuyOrderType) -> Unit,
+    onLimitPriceChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var settlementTerm by remember { mutableStateOf(SettlementTerm.Today) }
-    var orderType by remember { mutableStateOf(OrderType.Market) }
-    var limitPrice by remember { mutableStateOf("$19.210,00") }
     var activeSheet by remember { mutableStateOf<BuySheet?>(null) }
 
     Column(
@@ -140,18 +113,18 @@ fun BuySecurityScreen(
                 modifier = Modifier.weight(1f),
             )
             SelectorButton(
-                label = "Orden: ${orderType.label}",
+                label = "Orden: ${uiState.orderType.label}",
                 selected = false,
                 onClick = { activeSheet = BuySheet.OrderType },
                 modifier = Modifier.weight(1f),
             )
         }
 
-        if (orderType == OrderType.Limit) {
+        if (uiState.orderType == BuyOrderType.Limit) {
             Spacer(modifier = Modifier.height(14.dp))
             OutlinedTextField(
-                value = limitPrice,
-                onValueChange = { limitPrice = it },
+                value = uiState.limitPriceInput,
+                onValueChange = onLimitPriceChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text("Precio limite") },
@@ -160,11 +133,7 @@ fun BuySecurityScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        OrderBookTable(rows = orderBookRows)
-
-        Spacer(modifier = Modifier.height(58.dp))
+        Spacer(modifier = Modifier.height(72.dp))
 
         PurchaseInputSection(
             mode = uiState.inputMode,
@@ -179,6 +148,7 @@ fun BuySecurityScreen(
 
         Button(
             onClick = {},
+            enabled = uiState.validation.canContinue,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -186,6 +156,8 @@ fun BuySecurityScreen(
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF2D2D2D),
                 contentColor = Color.White,
+                disabledContainerColor = Color(0xFFBDBDBD),
+                disabledContentColor = Color.White,
             ),
         ) {
             Text(
@@ -221,13 +193,13 @@ fun BuySecurityScreen(
         ) {
             SelectionSheet(
                 title = "Tipo de orden",
-                options = OrderType.entries,
-                selected = orderType,
+                options = BuyOrderType.entries,
+                selected = uiState.orderType,
                 label = { it.label },
                 description = { it.description },
                 onDismiss = { activeSheet = null },
                 onSelect = {
-                    orderType = it
+                    onOrderTypeChange(it)
                     activeSheet = null
                 },
             )
@@ -487,75 +459,6 @@ private fun SelectorButton(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-@Composable
-private fun OrderBookTable(
-    rows: List<OrderBookRow>,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TableHeader("Cantidad", Modifier.weight(1f), TextAlign.Start)
-            TableHeader("Compras a", Modifier.weight(1.18f), TextAlign.End)
-            TableHeader("Vendes a", Modifier.weight(1.18f), TextAlign.End)
-            TableHeader("Cantidad", Modifier.weight(1f), TextAlign.End)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TableCell(row.buyQuantity, Modifier.weight(1f), TextAlign.Start)
-                TableCell(row.buyPrice, Modifier.weight(1.18f), TextAlign.End, bold = true)
-                TableCell(row.sellPrice, Modifier.weight(1.18f), TextAlign.End, color = Color(0xFF8F8F8F))
-                TableCell(row.sellQuantity, Modifier.weight(1f), TextAlign.End, color = Color(0xFF8F8F8F))
-            }
-        }
-    }
-}
-
-@Composable
-private fun TableHeader(
-    text: String,
-    modifier: Modifier,
-    textAlign: TextAlign,
-) {
-    Text(
-        text = text,
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.SemiBold,
-        textAlign = textAlign,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
-}
-
-@Composable
-private fun TableCell(
-    text: String,
-    modifier: Modifier,
-    textAlign: TextAlign,
-    bold: Boolean = false,
-    color: Color = MaterialTheme.colorScheme.onSurface,
-) {
-    Text(
-        text = text,
-        modifier = modifier,
-        color = color,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold,
-        textAlign = textAlign,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
 }
 
 @Composable
