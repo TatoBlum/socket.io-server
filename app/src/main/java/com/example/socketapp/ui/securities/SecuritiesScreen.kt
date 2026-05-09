@@ -11,6 +11,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,14 +77,24 @@ import java.math.RoundingMode
 @Composable
 fun SecuritiesRoute(
     viewModel: SecuritiesViewModel,
+    onSecurityClick: (Security) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    LifecycleResumeEffect(viewModel) {
+        viewModel.startPollingIfNeeded()
+
+        onPauseOrDispose {
+            viewModel.stopPolling()
+        }
+    }
+
     SecuritiesScreen(
         uiState = viewModel.uiState,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onApplyFilters = viewModel::applyFilters,
         onClearFilters = viewModel::clearFilters,
         onFavouriteClick = viewModel::onFavouriteClick,
+        onSecurityClick = onSecurityClick,
         modifier = modifier,
     )
 }
@@ -95,6 +107,7 @@ fun SecuritiesScreen(
     onApplyFilters: (SecurityFilters) -> Unit,
     onClearFilters: () -> Unit,
     onFavouriteClick: (String) -> Unit,
+    onSecurityClick: (Security) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showFilters by remember { mutableStateOf(false) }
@@ -156,6 +169,7 @@ fun SecuritiesScreen(
                 SecurityItem(
                     item = item,
                     onFavouriteClick = { onFavouriteClick(item.id) },
+                    onClick = { onSecurityClick(item) },
                 )
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant,
@@ -192,12 +206,18 @@ fun SecuritiesScreen(
 private fun SecurityItem(
     item: Security,
     onFavouriteClick: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showFavouriteIcon: Boolean = true,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

@@ -1,98 +1,62 @@
 package com.example.socketapp.data
 
+import com.example.socketapp.BuyableInstrument
 import com.example.socketapp.model.Security
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.random.Random
-import kotlinx.coroutines.delay
+import javax.inject.Inject
 
-class MockSecuritiesRepository : SecuritiesRepository {
-    private var securities = buildMockSecurities()
+class MockSecuritiesRepository @Inject constructor(
+    private val remoteDataSource: SecuritiesRemoteDataSource,
+) : SecuritiesRepository {
+    private var cachedSecurities: List<Security>? = null
 
-    override suspend fun getSecurities(): List<Security> {
-        delay(350)
-        securities = securities.map { security ->
-            val movement = BigDecimal(Random.nextDouble(-2.4, 2.4)).setScale(2, RoundingMode.HALF_UP)
-            val nextPrice = (security.price + movement).coerceAtLeast(BigDecimal("1.00"))
-            val percent = movement
-                .divide(security.price, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal("100"))
-                .setScale(2, RoundingMode.HALF_UP)
+    override fun getCachedSecurities(): List<Security>? = cachedSecurities
 
-            security.copy(
-                rawPrice = nextPrice.setScale(2, RoundingMode.HALF_UP).toPlainString(),
-                rawPriceChange = movement.toPlainString(),
-                rawPercentageChange = percent.toPlainString(),
-            )
-        }
-        return securities
+    override suspend fun refreshSecurities(): List<Security> {
+        val refreshedSecurities = remoteDataSource.fetchSecurities(cachedSecurities)
+        cachedSecurities = refreshedSecurities
+        return refreshedSecurities
     }
 
-    private fun buildMockSecurities(): List<Security> {
-        val symbols = listOf(
-            "ALUA", "BBAR", "BMA", "BYMA", "CEPU", "COME", "CRES", "EDN", "GGAL", "LOMA",
-            "MIRG", "PAMP", "SUPV", "TECO2", "TGNO4", "TGSU2", "TRAN", "TXAR", "VALO", "YPFD",
-            "AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA", "AMD", "JPM", "V",
-        )
+    override suspend fun getBuyableInstruments(): List<BuyableInstrument> =
+        cachedSecurities.orEmpty().map { security -> security.toBuyableInstrument() }
 
-        val names = mapOf(
-            "ALUA" to "Aluar",
-            "BBAR" to "BBVA Argentina",
-            "BMA" to "Banco Macro",
-            "BYMA" to "Bolsas y Mercados Argentinos",
-            "CEPU" to "Central Puerto",
-            "COME" to "Sociedad Comercial del Plata",
-            "CRES" to "Cresud",
-            "EDN" to "Edenor",
-            "GGAL" to "Grupo Financiero Galicia",
-            "LOMA" to "Loma Negra",
-            "MIRG" to "Mirgor",
-            "PAMP" to "Pampa Energia",
-            "SUPV" to "Grupo Supervielle",
-            "TECO2" to "Telecom Argentina",
-            "TGNO4" to "Transportadora Gas del Norte",
-            "TGSU2" to "Transportadora Gas del Sur",
-            "TRAN" to "Transener",
-            "TXAR" to "Ternium Argentina",
-            "VALO" to "Grupo Financiero Valores",
-            "YPFD" to "YPF",
-            "AAPL" to "Apple",
-            "AMZN" to "Amazon",
-            "GOOGL" to "Alphabet",
-            "META" to "Meta Platforms",
-            "MSFT" to "Microsoft",
-            "NVDA" to "Nvidia",
-            "TSLA" to "Tesla",
-            "AMD" to "Advanced Micro Devices",
-            "JPM" to "JPMorgan Chase",
-            "V" to "Visa",
-        )
-        val sectors = listOf("Energia", "Tecnologia", "IA", "Industriales", "Transporte", "Finanzas")
+    override suspend fun getBuyableInstrument(id: String): BuyableInstrument? =
+        cachedSecurities.orEmpty()
+            .firstOrNull { security -> security.id == id }
+            ?.toBuyableInstrument()
 
-        return List(1_000) { index ->
-            val symbol = symbols[index % symbols.size]
-            val suffix = index / symbols.size
-            val price = randomDecimalCents(4_000, 1_000_001)
-            val change = randomDecimalCents(-800, 801)
-            val percent = change
-                .divide(price, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal("100"))
-                .setScale(2, RoundingMode.HALF_UP)
-
-            Security(
-                id = "$symbol-$suffix",
-                symbol = if (suffix == 0) symbol else "$symbol$suffix",
-                name = names.getValue(symbol),
-                rawPrice = price.toPlainString(),
-                rawPriceChange = change.toPlainString(),
-                rawPercentageChange = percent.toPlainString(),
-                currency = if (index % 3 == 0) "Dolares" else "Pesos",
-                panel = if (index % 4 == 0) "General" else "S&P Merval",
-                sector = sectors[index % sectors.size],
-            )
+    private fun Security.toBuyableInstrument(): BuyableInstrument {
+        val normalizedCurrency = when (currency.lowercase()) {
+            "dolares" -> "USD"
+            else -> "ARS"
         }
-    }
+        val spread = price.multiply(BigDecimal("0.0015")).setScale(2, RoundingMode.HALF_UP)
+        val ask = price.add(spread).setScale(2, RoundingMode.HALF_UP)
+        val bid = price.subtract(spread).coerceAtLeast(BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP)
 
-    private fun randomDecimalCents(fromCents: Long, untilCents: Long): BigDecimal =
-        BigDecimal.valueOf(Random.nextLong(fromCents, untilCents), 2)
+        return BuyableInstrument(
+            id = id.hashCode() and Int.MAX_VALUE,
+            ticker = symbol,
+            description = name,
+            subType = "Acciones",
+            currency = normalizedCurrency,
+            codeType = "MOCK_SECURITY_ID",
+            codeValue = id,
+            industry = sector,
+            liderMerval = panel == "S&P Merval",
+            indexationType = null,
+            isFavorite = isFavourite,
+            holdingQuantity = BigDecimal("10"),
+            minInstrumentNominals = BigDecimal("1"),
+            lotInstrumentSize = BigDecimal("1"),
+            minTradeNominals = BigDecimal("1"),
+            lastPrice = price.setScale(2, RoundingMode.HALF_UP),
+            dailyVariationPercent = percentageChange.setScale(2, RoundingMode.HALF_UP),
+            askPrice = ask,
+            bidPrice = bid,
+            percentageMovement = BigDecimal("0.15"),
+        )
+    }
 }

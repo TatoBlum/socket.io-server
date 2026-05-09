@@ -10,6 +10,8 @@ import com.example.socketapp.model.ConnectionState
 import com.example.socketapp.model.PriceDirection
 import com.example.socketapp.model.StockTicker
 import com.example.socketapp.socket.StockTickerDataSource
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,10 +26,17 @@ import kotlinx.coroutines.launch
 private const val TAG = "MainViewModel"
 private const val PUBLISH_INTERVAL_MS = 250L
 
+@HiltViewModel
 class MainViewModel(
     private val tickerDataSource: StockTickerDataSource,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
+    @Inject
+    constructor(tickerDataSource: StockTickerDataSource) : this(
+        tickerDataSource = tickerDataSource,
+        ioDispatcher = Dispatchers.IO,
+    )
+
 
     private val _tickers = MutableStateFlow<Map<String, StockTicker>>(emptyMap())
     val tickers: StateFlow<Map<String, StockTicker>> = _tickers.asStateFlow()

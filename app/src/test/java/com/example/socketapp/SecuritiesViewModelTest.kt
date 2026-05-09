@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import com.example.socketapp.data.SecuritiesRepository
 import com.example.socketapp.model.Security
+import java.math.BigDecimal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -45,6 +46,7 @@ class SecuritiesViewModelTest {
         assertEquals(false, vm.uiState.items.single { item -> item.id == "AAPL" }.isFavourite)
 
         repository.securities = listOf(security(id = "AAPL", isFavourite = true))
+        vm.startPollingIfNeeded()
         advanceTimeBy(60_000)
 
         assertEquals(false, vm.uiState.items.single { item -> item.id == "AAPL" }.isFavourite)
@@ -59,9 +61,9 @@ class SecuritiesViewModelTest {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 SecuritiesViewModel(
-                    repository = repository,
-                    ioDispatcher = testDispatcher,
-                    defaultDispatcher = testDispatcher,
+                    repository,
+                    testDispatcher,
+                    testDispatcher,
                 ) as T
         }
 
@@ -74,9 +76,45 @@ private class FakeSecuritiesRepository(
 ) : SecuritiesRepository {
 
     var securities = listOf(security)
+    private var cache: List<Security>? = null
 
-    override suspend fun getSecurities(): List<Security> = securities
+    override fun getCachedSecurities(): List<Security>? = cache
+
+    override suspend fun refreshSecurities(): List<Security> {
+        cache = securities
+        return securities
+    }
+
+    override suspend fun getBuyableInstruments(): List<BuyableInstrument> =
+        securities.map { security -> security.toBuyableInstrument() }
+
+    override suspend fun getBuyableInstrument(id: String): BuyableInstrument? =
+        securities.firstOrNull { security -> security.id == id }?.toBuyableInstrument()
 }
+
+private fun Security.toBuyableInstrument(): BuyableInstrument =
+    BuyableInstrument(
+        id = id.hashCode() and Int.MAX_VALUE,
+        ticker = symbol,
+        description = name,
+        subType = "Acciones",
+        currency = "ARS",
+        codeType = "MOCK_SECURITY_ID",
+        codeValue = id,
+        industry = sector,
+        liderMerval = panel == "S&P Merval",
+        indexationType = null,
+        isFavorite = isFavourite,
+        holdingQuantity = BigDecimal("10"),
+        minInstrumentNominals = BigDecimal("1"),
+        lotInstrumentSize = BigDecimal("1"),
+        minTradeNominals = BigDecimal("1"),
+        lastPrice = price,
+        dailyVariationPercent = percentageChange,
+        askPrice = price,
+        bidPrice = price,
+        percentageMovement = BigDecimal("0.15"),
+    )
 
 private fun security(
     id: String,

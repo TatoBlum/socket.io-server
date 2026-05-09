@@ -5,8 +5,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.socketapp.data.SecuritiesRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
 import java.math.RoundingMode
+import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 enum class TradeType(val label: String) {
     Buy("Compra"),
@@ -99,13 +104,37 @@ data class BuySecurityUiState(
         get() = validation.errors.firstOrNull()
 }
 
-class BuySecurityViewModel(
-    initialState: BuySecurityUiState = BuySecurityUiState(),
+@HiltViewModel
+class BuySecurityViewModel @Inject constructor(
+    private val repository: SecuritiesRepository,
 ) : ViewModel() {
-    var uiState by mutableStateOf(initialState)
+    var uiState by mutableStateOf(BuySecurityUiState())
         private set
 
-    init {
+    fun loadInstrument(securityId: String) {
+        viewModelScope.launch {
+            val instrument = repository.getBuyableInstrument(securityId) ?: return@launch
+            uiState = uiState.copy(
+                instrument = instrument,
+                tradeCurrency = instrument.currency,
+                limitPriceInput = instrument.askPrice.toMoneyString().replace(".", ","),
+            )
+            revalidate()
+        }
+    }
+
+    internal fun replaceInstrument(instrument: BuyableInstrument) {
+        uiState = uiState.copy(instrument = instrument)
+        revalidate()
+    }
+
+    internal fun replaceAccountContext(accountContext: BuySecurityAccountContext) {
+        uiState = uiState.copy(accountContext = accountContext)
+        revalidate()
+    }
+
+    internal fun replaceTradeCurrency(tradeCurrency: String) {
+        uiState = uiState.copy(tradeCurrency = tradeCurrency)
         revalidate()
     }
 
@@ -176,7 +205,7 @@ class BuySecurityViewModel(
         }
 
         val activeInput = state.activeInput.toBigDecimalOrNullForLocale()
-        if (activeInput == null || activeInput == BigDecimal.ZERO) {
+        if (activeInput == null) {
             return BuyValidationResult(
                 tradePrice = tradePrice,
                 maxInstrumentNominals = computeMaxInstrumentNominals(state, tradePrice),
@@ -390,7 +419,9 @@ class BuySecurityViewModel(
     ): List<String> {
         val errors = mutableListOf<String>()
 
-        if (tradeNominals < minNominals) {
+        if (tradeNominals <= BigDecimal.ZERO) {
+            errors += "La cantidad debe ser mayor a cero"
+        } else if (tradeNominals < minNominals) {
             errors += "La cantidad minima es ${minNominals.toPlainString()} nominales"
         }
         if (lotSize > BigDecimal.ZERO && tradeNominals.remainder(lotSize) != BigDecimal.ZERO) {
@@ -431,17 +462,26 @@ class BuySecurityViewModel(
         balanceArs: BigDecimal,
         balanceUsd: BigDecimal,
     ): List<String> {
-        if (tradeType == TradeType.Sell) return emptyList()
+        val errors = mutableListOf<String>()
 
-        val requiredBalance = computeTotalTradeAmount(currency, tradeAmount, tradeFee)
-        val availableBalance = if (currency == "USD") balanceUsd else balanceArs
         val operationLabel = if (operationMode == BuyInputMode.Amount) "monto" else "cantidad"
 
-        return if (requiredBalance > availableBalance) {
-            listOf("Saldo insuficiente para operar por $operationLabel")
-        } else {
-            emptyList()
+        if (tradeType == TradeType.Buy && currency == "ARS" && balanceArs < tradeAmount) {
+            errors += "Saldo insuficiente para operar por $operationLabel"
         }
+        if (tradeType == TradeType.Buy && currency == "USD") {
+            if (balanceArs < tradeFee) {
+                errors += "Saldo insuficiente en pesos para comisiones"
+            }
+            if (balanceUsd < tradeAmount) {
+                errors += "Saldo insuficiente en dolares para operar por $operationLabel"
+            }
+        }
+        if (tradeType == TradeType.Sell && currency == "USD" && balanceArs < tradeFee) {
+            errors += "Saldo insuficiente en pesos para comisiones"
+        }
+
+        return errors
     }
 
     private fun computeTotalTradeAmount(

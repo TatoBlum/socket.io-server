@@ -7,13 +7,19 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.socketapp.data.SecuritiesRepository
+import com.example.socketapp.di.DefaultDispatcher
+import com.example.socketapp.di.IoDispatcher
 import com.example.socketapp.model.Security
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val SECURITIES_POLLING_INTERVAL_MS = 60_000L
 
 data class SecuritiesUiState(
     val isLoading: Boolean = true,
@@ -23,21 +29,21 @@ data class SecuritiesUiState(
     val errorMessage: String? = null,
 )
 
-class SecuritiesViewModel(
+@HiltViewModel
+class SecuritiesViewModel @Inject constructor(
     private val repository: SecuritiesRepository,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
-
     var uiState by mutableStateOf(SecuritiesUiState())
         private set
 
     private var allSecurities: List<Security> = emptyList()
     private val pendingFavouriteUpdates = mutableMapOf<String, Boolean>()
+    private var pollingJob: Job? = null
 
     init {
-        loadSecurities()
-        startPolling()
+        loadCachedOrFetch()
     }
 
     fun onSearchQueryChange(query: String) {
@@ -70,18 +76,35 @@ class SecuritiesViewModel(
         applyFilters()
     }
 
-    private fun loadSecurities() {
-        viewModelScope.launch {
-            refreshSecurities(showLoading = true)
+    fun startPollingIfNeeded() {
+        if (pollingJob?.isActive == true) return
+
+        pollingJob = viewModelScope.launch {
+            while (isActive) {
+                delay(SECURITIES_POLLING_INTERVAL_MS)
+                refreshSecurities(showLoading = false)
+            }
         }
     }
 
-    private fun startPolling() {
-        viewModelScope.launch {
-            while (isActive) {
-                delay(60_000)
-                refreshSecurities(showLoading = false)
+    fun stopPolling() {
+        pollingJob?.cancel()
+        pollingJob = null
+    }
+
+    private fun loadCachedOrFetch() {
+        val cachedSecurities = repository.getCachedSecurities()
+        if (cachedSecurities != null) {
+            allSecurities = applyPendingFavouriteUpdates(cachedSecurities)
+            viewModelScope.launch {
+                applyFiltersImmediately()
+                uiState = uiState.copy(isLoading = false, errorMessage = null)
             }
+            return
+        }
+
+        viewModelScope.launch {
+            refreshSecurities(showLoading = true)
         }
     }
 
@@ -92,17 +115,10 @@ class SecuritiesViewModel(
 
         runCatching {
             withContext(ioDispatcher) {
-                repository.getSecurities()
+                repository.refreshSecurities()
             }
         }.onSuccess { securities ->
-            allSecurities = securities.map { security ->
-                val pendingFavourite = pendingFavouriteUpdates[security.id]
-
-                clearPendingFavouriteUpdateIfServerIsSynced(security, pendingFavourite)
-
-                security.copy(isFavourite = pendingFavourite ?: security.isFavourite)
-            }
-
+            allSecurities = applyPendingFavouriteUpdates(securities)
             applyFiltersImmediately()
             uiState = uiState.copy(isLoading = false, errorMessage = null)
         }.onFailure { error ->
@@ -112,6 +128,15 @@ class SecuritiesViewModel(
             )
         }
     }
+
+    private fun applyPendingFavouriteUpdates(securities: List<Security>): List<Security> =
+        securities.map { security ->
+            val pendingFavourite = pendingFavouriteUpdates[security.id]
+
+            clearPendingFavouriteUpdateIfServerIsSynced(security, pendingFavourite)
+
+            security.copy(isFavourite = pendingFavourite ?: security.isFavourite)
+        }
 
     private fun clearPendingFavouriteUpdateIfServerIsSynced(
         security: Security,

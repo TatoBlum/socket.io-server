@@ -10,17 +10,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.socketapp.CheckNetworkConnection
 import com.example.socketapp.BuySecurityViewModel
 import com.example.socketapp.MainViewModel
 import com.example.socketapp.SecuritiesViewModel
-import com.example.socketapp.ViewModelFactory
 import com.example.socketapp.ui.securities.BuySecurityScreen
 import com.example.socketapp.ui.securities.SecuritiesRoute
 import com.example.socketapp.ui.tradingview.TradingViewScreen
@@ -32,7 +33,6 @@ private const val TAG = "MainScreen"
 @Composable
 fun MainScreen(
     mainViewModel: MainViewModel,
-    viewModelFactory: ViewModelFactory,
     networkConnection: CheckNetworkConnection,
 ) {
     val tickerMap by mainViewModel.tickers.collectAsStateWithLifecycle()
@@ -61,7 +61,7 @@ fun MainScreen(
             SearchableTopBar(
                 title = when {
                     isSecuritiesRoute -> "Acciones"
-                    isTitlesRoute -> "Comprar PAMP"
+                    isTitlesRoute -> "Comprar"
                     else -> "Trading View"
                 },
                 searchPlaceholder = "Buscar",
@@ -96,7 +96,7 @@ fun MainScreen(
                     networkConnection = networkConnection,
                     favorites = favoritesTop5,
                     onOpenTitles = {
-                        navController.navigate(MainRoute.Titles.route) {
+                        navController.navigate(MainRoute.Titles.createRoute("PAMP-0")) {
                             launchSingleTop = true
                         }
                     },
@@ -104,17 +104,28 @@ fun MainScreen(
             }
 
             composable(MainRoute.Securities.route) { backStackEntry ->
-                val routeViewModel = viewModel<SecuritiesViewModel>(
-                    viewModelStoreOwner = backStackEntry, factory = viewModelFactory,
+                val routeViewModel = hiltViewModel<SecuritiesViewModel>(backStackEntry)
+                SecuritiesRoute(
+                    viewModel = routeViewModel,
+                    onSecurityClick = { security ->
+                        navController.navigate(MainRoute.Titles.createRoute(security.id))
+                    },
                 )
-                SecuritiesRoute(viewModel = routeViewModel)
             }
 
-            composable(MainRoute.Titles.route) {
-                val buySecurityViewModel = viewModel<BuySecurityViewModel>(
-                    viewModelStoreOwner = it,
-                    factory = viewModelFactory,
-                )
+            composable(
+                route = MainRoute.Titles.route,
+                arguments = listOf(navArgument(MainRoute.Titles.SecurityIdArgument) { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val securityId = backStackEntry.arguments
+                    ?.getString(MainRoute.Titles.SecurityIdArgument)
+                    .orEmpty()
+                val buySecurityViewModel = hiltViewModel<BuySecurityViewModel>(backStackEntry)
+
+                LaunchedEffect(securityId) {
+                    buySecurityViewModel.loadInstrument(securityId)
+                }
+
                 BuySecurityScreen(
                     uiState = buySecurityViewModel.uiState,
                     onInputModeChange = buySecurityViewModel::onInputModeChange,
@@ -136,5 +147,9 @@ private sealed class MainRoute(val route: String) {
     data object Securities : MainRoute("securities")
 
     @Serializable
-    data object Titles : MainRoute("titles")
+    data object Titles : MainRoute("buy/{securityId}") {
+        const val SecurityIdArgument = "securityId"
+
+        fun createRoute(securityId: String): String = "buy/$securityId"
+    }
 }
