@@ -39,7 +39,7 @@ data class BuyableInstrument(
     val id: Int,
     val ticker: String,
     val description: String,
-    val subType: String,
+    val type: String,
     val currency: String,
     val codeType: String,
     val codeValue: String,
@@ -83,7 +83,7 @@ data class BuyValidationResult(
 }
 
 data class BuySecurityUiState(
-    val instrument: BuyableInstrument = MockBuyableInstrument,
+    val instrument: BuyableInstrument? = null,
     val accountContext: BuySecurityAccountContext = BuySecurityAccountContext(),
     val tradeType: TradeType = TradeType.Buy,
     val orderType: BuyOrderType = BuyOrderType.Market,
@@ -173,6 +173,7 @@ class BuySecurityViewModel @Inject constructor(
 
     private fun validate(state: BuySecurityUiState): BuyValidationResult {
         val instrument = state.instrument
+            ?: return BuyValidationResult(fee = state.accountContext.tradeFee)
         val context = state.accountContext
         val errors = mutableListOf<String>()
 
@@ -189,7 +190,7 @@ class BuySecurityViewModel @Inject constructor(
                     percentageMovement = instrument.percentageMovement,
                 )
                 errors += validateLimitPriceMultiple(
-                    instrumentSubType = instrument.subType,
+                    instrumentSubType = instrument.type,
                     isLiderMerval = instrument.liderMerval,
                     limitPrice = limitPrice,
                 )
@@ -398,15 +399,16 @@ class BuySecurityViewModel @Inject constructor(
         state: BuySecurityUiState,
         tradePrice: BigDecimal,
     ): BigDecimal {
+        val instrument = state.instrument ?: return BigDecimal.ZERO
         if (tradePrice <= BigDecimal.ZERO) return BigDecimal.ZERO
-        if (state.tradeType == TradeType.Sell) return state.instrument.holdingQuantity
+        if (state.tradeType == TradeType.Sell) return instrument.holdingQuantity
 
         val balance = if (state.tradeCurrency == "USD") {
             state.accountContext.accountBalanceUsd
         } else {
             state.accountContext.accountBalanceArs
         }
-        return computeNominalsFromAmount(balance, tradePrice, state.instrument.lotInstrumentSize)
+        return computeNominalsFromAmount(balance, tradePrice, instrument.lotInstrumentSize)
     }
 
     private fun validateNominals(
@@ -530,29 +532,6 @@ class BuySecurityViewModel @Inject constructor(
         return "$integerPart,$decimalPart"
     }
 }
-
-private val MockBuyableInstrument = BuyableInstrument(
-    id = 66238,
-    ticker = "PAMP",
-    description = "PAMPA HOLDING SA ORD. 1V.",
-    subType = "Acciones",
-    currency = "ARS",
-    codeType = "CAJA_VALOR",
-    codeValue = "457",
-    industry = "Electric Utilities",
-    liderMerval = false,
-    indexationType = null,
-    isFavorite = false,
-    holdingQuantity = BigDecimal("10"),
-    minInstrumentNominals = BigDecimal("1"),
-    lotInstrumentSize = BigDecimal("1"),
-    minTradeNominals = BigDecimal("100"),
-    lastPrice = BigDecimal("40005.75"),
-    dailyVariationPercent = BigDecimal("0.27"),
-    askPrice = BigDecimal("19610.00"),
-    bidPrice = BigDecimal("19580.00"),
-    percentageMovement = BigDecimal("0.15"),
-)
 
 private fun String.toBigDecimalOrNullForLocale(): BigDecimal? =
     when {

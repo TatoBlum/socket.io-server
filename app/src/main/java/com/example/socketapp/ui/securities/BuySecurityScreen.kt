@@ -97,7 +97,11 @@ fun BuySecurityScreen(
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp, bottom = 24.dp),
     ) {
-        SecurityHeader(instrument = uiState.instrument)
+        if (uiState.instrument != null) {
+            SecurityHeader(instrument = uiState.instrument)
+        } else {
+            SecurityHeaderPlaceholder()
+        }
 
         Spacer(modifier = Modifier.height(26.dp))
 
@@ -352,6 +356,36 @@ private fun PurchaseModeChip(
             color = if (selected) GaliciaPrimary else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun SecurityHeaderPlaceholder() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF111111)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AccountBalance,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Cargando instrumento",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }

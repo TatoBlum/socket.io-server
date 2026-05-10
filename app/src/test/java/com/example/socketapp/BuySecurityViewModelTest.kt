@@ -9,6 +9,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BuySecurityViewModelTest {
+    @Test
+    fun `initial state has no instrument`() {
+        val viewModel = BuySecurityViewModel(FakeBuySecuritiesRepository())
+
+        assertEquals(null, viewModel.uiState.instrument)
+        assertFalse(viewModel.uiState.validation.canContinue)
+    }
 
     @Test
     fun `buy limit rejects only prices above ask plus movement`() {
@@ -130,7 +137,7 @@ class BuySecurityViewModelTest {
     fun `quantity mode rejects nominals below minimum`() {
         val viewModel = buySecurityViewModel()
         viewModel.replaceInstrument(
-            viewModel.uiState.instrument.copy(minInstrumentNominals = BigDecimal("5")),
+            TestBuyableInstrument.copy(minInstrumentNominals = BigDecimal("5")),
         )
 
         viewModel.onInputModeChange(BuyInputMode.Quantity)
@@ -148,7 +155,7 @@ class BuySecurityViewModelTest {
     fun `quantity mode rejects nominals not multiple of lot size`() {
         val viewModel = buySecurityViewModel()
         viewModel.replaceInstrument(
-            viewModel.uiState.instrument.copy(lotInstrumentSize = BigDecimal("5")),
+            TestBuyableInstrument.copy(lotInstrumentSize = BigDecimal("5")),
         )
 
         viewModel.onInputModeChange(BuyInputMode.Quantity)
@@ -181,7 +188,7 @@ class BuySecurityViewModelTest {
     @Test
     fun `limit price rejects invalid multiple for stock range`() {
         val viewModel = buySecurityViewModel()
-        viewModel.replaceInstrument(viewModel.uiState.instrument.copy(liderMerval = true))
+        viewModel.replaceInstrument(TestBuyableInstrument.copy(liderMerval = true))
 
         viewModel.onOrderTypeChange(BuyOrderType.Limit)
         viewModel.onLimitPriceChange("19.210,25")
@@ -197,7 +204,7 @@ class BuySecurityViewModelTest {
     fun `limit price accepts valid multiple for letras`() {
         val viewModel = buySecurityViewModel()
         viewModel.replaceInstrument(
-            viewModel.uiState.instrument.copy(subType = "Letras"),
+            TestBuyableInstrument.copy(type = "Letras"),
         )
 
         viewModel.onOrderTypeChange(BuyOrderType.Limit)
@@ -359,7 +366,32 @@ class BuySecurityViewModelTest {
 }
 
 private fun buySecurityViewModel(): BuySecurityViewModel =
-    BuySecurityViewModel(FakeBuySecuritiesRepository())
+    BuySecurityViewModel(FakeBuySecuritiesRepository()).also { viewModel ->
+        viewModel.replaceInstrument(TestBuyableInstrument)
+    }
+
+private val TestBuyableInstrument = BuyableInstrument(
+    id = 66238,
+    ticker = "PAMP",
+    description = "PAMPA HOLDING SA ORD. 1V.",
+    type = "Acciones",
+    currency = "ARS",
+    codeType = "CAJA_VALOR",
+    codeValue = "457",
+    industry = "Electric Utilities",
+    liderMerval = false,
+    indexationType = null,
+    isFavorite = false,
+    holdingQuantity = BigDecimal("10"),
+    minInstrumentNominals = BigDecimal("1"),
+    lotInstrumentSize = BigDecimal("1"),
+    minTradeNominals = BigDecimal("100"),
+    lastPrice = BigDecimal("40005.75"),
+    dailyVariationPercent = BigDecimal("0.27"),
+    askPrice = BigDecimal("19610.00"),
+    bidPrice = BigDecimal("19580.00"),
+    percentageMovement = BigDecimal("0.15"),
+)
 
 private class FakeBuySecuritiesRepository : SecuritiesRepository {
     override fun getCachedSecurities(): List<Security>? = null

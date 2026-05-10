@@ -40,7 +40,7 @@ class MockSecuritiesRepository @Inject constructor(
             id = id.hashCode() and Int.MAX_VALUE,
             ticker = symbol,
             description = name,
-            subType = "Acciones",
+            type = "Acciones",
             currency = normalizedCurrency,
             codeType = "MOCK_SECURITY_ID",
             codeValue = id,
