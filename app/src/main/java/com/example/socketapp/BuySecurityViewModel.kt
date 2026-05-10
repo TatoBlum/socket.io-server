@@ -47,10 +47,10 @@ data class BuyableInstrument(
     val liderMerval: Boolean,
     val indexationType: String?,
     val isFavorite: Boolean,
-    val holdingQuantity: BigDecimal,
-    val minInstrumentNominals: BigDecimal,
-    val lotInstrumentSize: BigDecimal,
-    val minTradeNominals: BigDecimal,
+    val holdingQuantity: Int,
+    val minInstrumentNominals: Int,
+    val lotInstrumentSize: Int,
+    val minTradeNominals: Int,
     val lastPrice: BigDecimal,
     val dailyVariationPercent: BigDecimal,
     val askPrice: BigDecimal,
@@ -225,7 +225,7 @@ class BuySecurityViewModel @Inject constructor(
                 val nominals = computeNominalsFromAmount(
                     tradeAmount = amount,
                     tradePrice = tradePrice,
-                    lotSize = instrument.lotInstrumentSize,
+                    lotSize = instrument.lotInstrumentSize.toBigDecimal(),
                 )
                 nominals to amount.setScale(2, RoundingMode.HALF_UP)
             }
@@ -239,17 +239,17 @@ class BuySecurityViewModel @Inject constructor(
         errors += validateNominals(
             tradeType = state.tradeType,
             tradeNominals = tradeNominals,
-            minNominals = instrument.minInstrumentNominals,
-            lotSize = instrument.lotInstrumentSize,
+            minNominals = instrument.minInstrumentNominals.toBigDecimal(),
+            lotSize = instrument.lotInstrumentSize.toBigDecimal(),
             maxInstrumentNominals = maxInstrumentNominals,
-            nominalsAvailable = instrument.holdingQuantity,
+            nominalsAvailable = instrument.holdingQuantity.toBigDecimal(),
         )
 
         if (state.tradeType == TradeType.Sell && state.inputMode == BuyInputMode.Amount) {
             errors += validateSellByAmountMax(
                 orderType = state.orderType,
                 tradeAmount = tradeAmount,
-                nominalsAvailable = instrument.holdingQuantity,
+                nominalsAvailable = instrument.holdingQuantity.toBigDecimal(),
                 bidPrice = instrument.bidPrice,
                 limitPrice = limitPrice,
             )
@@ -401,14 +401,14 @@ class BuySecurityViewModel @Inject constructor(
     ): BigDecimal {
         val instrument = state.instrument ?: return BigDecimal.ZERO
         if (tradePrice <= BigDecimal.ZERO) return BigDecimal.ZERO
-        if (state.tradeType == TradeType.Sell) return instrument.holdingQuantity
+        if (state.tradeType == TradeType.Sell) return instrument.holdingQuantity.toBigDecimal()
 
         val balance = if (state.tradeCurrency == "USD") {
             state.accountContext.accountBalanceUsd
         } else {
             state.accountContext.accountBalanceArs
         }
-        return computeNominalsFromAmount(balance, tradePrice, instrument.lotInstrumentSize)
+        return computeNominalsFromAmount(balance, tradePrice, instrument.lotInstrumentSize.toBigDecimal())
     }
 
     private fun validateNominals(

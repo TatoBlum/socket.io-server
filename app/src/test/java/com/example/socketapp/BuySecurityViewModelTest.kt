@@ -137,7 +137,7 @@ class BuySecurityViewModelTest {
     fun `quantity mode rejects nominals below minimum`() {
         val viewModel = buySecurityViewModel()
         viewModel.replaceInstrument(
-            TestBuyableInstrument.copy(minInstrumentNominals = BigDecimal("5")),
+            TestBuyableInstrument.copy(minInstrumentNominals = 5),
         )
 
         viewModel.onInputModeChange(BuyInputMode.Quantity)
@@ -155,7 +155,7 @@ class BuySecurityViewModelTest {
     fun `quantity mode rejects nominals not multiple of lot size`() {
         val viewModel = buySecurityViewModel()
         viewModel.replaceInstrument(
-            TestBuyableInstrument.copy(lotInstrumentSize = BigDecimal("5")),
+            TestBuyableInstrument.copy(lotInstrumentSize = 5),
         )
 
         viewModel.onInputModeChange(BuyInputMode.Quantity)
@@ -382,10 +382,10 @@ private val TestBuyableInstrument = BuyableInstrument(
     liderMerval = false,
     indexationType = null,
     isFavorite = false,
-    holdingQuantity = BigDecimal("10"),
-    minInstrumentNominals = BigDecimal("1"),
-    lotInstrumentSize = BigDecimal("1"),
-    minTradeNominals = BigDecimal("100"),
+    holdingQuantity = 10,
+    minInstrumentNominals = 1,
+    lotInstrumentSize = 1,
+    minTradeNominals = 100,
     lastPrice = BigDecimal("40005.75"),
     dailyVariationPercent = BigDecimal("0.27"),
     askPrice = BigDecimal("19610.00"),
