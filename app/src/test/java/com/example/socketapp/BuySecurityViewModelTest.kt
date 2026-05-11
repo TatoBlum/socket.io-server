@@ -1,7 +1,8 @@
 package com.example.socketapp
 
 import com.example.socketapp.data.SecuritiesRepository
-import com.example.socketapp.model.Security
+import com.example.socketapp.Security as BuyableSecurity
+import com.example.socketapp.model.Security as MarketSecurity
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,7 +12,7 @@ import org.junit.Test
 class BuySecurityViewModelTest {
     @Test
     fun `initial state has no instrument`() {
-        val viewModel = BuySecurityViewModel(FakeBuySecuritiesRepository())
+        val viewModel = PurchaseViewModel(FakeBuySecuritiesRepository())
 
         assertEquals(null, viewModel.uiState.instrument)
         assertFalse(viewModel.uiState.validation.canContinue)
@@ -116,6 +117,55 @@ class BuySecurityViewModelTest {
                 error.contains("cantidad maxima")
             },
         )
+    }
+
+    @Test
+    fun `buy market rejects missing ask price without derived amount errors`() {
+        val viewModel = buySecurityViewModel()
+        viewModel.replaceInstrument(TestBuyableInstrument.copy(askPrice = BigDecimal.ZERO))
+
+        viewModel.onOrderTypeChange(BuyOrderType.Market)
+        viewModel.onInputModeChange(BuyInputMode.Amount)
+        viewModel.onInputChange("100")
+
+        assertFalse(viewModel.uiState.validation.canContinue)
+        assertTrue(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("precio valido")
+            },
+        )
+        assertFalse(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("lamina minima") || error.contains("monto minimo")
+            },
+        )
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradePrice)
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradeAmount)
+    }
+
+    @Test
+    fun `sell market rejects missing bid price without derived amount errors`() {
+        val viewModel = buySecurityViewModel()
+        viewModel.replaceInstrument(TestBuyableInstrument.copy(bidPrice = BigDecimal.ZERO))
+
+        viewModel.onTradeTypeChange(TradeType.Sell)
+        viewModel.onOrderTypeChange(BuyOrderType.Market)
+        viewModel.onInputModeChange(BuyInputMode.Amount)
+        viewModel.onInputChange("100")
+
+        assertFalse(viewModel.uiState.validation.canContinue)
+        assertTrue(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("precio valido")
+            },
+        )
+        assertFalse(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("lamina minima") || error.contains("monto minimo")
+            },
+        )
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradePrice)
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradeAmount)
     }
 
     @Test
@@ -350,7 +400,20 @@ class BuySecurityViewModelTest {
         viewModel.onInputChange("40000.50")
 
         assertEquals("40000,50", viewModel.uiState.amountInput)
+        assertEquals(BigDecimal("40000.50"), viewModel.uiState.activeInput)
         assertEquals("40000.50", viewModel.uiState.validation.tradeAmount.toPlainString())
+    }
+
+    @Test
+    fun `amount parser handles single digit decimal point as decimal separator`() {
+        val viewModel = buySecurityViewModel()
+
+        viewModel.onInputModeChange(BuyInputMode.Amount)
+        viewModel.onInputChange("1.2")
+
+        assertEquals("1,2", viewModel.uiState.amountInput)
+        assertEquals(BigDecimal("1.2"), viewModel.uiState.activeInput)
+        assertEquals("1.20", viewModel.uiState.validation.tradeAmount.toPlainString())
     }
 
     @Test
@@ -363,14 +426,50 @@ class BuySecurityViewModelTest {
         assertEquals("40000,50", viewModel.uiState.amountInput)
         assertEquals("40000.50", viewModel.uiState.validation.tradeAmount.toPlainString())
     }
+
+    @Test
+    fun `amount parser keeps pending comma decimal input from validating as whole number`() {
+        val viewModel = buySecurityViewModel()
+
+        viewModel.onInputModeChange(BuyInputMode.Amount)
+        viewModel.onInputChange("1,")
+
+        assertEquals("1,", viewModel.uiState.amountInput)
+        assertEquals(null, viewModel.uiState.activeInput)
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradeAmount)
+        assertFalse(viewModel.uiState.validation.canContinue)
+        assertFalse(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("lamina minima") || error.contains("monto minimo")
+            },
+        )
+    }
+
+    @Test
+    fun `amount parser keeps pending dot decimal input from validating as whole number`() {
+        val viewModel = buySecurityViewModel()
+
+        viewModel.onInputModeChange(BuyInputMode.Amount)
+        viewModel.onInputChange("0.")
+
+        assertEquals("0,", viewModel.uiState.amountInput)
+        assertEquals(null, viewModel.uiState.activeInput)
+        assertEquals(BigDecimal.ZERO, viewModel.uiState.validation.tradeAmount)
+        assertFalse(viewModel.uiState.validation.canContinue)
+        assertFalse(
+            viewModel.uiState.validation.errors.any { error ->
+                error.contains("lamina minima") || error.contains("monto minimo")
+            },
+        )
+    }
 }
 
-private fun buySecurityViewModel(): BuySecurityViewModel =
-    BuySecurityViewModel(FakeBuySecuritiesRepository()).also { viewModel ->
+private fun buySecurityViewModel(): PurchaseViewModel =
+    PurchaseViewModel(FakeBuySecuritiesRepository()).also { viewModel ->
         viewModel.replaceInstrument(TestBuyableInstrument)
     }
 
-private val TestBuyableInstrument = BuyableInstrument(
+private val TestBuyableInstrument = BuyableSecurity(
     id = 66238,
     ticker = "PAMP",
     description = "PAMPA HOLDING SA ORD. 1V.",
@@ -394,11 +493,11 @@ private val TestBuyableInstrument = BuyableInstrument(
 )
 
 private class FakeBuySecuritiesRepository : SecuritiesRepository {
-    override fun getCachedSecurities(): List<Security>? = null
+    override fun getCachedSecurities(): List<MarketSecurity>? = null
 
-    override suspend fun refreshSecurities(): List<Security> = emptyList()
+    override suspend fun refreshSecurities(): List<MarketSecurity> = emptyList()
 
-    override suspend fun getBuyableInstruments(): List<BuyableInstrument> = emptyList()
+    override suspend fun getBuyableInstruments(): List<BuyableSecurity> = emptyList()
 
-    override suspend fun getBuyableInstrument(id: String): BuyableInstrument? = null
+    override suspend fun getBuyableInstrument(id: String): BuyableSecurity? = null
 }
