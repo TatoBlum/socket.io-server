@@ -35,7 +35,7 @@ enum class BuyInputMode(val label: String) {
 }
 
 @Immutable
-data class BuyableInstrument(
+data class Security(
     val id: Int,
     val ticker: String,
     val description: String,
@@ -83,7 +83,7 @@ data class BuyValidationResult(
 }
 
 data class BuySecurityUiState(
-    val instrument: BuyableInstrument? = null,
+    val instrument: Security? = null,
     val accountContext: BuySecurityAccountContext = BuySecurityAccountContext(),
     val tradeType: TradeType = TradeType.Buy,
     val orderType: BuyOrderType = BuyOrderType.Market,
@@ -94,18 +94,23 @@ data class BuySecurityUiState(
     val limitPriceInput: String = "19.210,00",
     val validation: BuyValidationResult = BuyValidationResult(),
 ) {
-    val activeInput: String
+    val activeInputText: String
         get() = when (inputMode) {
             BuyInputMode.Amount -> amountInput
             BuyInputMode.Quantity -> quantityInput
         }
+
+    val activeInput: BigDecimal?
+        get() = activeInputText
+            .takeUnless { input -> input.isPendingDecimalInput() }
+            ?.toBigDecimalOrNullForLocale()
 
     val validationMessage: String?
         get() = validation.errors.firstOrNull()
 }
 
 @HiltViewModel
-class BuySecurityViewModel @Inject constructor(
+class PurchaseViewModel @Inject constructor(
     private val repository: SecuritiesRepository,
 ) : ViewModel() {
     var uiState by mutableStateOf(BuySecurityUiState())
@@ -123,7 +128,7 @@ class BuySecurityViewModel @Inject constructor(
         }
     }
 
-    internal fun replaceInstrument(instrument: BuyableInstrument) {
+    internal fun replaceInstrument(instrument: Security) {
         uiState = uiState.copy(instrument = instrument)
         revalidate()
     }
@@ -197,15 +202,24 @@ class BuySecurityViewModel @Inject constructor(
             }
         }
 
-        val tradePrice = when (state.orderType) {
-            BuyOrderType.Limit -> limitPrice ?: BigDecimal.ZERO
-            BuyOrderType.Market -> when (state.tradeType) {
-                TradeType.Buy -> instrument.askPrice
-                TradeType.Sell -> instrument.bidPrice
+        val tradePrice = resolveTradePrice(
+            orderType = state.orderType,
+            tradeType = state.tradeType,
+            limitPrice = limitPrice,
+            instrument = instrument,
+        )
+        if (tradePrice == null) {
+            if (errors.isEmpty()) {
+                errors += "No se pudo obtener un precio valido para la operacion"
             }
+            return BuyValidationResult(
+                tradePrice = BigDecimal.ZERO,
+                fee = context.tradeFee,
+                errors = errors,
+            )
         }
 
-        val activeInput = state.activeInput.toBigDecimalOrNullForLocale()
+        val activeInput = state.activeInput?.stripTrailingZeros()
         if (activeInput == null) {
             return BuyValidationResult(
                 tradePrice = tradePrice,
@@ -286,6 +300,20 @@ class BuySecurityViewModel @Inject constructor(
             errors = errors.filter { it.isNotBlank() },
         )
     }
+
+    private fun resolveTradePrice(
+        orderType: BuyOrderType,
+        tradeType: TradeType,
+        limitPrice: BigDecimal?,
+        instrument: Security,
+    ): BigDecimal? =
+        when (orderType) {
+            BuyOrderType.Limit -> limitPrice?.takeIf { price -> price > BigDecimal.ZERO }
+            BuyOrderType.Market -> when (tradeType) {
+                TradeType.Buy -> instrument.askPrice.takeIf { price -> price > BigDecimal.ZERO }
+                TradeType.Sell -> instrument.bidPrice.takeIf { price -> price > BigDecimal.ZERO }
+            }
+        }
 
     private fun validateLimitPriceBand(
         tradeType: TradeType,
@@ -539,6 +567,9 @@ private fun String.toBigDecimalOrNullForLocale(): BigDecimal? =
         count { character -> character == '.' } == 1 && substringAfter('.').length != 3 -> this
         else -> replace(".", "")
     }.toBigDecimalOrNull()
+
+private fun String.isPendingDecimalInput(): Boolean =
+    endsWith(",") || endsWith(".")
 
 private fun BigDecimal.isMultipleOf(step: BigDecimal): Boolean {
     if (step <= BigDecimal.ZERO) return false
