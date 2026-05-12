@@ -8,7 +8,7 @@ sealed interface TradeValidationError {
     data class LimitPriceOutOfBandSell(val minAllowed: BigDecimal) : TradeValidationError
     data class LimitPriceNotMultiple(val step: BigDecimal) : TradeValidationError
     data object MissingTradePrice : TradeValidationError
-    data object AmountNotEnoughForMin : TradeValidationError
+    data class AmountNotEnoughForMin(val minAmount: BigDecimal) : TradeValidationError
     data object NominalsInvalid : TradeValidationError
     data class NominalsBelowMin(val minNominals: BigDecimal) : TradeValidationError
     data class NominalsNotMultiple(val lotSize: BigDecimal) : TradeValidationError
