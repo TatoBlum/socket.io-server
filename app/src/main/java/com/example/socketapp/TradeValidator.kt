@@ -71,7 +71,8 @@ class TradeValidator @Inject constructor() {
                     tradePrice = tradePrice,
                     lotSize = instrument.lotInstrumentSize.toBigDecimal(),
                 )
-                nominals to amount.setScale(2, RoundingMode.HALF_UP)
+                val calculatedAmount = nominals.multiply(tradePrice).setScale(2, RoundingMode.HALF_UP)
+                nominals to calculatedAmount
             }
         }
 
@@ -92,7 +93,7 @@ class TradeValidator @Inject constructor() {
         if (state.tradeType == TradeType.Sell && state.inputMode == BuyInputMode.Amount) {
             errors += validateSellByAmountMax(
                 orderType = state.orderType,
-                tradeAmount = tradeAmount,
+                tradeAmount = activeInput,
                 nominalsAvailable = context.availableNominals.toBigDecimal(),
                 bidPrice = instrument.bidPrice,
                 limitPrice = limitPrice,
@@ -281,7 +282,7 @@ class TradeValidator @Inject constructor() {
         } else if (tradeNominals < minNominals) {
             errors += TradeValidationError.NominalsBelowMin(minNominals)
         }
-        if (lotSize > BigDecimal.ZERO && tradeNominals.remainder(lotSize) != BigDecimal.ZERO) {
+        if (lotSize > BigDecimal.ZERO && tradeNominals.remainder(lotSize).compareTo(BigDecimal.ZERO) != 0) {
             errors += TradeValidationError.NominalsNotMultiple(lotSize)
         }
         if (tradeNominals > maxInstrumentNominals) {
@@ -360,6 +361,6 @@ class TradeValidator @Inject constructor() {
         val multiplier = BigDecimal.TEN.pow(scale)
         val scaledValue = multiply(multiplier).setScale(0, RoundingMode.HALF_UP)
         val scaledStep = step.multiply(multiplier).setScale(0, RoundingMode.HALF_UP)
-        return scaledValue.remainder(scaledStep) == BigDecimal.ZERO
+        return scaledValue.remainder(scaledStep).compareTo(BigDecimal.ZERO) == 0
     }
 }

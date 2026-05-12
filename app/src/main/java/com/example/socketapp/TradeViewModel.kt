@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.util.Log
 import com.example.socketapp.data.SecuritiesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
@@ -157,25 +156,21 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onOrderTypeChange(orderType: BuyOrderType) {
-        logInputState("onOrderTypeChange before orderType=$orderType")
         uiState = uiState.copy(orderType = orderType)
         revalidate()
     }
 
     fun onLimitPriceChange(input: String) {
-        logInputState("onLimitPriceChange before input=$input")
         uiState = uiState.copy(limitPriceInput = TradeInputParser.formatLimitPriceInput(input))
         revalidate()
     }
 
     fun onInputModeChange(inputMode: BuyInputMode) {
-        logInputState("onInputModeChange before inputMode=$inputMode")
         uiState = uiState.copy(inputMode = inputMode)
         revalidate()
     }
 
     fun onInputChange(input: String) {
-        logInputState("onInputChange before input=$input")
         uiState = when (uiState.inputMode) {
             BuyInputMode.Amount -> uiState.copy(
                 amountInputText = TradeInputParser.sanitizeAmountInput(input),
@@ -198,7 +193,6 @@ class TradeViewModel @Inject constructor(
             limitPriceError = validation.errors.firstOrNull { error -> error.isLimitPriceError() },
             limitPriceHelper = buildLimitPriceHelper(uiState),
         )
-        logInputState("revalidate after")
     }
 
     private fun buildInputHelper(
@@ -249,24 +243,3 @@ class TradeViewModel @Inject constructor(
 
 internal fun BigDecimal.toMoneyString(): String =
     setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
-
-private const val TRADE_VIEW_MODEL_TAG = "TradeViewModelInput"
-
-private fun TradeViewModel.logInputState(event: String) {
-    Log.d(
-        TRADE_VIEW_MODEL_TAG,
-        "$event | " +
-            "mode=${uiState.inputMode}, " +
-            "orderType=${uiState.orderType}, " +
-            "amountText=${uiState.amountInputText}, " +
-            "quantityText=${uiState.quantityInputText}, " +
-            "limitText=${uiState.limitPriceInput}, " +
-            "activeText=${uiState.activeInputText}, " +
-            "activeInput=${uiState.activeInput}, " +
-            "tradePrice=${uiState.validation.tradePrice}, " +
-            "tradeNominals=${uiState.validation.tradeNominals}, " +
-            "tradeAmount=${uiState.validation.tradeAmount}, " +
-            "inputError=${uiState.inputError}, " +
-            "limitError=${uiState.limitPriceError}",
-    )
-}
