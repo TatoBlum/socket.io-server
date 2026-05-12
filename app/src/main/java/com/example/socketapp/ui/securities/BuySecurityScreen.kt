@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -259,56 +260,58 @@ private fun TradeInputSection(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        BasicTextField(
-            value = value,
-            onValueChange = { nextValue ->
-                val filteredValue = when (mode) {
-                    BuyInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
-                    BuyInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
-                }
-                onValueChange(filteredValue)
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            cursorBrush = SolidColor(GaliciaPrimary),
-            textStyle = MaterialTheme.typography.displayMedium.copy(
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                fontSize = 52.sp,
-                lineHeight = 58.sp,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            decorationBox = { innerTextField ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (mode == BuyInputMode.Amount) {
-                        Text(
-                            text = "$",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 32.sp,
-                            lineHeight = 40.sp,
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+        key(mode) {
+            BasicTextField(
+                value = value,
+                onValueChange = { nextValue ->
+                    val filteredValue = when (mode) {
+                        BuyInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
+                        BuyInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
                     }
-                    Box(contentAlignment = Alignment.Center) {
-                        if (value.isBlank()) {
+                    onValueChange(filteredValue)
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                cursorBrush = SolidColor(GaliciaPrimary),
+                textStyle = MaterialTheme.typography.displayMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    fontSize = 52.sp,
+                    lineHeight = 58.sp,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { innerTextField ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (mode == BuyInputMode.Amount) {
                             Text(
-                                text = "0",
+                                text = "$",
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 52.sp,
-                                lineHeight = 58.sp,
-                                textAlign = TextAlign.Center,
+                                fontSize = 32.sp,
+                                lineHeight = 40.sp,
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
                         }
-                        innerTextField()
+                        Box(contentAlignment = Alignment.Center) {
+                            if (value.isBlank()) {
+                                Text(
+                                    text = "0",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 52.sp,
+                                    lineHeight = 58.sp,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            innerTextField()
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        }
 
         HorizontalDivider(
             color = GaliciaPrimary,
@@ -633,24 +636,21 @@ private fun TradeValidationError.toInputErrorMessage(): String =
         is TradeValidationError.LimitPriceOutOfBandSell ->
             "El precio limite esta por debajo del minimo permitido de ${minAllowed.toPlainMoneyString()}"
         is TradeValidationError.LimitPriceNotMultiple ->
-            "El precio limite debe respetar el multiplo de ${step.toPlainString()}"
+            "El precio limite debe ser multiplo de ${step.toPlainString()}"
         TradeValidationError.MissingTradePrice -> "No se pudo obtener un precio valido para la operacion"
-        TradeValidationError.AmountNotEnoughForMin -> "El monto ingresado no alcanza para la lamina minima"
+        is TradeValidationError.AmountNotEnoughForMin -> "El monto minimo a comprar es ${minAmount.formatCurrency()}"
         TradeValidationError.NominalsInvalid -> "La cantidad debe ser mayor a cero"
-        is TradeValidationError.NominalsBelowMin -> "La cantidad minima es ${minNominals.toPlainString()} nominales"
+        is TradeValidationError.NominalsBelowMin -> "La cantidad minima a comprar es ${minNominals.toPlainString()}"
         is TradeValidationError.NominalsNotMultiple -> "La cantidad debe ser multiplo de ${lotSize.toPlainString()}"
-        is TradeValidationError.NominalsOverMax -> "La cantidad maxima para operar es ${maxNominals.toPlainString()} nominales"
-        is TradeValidationError.NominalsOverAvailable -> "Tenes ${availableNominals.toPlainString()} nominales disponibles"
+        is TradeValidationError.NominalsOverMax -> "La cantidad maxima a comprar es ${maxNominals.toPlainString()}"
+        is TradeValidationError.NominalsOverAvailable -> "Supera tu saldo disponible"
         is TradeValidationError.AmountOverMaxSellable -> "El monto maximo vendible es $${maxAmount.toPlainMoneyString()}"
-        is TradeValidationError.InsufficientArs -> "Saldo insuficiente para operar por ${operationMode.inputLabel()}"
+        is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
         TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para comisiones"
-        is TradeValidationError.InsufficientUsd -> "Saldo insuficiente en dolares para operar por ${operationMode.inputLabel()}"
-        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo para operar es $${minAmount.toPlainMoneyString()}"
-        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo para operar es $${maxAmount.toPlainMoneyString()}"
+        is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
+        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo a comprar es ${minAmount.formatCurrency()}"
+        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo a comprar es ${maxAmount.formatCurrency()}"
     }
-
-private fun BuyInputMode.inputLabel(): String =
-    if (this == BuyInputMode.Amount) "monto" else "cantidad"
 
 private fun BigDecimal.toPlainMoneyString(): String =
     setScale(2, RoundingMode.HALF_UP).toPlainString()
