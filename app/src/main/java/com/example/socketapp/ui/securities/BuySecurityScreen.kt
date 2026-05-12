@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyInputMode
 import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
+import com.example.socketapp.TradeInputLimitPriceHelper
 import com.example.socketapp.TradeInputHelper
 import com.example.socketapp.TradeValidationError
 import com.example.socketapp.Security
@@ -96,6 +98,8 @@ fun BuySecurityScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .imePadding()
+            .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp, bottom = 24.dp),
@@ -137,6 +141,13 @@ fun BuySecurityScreen(
                 label = { Text("Precio limite") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 shape = RoundedCornerShape(8.dp),
+                isError = uiState.limitPriceError != null,
+                supportingText = {
+                    Text(
+                        text = uiState.limitPriceError?.toInputErrorMessage()
+                            ?: uiState.limitPriceHelper.toLimitPriceHelperMessage(),
+                    )
+                },
             )
         }
 
@@ -251,7 +262,11 @@ private fun TradeInputSection(
         BasicTextField(
             value = value,
             onValueChange = { nextValue ->
-                onValueChange(nextValue.filter { it.isDigit() || it == ',' || it == '.' })
+                val filteredValue = when (mode) {
+                    BuyInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
+                    BuyInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
+                }
+                onValueChange(filteredValue)
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -601,6 +616,13 @@ private fun TradeInputHelper.toInputHelperMessage(): String =
         is TradeInputHelper.AvailableNominals -> "Nominales disponibles $quantity"
         is TradeInputHelper.ApproximateDebit -> "Valor aproximado a debitar ${amount.formatCurrency()}"
         is TradeInputHelper.ApproximateCredit -> "Valor aproximado a acreditar ${amount.formatCurrency()}"
+    }
+
+private fun TradeInputLimitPriceHelper.toLimitPriceHelperMessage(): String =
+    when (this) {
+        TradeInputLimitPriceHelper.None -> ""
+        is TradeInputLimitPriceHelper.MaxAllowed -> "Precio maximo permitido ${amount.formatCurrency()}"
+        is TradeInputLimitPriceHelper.MinAllowed -> "Precio minimo permitido ${amount.formatCurrency()}"
     }
 
 private fun TradeValidationError.toInputErrorMessage(): String =
