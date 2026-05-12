@@ -25,11 +25,26 @@ object TradeInputParser {
         }
     }
 
-    fun parseWholeNumberInput(input: String): BigDecimal? =
-        input
+    fun parseWholeNumberInput(input: String): BigDecimal? {
+        val normalizedInput = input.trim().let { value ->
+            val integerPart = value.substringBefore('.')
+            val decimalPart = value.substringAfter('.', missingDelimiterValue = "")
+            if (
+                value.count { character -> character == '.' } == 1 &&
+                decimalPart.length == 1 &&
+                decimalPart.all { character -> character == '0' }
+            ) {
+                integerPart
+            } else {
+                value
+            }
+        }
+
+        return normalizedInput
             .filter { character -> character.isDigit() }
             .takeIf { digits -> digits.isNotBlank() }
             ?.toBigDecimalOrNull()
+    }
 
     fun parseAmountInput(input: String): BigDecimal? {
         val sanitizedInput = sanitizeAmountInput(input)
