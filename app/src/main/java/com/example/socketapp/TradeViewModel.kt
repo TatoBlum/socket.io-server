@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.socketapp.data.SecuritiesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
+import java.math.RoundingMode
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
@@ -96,6 +97,8 @@ data class BuySecurityUiState(
     val validation: BuyValidationResult = BuyValidationResult(),
     val inputError: TradeValidationError? = validation.errors.firstOrNull(),
     val inputHelper: TradeInputHelper = TradeInputHelper.None,
+    val limitPriceError: TradeValidationError? = null,
+    val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
 ) {
     val activeInputText: String
         get() = when (inputMode) {
@@ -181,8 +184,10 @@ class TradeViewModel @Inject constructor(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
             validation = validation,
-            inputError = validation.errors.firstOrNull(),
+            inputError = validation.errors.firstOrNull { error -> !error.isLimitPriceError() },
             inputHelper = buildInputHelper(uiState, validation),
+            limitPriceError = validation.errors.firstOrNull { error -> error.isLimitPriceError() },
+            limitPriceHelper = buildLimitPriceHelper(uiState),
         )
     }
 
@@ -209,6 +214,25 @@ class TradeViewModel @Inject constructor(
             validation.totalTradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateDebit(validation.totalTradeAmount)
             state.inputMode == BuyInputMode.Amount -> TradeInputHelper.AvailableBalance(currencyBalance)
             else -> TradeInputHelper.AvailableToBuy(currencyBalance)
+        }
+    }
+
+    private fun buildLimitPriceHelper(state: BuySecurityUiState): TradeInputLimitPriceHelper {
+        val instrument = state.instrument ?: return TradeInputLimitPriceHelper.None
+        if (state.orderType != BuyOrderType.Limit) return TradeInputLimitPriceHelper.None
+
+        return when (state.tradeType) {
+            TradeType.Buy -> TradeInputLimitPriceHelper.MaxAllowed(
+                instrument.askPrice
+                    .multiply(BigDecimal.ONE.add(instrument.percentageMovement))
+                    .setScale(2, RoundingMode.HALF_UP),
+            )
+
+            TradeType.Sell -> TradeInputLimitPriceHelper.MinAllowed(
+                instrument.bidPrice
+                    .multiply(BigDecimal.ONE.subtract(instrument.percentageMovement))
+                    .setScale(2, RoundingMode.HALF_UP),
+            )
         }
     }
 }

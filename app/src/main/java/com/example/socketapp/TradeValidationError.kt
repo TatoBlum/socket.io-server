@@ -21,3 +21,14 @@ sealed interface TradeValidationError {
     data class TotalBelowMinAmount(val minAmount: BigDecimal) : TradeValidationError
     data class TotalAboveMaxAmount(val maxAmount: BigDecimal) : TradeValidationError
 }
+
+fun TradeValidationError.isLimitPriceError(): Boolean =
+    when (this) {
+        TradeValidationError.InvalidLimitPrice,
+        is TradeValidationError.LimitPriceOutOfBandBuy,
+        is TradeValidationError.LimitPriceOutOfBandSell,
+        is TradeValidationError.LimitPriceNotMultiple,
+        -> true
+
+        else -> false
+    }
