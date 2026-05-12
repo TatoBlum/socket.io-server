@@ -76,17 +76,26 @@ class TradeValidator @Inject constructor() {
             }
         }
 
+        val maxInstrumentNominals = computeMaxInstrumentNominals(state, tradePrice)
         if (state.inputMode == BuyInputMode.Amount && tradeNominals == BigDecimal.ZERO) {
             errors += TradeValidationError.AmountNotEnoughForMin(
                 computeMinimumAmountForNominals(
                     minNominals = instrument.minInstrumentNominals.toBigDecimal(),
+                    lotSize = instrument.lotInstrumentSize.toBigDecimal(),
                     tradePrice = tradePrice,
                     minTradeAmount = context.minTradeAmount,
                 ),
             )
+            return BuyValidationResult(
+                tradePrice = tradePrice,
+                tradeNominals = tradeNominals,
+                tradeAmount = tradeAmount,
+                maxInstrumentNominals = maxInstrumentNominals,
+                fee = context.tradeFee,
+                errors = errors,
+            )
         }
 
-        val maxInstrumentNominals = computeMaxInstrumentNominals(state, tradePrice)
         errors += validateNominals(
             tradeType = state.tradeType,
             tradeNominals = tradeNominals,
@@ -261,10 +270,12 @@ class TradeValidator @Inject constructor() {
 
     private fun computeMinimumAmountForNominals(
         minNominals: BigDecimal,
+        lotSize: BigDecimal,
         tradePrice: BigDecimal,
         minTradeAmount: BigDecimal,
     ): BigDecimal {
-        val minNominalAmount = minNominals.multiply(tradePrice).setScale(2, RoundingMode.HALF_UP)
+        val minimumTradableNominals = maxOf(minNominals, lotSize)
+        val minNominalAmount = minimumTradableNominals.multiply(tradePrice).setScale(2, RoundingMode.HALF_UP)
         return maxOf(minNominalAmount, minTradeAmount.setScale(2, RoundingMode.HALF_UP))
     }
 
