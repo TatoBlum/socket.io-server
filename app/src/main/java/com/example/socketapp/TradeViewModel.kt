@@ -104,7 +104,10 @@ data class BuySecurityUiState(
         }
 
     val activeInput: BigDecimal?
-        get() = TradeInputParser.parseWholeNumberInput(activeInputText)
+        get() = when (inputMode) {
+            BuyInputMode.Amount -> TradeInputParser.parseAmountInput(activeInputText)
+            BuyInputMode.Quantity -> TradeInputParser.parseWholeNumberInput(activeInputText)
+        }
 }
 
 @HiltViewModel
@@ -165,10 +168,9 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onInputChange(input: String) {
-        val sanitizedInput = TradeInputParser.sanitizeWholeNumberInput(input)
         uiState = when (uiState.inputMode) {
-            BuyInputMode.Amount -> uiState.copy(amountInputText = sanitizedInput)
-            BuyInputMode.Quantity -> uiState.copy(quantityInputText = sanitizedInput)
+            BuyInputMode.Amount -> uiState.copy(amountInputText = TradeInputParser.sanitizeAmountInput(input))
+            BuyInputMode.Quantity -> uiState.copy(quantityInputText = TradeInputParser.sanitizeWholeNumberInput(input))
         }
         revalidate()
     }
