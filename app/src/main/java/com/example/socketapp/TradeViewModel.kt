@@ -166,14 +166,45 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onInputModeChange(inputMode: BuyInputMode) {
-        uiState = uiState.copy(inputMode = inputMode)
+        val currentInputText = uiState.activeInputText
+        uiState = when (inputMode) {
+            BuyInputMode.Amount -> {
+                val nextAmountInputText = if (uiState.amountInputText.isBlank()) {
+                    currentInputText
+                } else {
+                    uiState.amountInputText
+                }
+
+                uiState.copy(
+                    inputMode = inputMode,
+                    amountInputText = nextAmountInputText,
+                )
+            }
+
+            BuyInputMode.Quantity -> {
+                val nextQuantityInputText = if (uiState.quantityInputText.isBlank()) {
+                    currentInputText
+                } else {
+                    uiState.quantityInputText
+                }
+
+                uiState.copy(
+                    inputMode = inputMode,
+                    quantityInputText = nextQuantityInputText,
+                )
+            }
+        }
         revalidate()
     }
 
     fun onInputChange(input: String) {
         uiState = when (uiState.inputMode) {
-            BuyInputMode.Amount -> uiState.copy(amountInputText = TradeInputParser.sanitizeAmountInput(input))
-            BuyInputMode.Quantity -> uiState.copy(quantityInputText = TradeInputParser.sanitizeWholeNumberInput(input))
+            BuyInputMode.Amount -> uiState.copy(
+                amountInputText = TradeInputParser.sanitizeAmountInput(input),
+            )
+            BuyInputMode.Quantity -> uiState.copy(
+                quantityInputText = TradeInputParser.sanitizeWholeNumberInput(input),
+            )
         }
         revalidate()
     }
