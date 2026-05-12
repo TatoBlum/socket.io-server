@@ -57,9 +57,12 @@ import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyInputMode
 import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
-import com.example.socketapp.BuyableInstrument
+import com.example.socketapp.TradeInputHelper
+import com.example.socketapp.TradeValidationError
+import com.example.socketapp.Security
 import com.example.socketapp.ui.theme.GaliciaPrimary
 import com.example.socketapp.ui.theme.PriceUpText
+import java.math.BigDecimal
 import java.math.RoundingMode
 
 private enum class SettlementTerm(
@@ -139,11 +142,11 @@ fun BuySecurityScreen(
 
         Spacer(modifier = Modifier.height(72.dp))
 
-        PurchaseInputSection(
+        TradeInputSection(
             mode = uiState.inputMode,
-            value = uiState.activeInput,
-            available = "$ 1.159.000,00",
-            validationMessage = uiState.validationMessage,
+            value = uiState.activeInputText,
+            helperMessage = uiState.inputHelper.toInputHelperMessage(),
+            errorMessage = uiState.inputError?.toInputErrorMessage(),
             onModeChange = onInputModeChange,
             onValueChange = onInputChange,
         )
@@ -214,11 +217,11 @@ fun BuySecurityScreen(
 }
 
 @Composable
-private fun PurchaseInputSection(
+private fun TradeInputSection(
     mode: BuyInputMode,
     value: String,
-    available: String,
-    validationMessage: String?,
+    helperMessage: String,
+    errorMessage: String?,
     onModeChange: (BuyInputMode) -> Unit,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -301,24 +304,16 @@ private fun PurchaseInputSection(
         )
 
         Text(
-            text = if (mode == BuyInputMode.Amount) {
-                "Disponible $available"
-            } else {
-                "Disponible para comprar $available"
-            },
-            color = if (validationMessage == null) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.error
-            },
+            text = helperMessage,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
         )
 
-        if (validationMessage != null) {
+        if (errorMessage != null) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = validationMessage,
+                text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
@@ -391,7 +386,7 @@ private fun SecurityHeaderPlaceholder() {
 }
 
 @Composable
-private fun SecurityHeader(instrument: BuyableInstrument) {
+private fun SecurityHeader(instrument: Security) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -598,7 +593,47 @@ private enum class BuySheet {
     OrderType,
 }
 
-private fun java.math.BigDecimal.formatCurrency(): String {
+private fun TradeInputHelper.toInputHelperMessage(): String =
+    when (this) {
+        TradeInputHelper.None -> ""
+        is TradeInputHelper.AvailableBalance -> "Saldo disponible ${amount.formatCurrency()}"
+        is TradeInputHelper.AvailableToBuy -> "Disponible para comprar ${amount.formatCurrency()}"
+        is TradeInputHelper.AvailableNominals -> "Nominales disponibles $quantity"
+        is TradeInputHelper.ApproximateDebit -> "Valor aproximado a debitar ${amount.formatCurrency()}"
+        is TradeInputHelper.ApproximateCredit -> "Valor aproximado a acreditar ${amount.formatCurrency()}"
+    }
+
+private fun TradeValidationError.toInputErrorMessage(): String =
+    when (this) {
+        TradeValidationError.InvalidLimitPrice -> "Ingresa un precio limite valido"
+        is TradeValidationError.LimitPriceOutOfBandBuy ->
+            "El precio limite supera el maximo permitido de ${maxAllowed.toPlainMoneyString()}"
+        is TradeValidationError.LimitPriceOutOfBandSell ->
+            "El precio limite esta por debajo del minimo permitido de ${minAllowed.toPlainMoneyString()}"
+        is TradeValidationError.LimitPriceNotMultiple ->
+            "El precio limite debe respetar el multiplo de ${step.toPlainString()}"
+        TradeValidationError.MissingTradePrice -> "No se pudo obtener un precio valido para la operacion"
+        TradeValidationError.AmountNotEnoughForMin -> "El monto ingresado no alcanza para la lamina minima"
+        TradeValidationError.NominalsInvalid -> "La cantidad debe ser mayor a cero"
+        is TradeValidationError.NominalsBelowMin -> "La cantidad minima es ${minNominals.toPlainString()} nominales"
+        is TradeValidationError.NominalsNotMultiple -> "La cantidad debe ser multiplo de ${lotSize.toPlainString()}"
+        is TradeValidationError.NominalsOverMax -> "La cantidad maxima para operar es ${maxNominals.toPlainString()} nominales"
+        is TradeValidationError.NominalsOverAvailable -> "Tenes ${availableNominals.toPlainString()} nominales disponibles"
+        is TradeValidationError.AmountOverMaxSellable -> "El monto maximo vendible es $${maxAmount.toPlainMoneyString()}"
+        is TradeValidationError.InsufficientArs -> "Saldo insuficiente para operar por ${operationMode.inputLabel()}"
+        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para comisiones"
+        is TradeValidationError.InsufficientUsd -> "Saldo insuficiente en dolares para operar por ${operationMode.inputLabel()}"
+        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo para operar es $${minAmount.toPlainMoneyString()}"
+        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo para operar es $${maxAmount.toPlainMoneyString()}"
+    }
+
+private fun BuyInputMode.inputLabel(): String =
+    if (this == BuyInputMode.Amount) "monto" else "cantidad"
+
+private fun BigDecimal.toPlainMoneyString(): String =
+    setScale(2, RoundingMode.HALF_UP).toPlainString()
+
+private fun BigDecimal.formatCurrency(): String {
     val plainValue = setScale(2, RoundingMode.HALF_UP).toPlainString()
     val integerPart = plainValue.substringBefore(".")
     val decimalPart = plainValue.substringAfter(".")
@@ -611,7 +646,7 @@ private fun java.math.BigDecimal.formatCurrency(): String {
     return "$$groupedInteger,$decimalPart"
 }
 
-private fun java.math.BigDecimal.formatSignedPercent(): String {
+private fun BigDecimal.formatSignedPercent(): String {
     val sign = if (this >= java.math.BigDecimal.ZERO) "+" else "-"
     return "$sign${abs().setScale(2, RoundingMode.HALF_UP).toPlainString().replace(".", ",")}%"
 }
