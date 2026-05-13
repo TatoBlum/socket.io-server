@@ -27,7 +27,7 @@ data class SecuritiesUiState(
     val searchQuery: String = "",
     val filters: SecurityFilters = SecurityFilters(),
     val items: List<Security> = emptyList(),
-    val errorMessage: String? = null,
+    val errorState: Pair<Boolean, String?> = false to null,
 )
 
 @HiltViewModel
@@ -97,13 +97,13 @@ class SecuritiesViewModel @Inject constructor(
     private fun loadCachedSecuritiesIfAny() {
         val cachedSecurities = repository.getCachedSecurities() ?: return
         allSecurities = applyFavouriteOverrides(cachedSecurities)
-        uiState = uiState.copy(isLoading = false, errorMessage = null)
+        uiState = uiState.copy(isLoading = false, errorState = false to null)
         applyFilters()
     }
 
     private suspend fun refreshSecurities() {
         if (allSecurities.isEmpty()) {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            uiState = uiState.copy(isLoading = true, errorState = false to null)
         }
 
         runCatching {
@@ -112,14 +112,14 @@ class SecuritiesViewModel @Inject constructor(
             }
         }.onSuccess { securities ->
             allSecurities = applyFavouriteOverrides(securities)
-            uiState = uiState.copy(isLoading = false, errorMessage = null)
+            uiState = uiState.copy(isLoading = false, errorState = false to null)
             applyFilters()
         }.onFailure { error ->
             if (error is CancellationException) throw error
 
             uiState = uiState.copy(
                 isLoading = false,
-                errorMessage = error.message ?: "No se pudieron actualizar los securities",
+                errorState = true to (error.message ?: "No se pudieron actualizar los securities"),
             )
         }
     }
