@@ -12,6 +12,7 @@ import com.example.socketapp.di.IoDispatcher
 import com.example.socketapp.model.Security
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -39,11 +40,12 @@ class SecuritiesViewModel @Inject constructor(
         private set
 
     private var allSecurities: List<Security> = emptyList()
-    private val pendingFavouriteUpdates = mutableMapOf<String, Boolean>()
+    private val favouriteOverrides = mutableMapOf<String, Boolean>()
     private var pollingJob: Job? = null
+    private var filterJob: Job? = null
 
     init {
-        loadCachedOrFetch()
+        loadCachedSecuritiesIfAny()
     }
 
     fun onSearchQueryChange(query: String) {
@@ -65,7 +67,7 @@ class SecuritiesViewModel @Inject constructor(
         val selectedSecurity = allSecurities.firstOrNull { security -> security.id == securityId } ?: return
         val newFavourite = !selectedSecurity.isFavourite
 
-        pendingFavouriteUpdates[securityId] = newFavourite
+        favouriteOverrides[securityId] = newFavourite
         allSecurities = allSecurities.map { security ->
             if (security.id == securityId) {
                 security.copy(isFavourite = newFavourite)
@@ -81,8 +83,8 @@ class SecuritiesViewModel @Inject constructor(
 
         pollingJob = viewModelScope.launch {
             while (isActive) {
+                refreshSecurities()
                 delay(SECURITIES_POLLING_INTERVAL_MS)
-                refreshSecurities(showLoading = false)
             }
         }
     }
@@ -92,24 +94,15 @@ class SecuritiesViewModel @Inject constructor(
         pollingJob = null
     }
 
-    private fun loadCachedOrFetch() {
-        val cachedSecurities = repository.getCachedSecurities()
-        if (cachedSecurities != null) {
-            allSecurities = applyPendingFavouriteUpdates(cachedSecurities)
-            viewModelScope.launch {
-                applyFiltersImmediately()
-                uiState = uiState.copy(isLoading = false, errorMessage = null)
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            refreshSecurities(showLoading = true)
-        }
+    private fun loadCachedSecuritiesIfAny() {
+        val cachedSecurities = repository.getCachedSecurities() ?: return
+        allSecurities = applyFavouriteOverrides(cachedSecurities)
+        uiState = uiState.copy(isLoading = false, errorMessage = null)
+        applyFilters()
     }
 
-    private suspend fun refreshSecurities(showLoading: Boolean) {
-        if (showLoading) {
+    private suspend fun refreshSecurities() {
+        if (allSecurities.isEmpty()) {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
         }
 
@@ -118,10 +111,12 @@ class SecuritiesViewModel @Inject constructor(
                 repository.refreshSecurities()
             }
         }.onSuccess { securities ->
-            allSecurities = applyPendingFavouriteUpdates(securities)
-            applyFiltersImmediately()
+            allSecurities = applyFavouriteOverrides(securities)
             uiState = uiState.copy(isLoading = false, errorMessage = null)
+            applyFilters()
         }.onFailure { error ->
+            if (error is CancellationException) throw error
+
             uiState = uiState.copy(
                 isLoading = false,
                 errorMessage = error.message ?: "No se pudieron actualizar los securities",
@@ -129,26 +124,15 @@ class SecuritiesViewModel @Inject constructor(
         }
     }
 
-    private fun applyPendingFavouriteUpdates(securities: List<Security>): List<Security> =
+    private fun applyFavouriteOverrides(securities: List<Security>): List<Security> =
         securities.map { security ->
-            val pendingFavourite = pendingFavouriteUpdates[security.id]
-
-            clearPendingFavouriteUpdateIfServerIsSynced(security, pendingFavourite)
-
-            security.copy(isFavourite = pendingFavourite ?: security.isFavourite)
+            val favouriteOverride = favouriteOverrides[security.id]
+            security.copy(isFavourite = favouriteOverride ?: security.isFavourite)
         }
-
-    private fun clearPendingFavouriteUpdateIfServerIsSynced(
-        security: Security,
-        pendingFavourite: Boolean?,
-    ) {
-        if (pendingFavourite != null && security.isFavourite == pendingFavourite) {
-            pendingFavouriteUpdates.remove(security.id)
-        }
-    }
 
     private fun applyFilters() {
-        viewModelScope.launch {
+        filterJob?.cancel()
+        filterJob = viewModelScope.launch {
             applyFiltersImmediately()
         }
     }
