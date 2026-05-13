@@ -45,7 +45,7 @@ class SecuritiesViewModel @Inject constructor(
     private var filterJob: Job? = null
 
     init {
-        loadCachedSecuritiesIfAny()
+        loadInitialSecurities()
     }
 
     fun onSearchQueryChange(query: String) {
@@ -83,8 +83,8 @@ class SecuritiesViewModel @Inject constructor(
 
         pollingJob = viewModelScope.launch {
             while (isActive) {
-                refreshSecurities()
                 delay(SECURITIES_POLLING_INTERVAL_MS)
+                refreshSecurities()
             }
         }
     }
@@ -94,16 +94,20 @@ class SecuritiesViewModel @Inject constructor(
         pollingJob = null
     }
 
-    private fun loadCachedSecuritiesIfAny() {
-        val cachedSecurities = repository.getCachedSecurities() ?: return
-        allSecurities = applyFavouriteOverrides(cachedSecurities)
-        publishFilteredItems { filteredItems ->
-            copy(
-                isLoading = false,
-                items = filteredItems,
-                errorState = false to null,
-            )
+    private fun loadInitialSecurities() {
+        val cachedSecurities = repository.getCachedSecurities()
+        if (cachedSecurities == null) {
+            viewModelScope.launch {
+                refreshSecurities()
+            }
+            return
         }
+
+        allSecurities = applyFavouriteOverrides(cachedSecurities)
+        applyFilters(
+            isLoading = false,
+            errorState = false to null,
+        )
     }
 
     private suspend fun refreshSecurities() {
@@ -117,13 +121,10 @@ class SecuritiesViewModel @Inject constructor(
             }
         }.onSuccess { securities ->
             allSecurities = applyFavouriteOverrides(securities)
-            publishFilteredItems { filteredItems ->
-                copy(
-                    isLoading = false,
-                    items = filteredItems,
-                    errorState = false to null,
-                )
-            }
+            applyFilters(
+                isLoading = false,
+                errorState = false to null,
+            )
         }.onFailure { error ->
             if (error is CancellationException) throw error
 
@@ -140,14 +141,9 @@ class SecuritiesViewModel @Inject constructor(
             security.copy(isFavourite = favouriteOverride ?: security.isFavourite)
         }
 
-    private fun applyFilters() {
-        publishFilteredItems { filteredItems ->
-            copy(items = filteredItems)
-        }
-    }
-
-    private fun publishFilteredItems(
-        reduce: SecuritiesUiState.(List<Security>) -> SecuritiesUiState,
+    private fun applyFilters(
+        isLoading: Boolean = uiState.isLoading,
+        errorState: Pair<Boolean, String?> = uiState.errorState,
     ) {
         filterJob?.cancel()
         val query = uiState.searchQuery.trim()
@@ -161,7 +157,11 @@ class SecuritiesViewModel @Inject constructor(
                 securities = securities,
             )
 
-            uiState = uiState.reduce(filteredItems)
+            uiState = uiState.copy(
+                isLoading = isLoading,
+                items = filteredItems,
+                errorState = errorState,
+            )
         }
     }
 
