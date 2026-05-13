@@ -97,8 +97,13 @@ class SecuritiesViewModel @Inject constructor(
     private fun loadCachedSecuritiesIfAny() {
         val cachedSecurities = repository.getCachedSecurities() ?: return
         allSecurities = applyFavouriteOverrides(cachedSecurities)
-        uiState = uiState.copy(isLoading = false, errorState = false to null)
-        applyFilters()
+        publishFilteredItems { filteredItems ->
+            copy(
+                isLoading = false,
+                items = filteredItems,
+                errorState = false to null,
+            )
+        }
     }
 
     private suspend fun refreshSecurities() {
@@ -112,8 +117,13 @@ class SecuritiesViewModel @Inject constructor(
             }
         }.onSuccess { securities ->
             allSecurities = applyFavouriteOverrides(securities)
-            uiState = uiState.copy(isLoading = false, errorState = false to null)
-            applyFilters()
+            publishFilteredItems { filteredItems ->
+                copy(
+                    isLoading = false,
+                    items = filteredItems,
+                    errorState = false to null,
+                )
+            }
         }.onFailure { error ->
             if (error is CancellationException) throw error
 
@@ -131,40 +141,52 @@ class SecuritiesViewModel @Inject constructor(
         }
 
     private fun applyFilters() {
-        filterJob?.cancel()
-        filterJob = viewModelScope.launch {
-            applyFiltersImmediately()
+        publishFilteredItems { filteredItems ->
+            copy(items = filteredItems)
         }
     }
 
-    private suspend fun applyFiltersImmediately() {
+    private fun publishFilteredItems(
+        reduce: SecuritiesUiState.(List<Security>) -> SecuritiesUiState,
+    ) {
+        filterJob?.cancel()
         val query = uiState.searchQuery.trim()
         val filters = uiState.filters
         val securities = allSecurities
 
-        val filteredItems = withContext(defaultDispatcher) {
-            val filteredSecurities: List<Security> = securities.filter { security ->
-                val matchesQuery = query.isBlank() ||
-                        security.symbol.contains(query, ignoreCase = true) ||
-                        security.name.contains(query, ignoreCase = true)
-                val matchesCurrency = filters.currencies.isEmpty() || security.currency in filters.currencies
-                val matchesPanel = filters.panels.isEmpty() || security.panel in filters.panels
-                val matchesSector = filters.sectors.isEmpty() || security.sector in filters.sectors
+        filterJob = viewModelScope.launch {
+            val filteredItems = filterSecurities(
+                query = query,
+                filters = filters,
+                securities = securities,
+            )
 
-                matchesQuery && matchesCurrency && matchesPanel && matchesSector
-            }
+            uiState = uiState.reduce(filteredItems)
+        }
+    }
 
-            val sortedSecurities = when (filters.sortOption) {
-                SecuritySortOption.HighestYield -> filteredSecurities.sortedByDescending { it.percentageChange }
-                SecuritySortOption.LowestYield -> filteredSecurities.sortedBy { it.percentageChange }
-                SecuritySortOption.HighestPrice -> filteredSecurities.sortedByDescending { it.price }
-                SecuritySortOption.LowestPrice -> filteredSecurities.sortedBy { it.price }
-            }
+    private suspend fun filterSecurities(
+        query: String,
+        filters: SecurityFilters,
+        securities: List<Security>,
+    ): List<Security> = withContext(defaultDispatcher) {
+        val filteredSecurities: List<Security> = securities.filter { security ->
+            val matchesQuery = query.isBlank() ||
+                    security.symbol.contains(query, ignoreCase = true) ||
+                    security.name.contains(query, ignoreCase = true)
+            val matchesCurrency = filters.currencies.isEmpty() || security.currency in filters.currencies
+            val matchesPanel = filters.panels.isEmpty() || security.panel in filters.panels
+            val matchesSector = filters.sectors.isEmpty() || security.sector in filters.sectors
 
-            sortedSecurities
+            matchesQuery && matchesCurrency && matchesPanel && matchesSector
         }
 
-        uiState = uiState.copy(items = filteredItems)
+        when (filters.sortOption) {
+            SecuritySortOption.HighestYield -> filteredSecurities.sortedByDescending { it.percentageChange }
+            SecuritySortOption.LowestYield -> filteredSecurities.sortedBy { it.percentageChange }
+            SecuritySortOption.HighestPrice -> filteredSecurities.sortedByDescending { it.price }
+            SecuritySortOption.LowestPrice -> filteredSecurities.sortedBy { it.price }
+        }
     }
 }
 
