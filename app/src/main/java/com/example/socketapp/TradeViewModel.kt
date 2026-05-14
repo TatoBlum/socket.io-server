@@ -166,21 +166,40 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onInputModeChange(inputMode: BuyInputMode) {
-        uiState = uiState.copy(inputMode = inputMode)
-        revalidate()
-    }
-
-    fun onInputChange(input: String) {
-        uiState = when (uiState.inputMode) {
+        uiState = when (inputMode) {
             BuyInputMode.Amount -> uiState.copy(
-                amountInputText = TradeInputParser.sanitizeAmountInput(input),
+                inputMode = inputMode,
+                amountInputText = "",
             )
             BuyInputMode.Quantity -> uiState.copy(
-                quantityInputText = TradeInputParser.sanitizeWholeNumberInput(input),
+                inputMode = inputMode,
+                quantityInputText = "",
             )
         }
         revalidate()
     }
+
+    fun onInputChange(inputMode: BuyInputMode, input: String) {
+        if (inputMode != uiState.inputMode) return
+        val sanitizedInput = sanitizeInput(inputMode, input)
+        uiState = uiState.withInputText(inputMode, sanitizedInput)
+        revalidate()
+    }
+
+    private fun sanitizeInput(inputMode: BuyInputMode, input: String): String =
+        when (inputMode) {
+            BuyInputMode.Amount -> TradeInputParser.sanitizeAmountInput(input)
+            BuyInputMode.Quantity -> TradeInputParser.sanitizeWholeNumberInput(input)
+        }
+
+    private fun BuySecurityUiState.withInputText(
+        inputMode: BuyInputMode,
+        input: String,
+    ): BuySecurityUiState =
+        when (inputMode) {
+            BuyInputMode.Amount -> copy(amountInputText = input)
+            BuyInputMode.Quantity -> copy(quantityInputText = input)
+        }
 
     private fun revalidate() {
         val validation = validator.validate(uiState)
