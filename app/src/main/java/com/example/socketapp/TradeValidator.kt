@@ -218,52 +218,64 @@ class TradeValidator @Inject constructor() {
     ): BigDecimal {
         val normalizedSubType = instrumentSubType.trim().lowercase()
         return when {
-            normalizedSubType in setOf("letras") -> BigDecimal("0.001")
+            normalizedSubType in setOf("letras", "letras del tesoro") -> BigDecimal("0.001")
             normalizedSubType in setOf("bonos", "obligaciones negociables", "on") ->
-                rangedPriceStep(limitPrice,
-                    BigDecimal("0.001"),
-                    BigDecimal("0.01"),
-                    BigDecimal("0.10"),
-                    BigDecimal("1"),
-                    BigDecimal("10"))
+                bondPriceStep(limitPrice)
 
             normalizedSubType in setOf("cedears", "cedear", "etfs", "etf") ->
-                rangedPriceStep(
-                    limitPrice,
-                    BigDecimal("0.01"),
-                    BigDecimal("0.05"),
-                    BigDecimal("0.10"),
-                    BigDecimal("1"),
-                    BigDecimal("10")
-                )
+                variableIncomeLeaderPriceStep(limitPrice)
 
             normalizedSubType == "acciones" && isLiderMerval ->
-                rangedPriceStep(limitPrice,
-                    BigDecimal("0.01"),
-                    BigDecimal("0.05"),
-                    BigDecimal("0.10"),
-                    BigDecimal("1"),
-                    BigDecimal("10"))
+                variableIncomeLeaderPriceStep(limitPrice)
 
-            normalizedSubType == "acciones" -> BigDecimal("0.01")
+            normalizedSubType == "acciones" -> stockNonLeaderPriceStep(limitPrice)
             else -> BigDecimal("0.01")
         }
     }
 
-    private fun rangedPriceStep(
-        limitPrice: BigDecimal,
-        upTo50: BigDecimal,
-        upTo500: BigDecimal,
-        upTo5000: BigDecimal,
-        upTo50000: BigDecimal,
-        above50000: BigDecimal,
-    ): BigDecimal =
+    private fun bondPriceStep(limitPrice: BigDecimal): BigDecimal =
         when {
-            limitPrice <= BigDecimal("50") -> upTo50
-            limitPrice <= BigDecimal("500") -> upTo500
-            limitPrice <= BigDecimal("5000") -> upTo5000
-            limitPrice <= BigDecimal("50000") -> upTo50000
-            else -> above50000
+            limitPrice <= BigDecimal("50") -> BigDecimal("0.001")
+            limitPrice <= BigDecimal("100") -> BigDecimal("0.01")
+            limitPrice <= BigDecimal("500") -> BigDecimal("0.05")
+            limitPrice <= BigDecimal("1000") -> BigDecimal("0.10")
+            limitPrice <= BigDecimal("5000") -> BigDecimal("0.50")
+            limitPrice <= BigDecimal("10000") -> BigDecimal("1.00")
+            limitPrice <= BigDecimal("50000") -> BigDecimal("5.00")
+            else -> BigDecimal("10.00")
+        }
+
+    private fun variableIncomeLeaderPriceStep(limitPrice: BigDecimal): BigDecimal =
+        when {
+            limitPrice <= BigDecimal("1") -> BigDecimal("0.001")
+            limitPrice <= BigDecimal("5") -> BigDecimal("0.005")
+            limitPrice <= BigDecimal("50") -> BigDecimal("0.01")
+            limitPrice <= BigDecimal("100") -> BigDecimal("0.10")
+            limitPrice <= BigDecimal("500") -> BigDecimal("0.25")
+            limitPrice <= BigDecimal("1000") -> BigDecimal("0.50")
+            limitPrice <= BigDecimal("2500") -> BigDecimal("1.00")
+            limitPrice <= BigDecimal("5000") -> BigDecimal("2.50")
+            limitPrice <= BigDecimal("10000") -> BigDecimal("5.00")
+            limitPrice <= BigDecimal("25000") -> BigDecimal("10.00")
+            limitPrice <= BigDecimal("50000") -> BigDecimal("20.00")
+            else -> BigDecimal("25.00")
+        }
+
+    private fun stockNonLeaderPriceStep(limitPrice: BigDecimal): BigDecimal =
+        when {
+            limitPrice <= BigDecimal("1") -> BigDecimal("0.001")
+            limitPrice <= BigDecimal("5") -> BigDecimal("0.005")
+            limitPrice <= BigDecimal("10") -> BigDecimal("0.01")
+            limitPrice <= BigDecimal("25") -> BigDecimal("0.05")
+            limitPrice <= BigDecimal("50") -> BigDecimal("0.10")
+            limitPrice <= BigDecimal("100") -> BigDecimal("0.20")
+            limitPrice <= BigDecimal("400") -> BigDecimal("0.50")
+            limitPrice <= BigDecimal("800") -> BigDecimal("1.00")
+            limitPrice <= BigDecimal("1000") -> BigDecimal("2.50")
+            limitPrice <= BigDecimal("5000") -> BigDecimal("5.00")
+            limitPrice <= BigDecimal("10000") -> BigDecimal("10.00")
+            limitPrice <= BigDecimal("25000") -> BigDecimal("25.00")
+            else -> BigDecimal("50.00")
         }
 
     private fun computeNominalsFromAmount(
@@ -312,7 +324,7 @@ class TradeValidator @Inject constructor() {
             instrument.maxTradeNominals.toBigDecimal(),
         )
         val operationalMaxNominals = when (state.tradeType) {
-            TradeType.Sell -> state.accountContext.availableNominals.toBigDecimal()
+            TradeType.Sell -> configuredMaxNominals
             TradeType.Buy -> {
                 val balance = if (state.tradeCurrency == "USD") {
                     state.accountContext.accountBalanceUsd
@@ -342,11 +354,11 @@ class TradeValidator @Inject constructor() {
         if (lotSize > BigDecimal.ZERO && tradeNominals.remainder(lotSize).compareTo(BigDecimal.ZERO) != 0) {
             errors += TradeValidationError.NominalsNotMultiple(lotSize)
         }
-        if (tradeNominals > maxNominals) {
-            errors += TradeValidationError.NominalsOverMax(maxNominals)
-        }
         if (tradeType == TradeType.Sell && tradeNominals > nominalsAvailable) {
             errors += TradeValidationError.NominalsOverAvailable(nominalsAvailable)
+        }
+        if (tradeNominals > maxNominals) {
+            errors += TradeValidationError.NominalsOverMax(maxNominals)
         }
         return errors
     }
