@@ -48,8 +48,11 @@ data class Security(
     val indexationType: String?,
     val isFavorite: Boolean,
     val minInstrumentNominals: Int,
+    val maxInstrumentNominals: Int,
     val lotInstrumentSize: Int,
-    val minTradeNominals: Int,
+    val maxTradeNominals: Int,
+    val minTradeAmount: BigDecimal,
+    val maxTradeAmount: BigDecimal,
     val lastPrice: BigDecimal,
     val dailyVariationPercent: BigDecimal,
     val askPrice: BigDecimal,
@@ -64,8 +67,6 @@ data class BuySecurityAccountContext(
     val accountBalanceArs: BigDecimal = BigDecimal("1159000.00"),
     val accountBalanceUsd: BigDecimal = BigDecimal("5000.00"),
     val tradeFee: BigDecimal = BigDecimal("0.00"),
-    val minTradeAmount: BigDecimal = BigDecimal("100.00"),
-    val maxTradeAmount: BigDecimal = BigDecimal("1159000.00"),
     val availableNominals: Int = 0,
 )
 
@@ -74,7 +75,7 @@ data class BuyValidationResult(
     val tradeNominals: BigDecimal = BigDecimal.ZERO,
     val tradeAmount: BigDecimal = BigDecimal.ZERO,
     val totalTradeAmount: BigDecimal = BigDecimal.ZERO,
-    val maxInstrumentNominals: BigDecimal = BigDecimal.ZERO,
+    val maxNominals: BigDecimal = BigDecimal.ZERO,
     val fee: BigDecimal = BigDecimal.ZERO,
     val errors: List<TradeValidationError> = emptyList(),
 ) {
