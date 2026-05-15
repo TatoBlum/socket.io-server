@@ -29,6 +29,20 @@ enum class BuyOrderType(val label: String, val description: String) {
     ),
 }
 
+enum class SettlementTerm(
+    val label: String,
+    val description: String,
+) {
+    TwentyFourHours(
+        label = "24 h",
+        description = "La operacion se ejecuta hoy y el dinero se liquida el dia habil siguiente.",
+    ),
+    Today(
+        label = "Hoy",
+        description = "La operacion se ejecuta hoy y el dinero se liquida el mismo dia.",
+    ),
+}
+
 enum class BuyInputMode(val label: String) {
     Amount("Monto"),
     Quantity("Cantidad"),
@@ -37,28 +51,31 @@ enum class BuyInputMode(val label: String) {
 @Immutable
 data class Security(
     val id: Int,
-    val ticker: String,
-    val description: String,
-    val type: String,
-    val currency: String,
-    val codeType: String,
-    val codeValue: String,
-    val industry: String,
-    val liderMerval: Boolean,
-    val indexationType: String?,
-    val isFavorite: Boolean,
-    val minInstrumentNominals: Int,
-    val maxInstrumentNominals: Int,
-    val lotInstrumentSize: Int,
-    val maxTradeNominals: Int,
-    val minTradeAmount: BigDecimal,
-    val maxTradeAmount: BigDecimal,
-    val lastPrice: BigDecimal,
-    val dailyVariationPercent: BigDecimal,
-    val askPrice: BigDecimal,
-    val bidPrice: BigDecimal,
-    val percentageMovement: BigDecimal,
-)
+    val ticker: String = "",
+    val description: String = "",
+    val type: String = "",
+    val currency: String = "ARS",
+    val codeType: String = "",
+    val codeValue: String = "",
+    val industry: String = "",
+    val liderMerval: Boolean = false,
+    val indexationType: String? = null,
+    val isFavorite: Boolean = false,
+    val minInstrumentNominals: Int = 0,
+    val maxInstrumentNominals: Int = Int.MAX_VALUE,
+    val lotInstrumentSize: Int = 0,
+    val maxTradeNominals: Int = Int.MAX_VALUE,
+    val minTradeAmount: BigDecimal = BigDecimal.ZERO,
+    val maxTradeAmount: BigDecimal = BigDecimal("999999999999.99"),
+    val lastPrice: BigDecimal = BigDecimal.ZERO,
+    val dailyVariationPercent: BigDecimal = BigDecimal.ZERO,
+    val askPrice: BigDecimal = BigDecimal.ZERO,
+    val bidPrice: BigDecimal = BigDecimal.ZERO,
+    val percentageMovement: BigDecimal = BigDecimal.ZERO,
+) {
+    val hasRequiredTradingConfiguration: Boolean
+        get() = minInstrumentNominals > 0 && lotInstrumentSize > 0
+}
 
 data class BuySecurityAccountContext(
     val monetaryAccountArs: String = "ARS-001",
@@ -88,6 +105,7 @@ data class BuySecurityUiState(
     val accountContext: BuySecurityAccountContext = BuySecurityAccountContext(),
     val tradeType: TradeType = TradeType.Buy,
     val orderType: BuyOrderType = BuyOrderType.Market,
+    val settlementTerm: SettlementTerm = SettlementTerm.Today,
     val inputMode: BuyInputMode = BuyInputMode.Amount,
     val tradeCurrency: String = "ARS",
     val amountInputText: String = "",
@@ -101,6 +119,9 @@ data class BuySecurityUiState(
     val limitPriceError: TradeValidationError? = null,
     val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
 ) {
+    val canContinue: Boolean
+        get() = validation.canContinue && instrument?.hasRequiredTradingConfiguration == true
+
     val activeInputText: String
         get() = when (inputMode) {
             BuyInputMode.Amount -> amountInputText
@@ -158,6 +179,11 @@ class TradeViewModel @Inject constructor(
 
     fun onOrderTypeChange(orderType: BuyOrderType) {
         uiState = uiState.copy(orderType = orderType)
+        revalidate()
+    }
+
+    fun onSettlementTermChange(settlementTerm: SettlementTerm) {
+        uiState = uiState.copy(settlementTerm = settlementTerm)
         revalidate()
     }
 
