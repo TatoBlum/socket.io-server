@@ -64,9 +64,7 @@ data class Security(
     val minInstrumentNominals: Int = 0,
     val maxInstrumentNominals: Int = Int.MAX_VALUE,
     val lotInstrumentSize: Int = 0,
-    val maxTradeNominals: Int = Int.MAX_VALUE,
-    val minTradeAmount: BigDecimal = BigDecimal.ZERO,
-    val maxTradeAmount: BigDecimal = BigDecimal("999999999999.99"),
+    val holdingQuantity: Int = 0,
     val lastPrice: BigDecimal = BigDecimal.ZERO,
     val dailyVariationPercent: BigDecimal = BigDecimal.ZERO,
     val askPrice: BigDecimal = BigDecimal.ZERO,
@@ -77,15 +75,55 @@ data class Security(
         get() = minInstrumentNominals > 0 && lotInstrumentSize > 0
 }
 
+data class TradingBalanceSet(
+    val limitNow: BigDecimal = BigDecimal.ZERO,
+    val limit24: BigDecimal = BigDecimal.ZERO,
+    val marketNow: BigDecimal = BigDecimal.ZERO,
+    val market24: BigDecimal = BigDecimal.ZERO,
+) {
+    fun balanceFor(
+        orderType: BuyOrderType,
+        settlementTerm: SettlementTerm,
+    ): BigDecimal =
+        when (orderType) {
+            BuyOrderType.Limit -> when (settlementTerm) {
+                SettlementTerm.Today -> limitNow
+                SettlementTerm.TwentyFourHours -> limit24
+            }
+
+            BuyOrderType.Market -> when (settlementTerm) {
+                SettlementTerm.Today -> marketNow
+                SettlementTerm.TwentyFourHours -> market24
+            }
+        }
+}
+
 data class BuySecurityAccountContext(
     val monetaryAccountArs: String = "ARS-001",
     val monetaryAccountUsd: String = "USD-001",
     val investmentAccount: String = "COM-001",
-    val accountBalanceArs: BigDecimal = BigDecimal("1159000.00"),
-    val accountBalanceUsd: BigDecimal = BigDecimal("5000.00"),
-    val tradeFee: BigDecimal = BigDecimal("0.00"),
-    val availableNominals: Int = 0,
-)
+    val arsBalances: TradingBalanceSet = TradingBalanceSet(
+        limitNow = BigDecimal("1159000.00"),
+        limit24 = BigDecimal("1159000.00"),
+        marketNow = BigDecimal("1159000.00"),
+        market24 = BigDecimal("1159000.00"),
+    ),
+    val usdBalances: TradingBalanceSet = TradingBalanceSet(
+        limitNow = BigDecimal("5000.00"),
+        limit24 = BigDecimal("5000.00"),
+        marketNow = BigDecimal("5000.00"),
+        market24 = BigDecimal("5000.00"),
+    ),
+) {
+    fun balanceFor(
+        currency: String,
+        orderType: BuyOrderType,
+        settlementTerm: SettlementTerm,
+    ): BigDecimal {
+        val balances = if (currency == "USD") usdBalances else arsBalances
+        return balances.balanceFor(orderType, settlementTerm)
+    }
+}
 
 data class BuyValidationResult(
     val tradePrice: BigDecimal = BigDecimal.ZERO,
@@ -93,7 +131,6 @@ data class BuyValidationResult(
     val tradeAmount: BigDecimal = BigDecimal.ZERO,
     val totalTradeAmount: BigDecimal = BigDecimal.ZERO,
     val maxNominals: BigDecimal = BigDecimal.ZERO,
-    val fee: BigDecimal = BigDecimal.ZERO,
     val errors: List<TradeValidationError> = emptyList(),
 ) {
     val canContinue: Boolean
@@ -246,17 +283,17 @@ class TradeViewModel @Inject constructor(
         validation: BuyValidationResult,
     ): TradeInputHelper {
         val context = state.accountContext
-        val currencyBalance = if (state.tradeCurrency == "USD") {
-            context.accountBalanceUsd
-        } else {
-            context.accountBalanceArs
-        }
+        val currencyBalance = context.balanceFor(
+            currency = state.tradeCurrency,
+            orderType = state.orderType,
+            settlementTerm = state.settlementTerm,
+        )
 
         if (state.tradeType == TradeType.Sell) {
             return if (validation.tradeAmount > BigDecimal.ZERO) {
                 TradeInputHelper.ApproximateCredit(validation.tradeAmount)
             } else {
-                TradeInputHelper.AvailableNominals(context.availableNominals)
+                TradeInputHelper.AvailableNominals(state.instrument?.holdingQuantity ?: 0)
             }
         }
 
