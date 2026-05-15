@@ -1,7 +1,7 @@
 package com.example.socketapp.data
 
-import com.example.socketapp.BuyableInstrument
-import com.example.socketapp.model.Security
+import com.example.socketapp.Security as BuyableSecurity
+import com.example.socketapp.model.Security as MarketSecurity
 import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.inject.Inject
@@ -9,25 +9,25 @@ import javax.inject.Inject
 class MockSecuritiesRepository @Inject constructor(
     private val remoteDataSource: SecuritiesRemoteDataSource,
 ) : SecuritiesRepository {
-    private var cachedSecurities: List<Security>? = null
+    private var cachedSecurities: List<MarketSecurity>? = null
 
-    override fun getCachedSecurities(): List<Security>? = cachedSecurities
+    override fun getCachedSecurities(): List<MarketSecurity>? = cachedSecurities
 
-    override suspend fun refreshSecurities(): List<Security> {
+    override suspend fun refreshSecurities(): List<MarketSecurity> {
         val refreshedSecurities = remoteDataSource.fetchSecurities(cachedSecurities)
         cachedSecurities = refreshedSecurities
         return refreshedSecurities
     }
 
-    override suspend fun getBuyableInstruments(): List<BuyableInstrument> =
+    override suspend fun getBuyableInstruments(): List<BuyableSecurity> =
         cachedSecurities.orEmpty().map { security -> security.toBuyableInstrument() }
 
-    override suspend fun getBuyableInstrument(id: String): BuyableInstrument? =
+    override suspend fun getBuyableInstrument(id: String): BuyableSecurity? =
         cachedSecurities.orEmpty()
             .firstOrNull { security -> security.id == id }
             ?.toBuyableInstrument()
 
-    private fun Security.toBuyableInstrument(): BuyableInstrument {
+    private fun MarketSecurity.toBuyableInstrument(): BuyableSecurity {
         val normalizedCurrency = when (currency.lowercase()) {
             "dolares" -> "USD"
             else -> "ARS"
@@ -36,7 +36,7 @@ class MockSecuritiesRepository @Inject constructor(
         val ask = price.add(spread).setScale(2, RoundingMode.HALF_UP)
         val bid = price.subtract(spread).coerceAtLeast(BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP)
 
-        return BuyableInstrument(
+        return BuyableSecurity(
             id = id.hashCode() and Int.MAX_VALUE,
             ticker = symbol,
             description = name,
@@ -48,10 +48,10 @@ class MockSecuritiesRepository @Inject constructor(
             liderMerval = panel == "S&P Merval",
             indexationType = null,
             isFavorite = isFavourite,
-            holdingQuantity = 10,
             minInstrumentNominals = 1,
+            maxInstrumentNominals = 999999999,
             lotInstrumentSize = 1,
-            minTradeNominals = 1,
+            holdingQuantity = 0,
             lastPrice = price.setScale(2, RoundingMode.HALF_UP),
             dailyVariationPercent = percentageChange.setScale(2, RoundingMode.HALF_UP),
             askPrice = ask,
