@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -63,37 +64,26 @@ import com.example.socketapp.TradeInputLimitPriceHelper
 import com.example.socketapp.TradeInputHelper
 import com.example.socketapp.TradeValidationError
 import com.example.socketapp.Security
-import com.example.socketapp.ui.theme.GaliciaPrimary
+import com.example.socketapp.SettlementTerm
+import com.example.socketapp.ui.theme.AppPrimary
 import com.example.socketapp.ui.theme.PriceUpText
 import java.math.BigDecimal
 import java.math.RoundingMode
-
-private enum class SettlementTerm(
-    val label: String,
-    val description: String,
-) {
-    TwentyFourHours(
-        label = "24 h",
-        description = "La compra se ejecuta hoy y el dinero se liquida el dia habil siguiente.",
-    ),
-    Today(
-        label = "Hoy",
-        description = "La compra se ejecuta hoy y el dinero se liquida el mismo dia.",
-    ),
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuySecurityScreen(
     uiState: BuySecurityUiState,
     onInputModeChange: (BuyInputMode) -> Unit,
-    onInputChange: (String) -> Unit,
+    onInputChange: (BuyInputMode, String) -> Unit,
+    onSettlementTermChange: (SettlementTerm) -> Unit,
     onOrderTypeChange: (BuyOrderType) -> Unit,
     onLimitPriceChange: (String) -> Unit,
+    onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var settlementTerm by remember { mutableStateOf(SettlementTerm.Today) }
     var activeSheet by remember { mutableStateOf<BuySheet?>(null) }
+    val focusManager = LocalFocusManager.current
 
     Column(
         modifier = modifier
@@ -119,7 +109,7 @@ fun BuySecurityScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SelectorButton(
-                label = "Plazo: ${settlementTerm.label}",
+                label = "Plazo: ${uiState.settlementTerm.label}",
                 selected = true,
                 onClick = { activeSheet = BuySheet.Settlement },
                 modifier = Modifier.weight(1f),
@@ -159,15 +149,18 @@ fun BuySecurityScreen(
             value = uiState.activeInputText,
             helperMessage = uiState.inputHelper.toInputHelperMessage(),
             errorMessage = uiState.inputError?.toInputErrorMessage(),
-            onModeChange = onInputModeChange,
+            onModeChange = { inputMode ->
+                focusManager.clearFocus(force = true)
+                onInputModeChange(inputMode)
+            },
             onValueChange = onInputChange,
         )
 
         Spacer(modifier = Modifier.height(64.dp))
 
         Button(
-            onClick = {},
-            enabled = uiState.validation.canContinue,
+            onClick = onContinue,
+            enabled = uiState.canContinue,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -195,12 +188,12 @@ fun BuySecurityScreen(
             SelectionSheet(
                 title = "Plazo de liquidacion",
                 options = SettlementTerm.entries,
-                selected = settlementTerm,
+                selected = uiState.settlementTerm,
                 label = { it.label },
                 description = { it.description },
                 onDismiss = { activeSheet = null },
                 onSelect = {
-                    settlementTerm = it
+                    onSettlementTermChange(it)
                     activeSheet = null
                 },
             )
@@ -235,7 +228,7 @@ private fun TradeInputSection(
     helperMessage: String,
     errorMessage: String?,
     onModeChange: (BuyInputMode) -> Unit,
-    onValueChange: (String) -> Unit,
+    onValueChange: (BuyInputMode, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -268,11 +261,11 @@ private fun TradeInputSection(
                         BuyInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
                         BuyInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
                     }
-                    onValueChange(filteredValue)
+                    onValueChange(mode, filteredValue)
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                cursorBrush = SolidColor(GaliciaPrimary),
+                cursorBrush = SolidColor(AppPrimary),
                 textStyle = MaterialTheme.typography.displayMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Normal,
@@ -314,7 +307,7 @@ private fun TradeInputSection(
         }
 
         HorizontalDivider(
-            color = GaliciaPrimary,
+            color = AppPrimary,
             thickness = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -352,7 +345,7 @@ private fun PurchaseModeChip(
             .clip(RoundedCornerShape(22.dp))
             .border(
                 width = 1.dp,
-                color = if (selected) GaliciaPrimary else MaterialTheme.colorScheme.outline,
+                color = if (selected) AppPrimary else MaterialTheme.colorScheme.outline,
                 shape = RoundedCornerShape(22.dp),
             )
             .background(MaterialTheme.colorScheme.surface)
@@ -366,7 +359,7 @@ private fun PurchaseModeChip(
     ) {
         Text(
             text = text,
-            color = if (selected) GaliciaPrimary else MaterialTheme.colorScheme.onSurface,
+            color = if (selected) AppPrimary else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
         )
@@ -478,7 +471,7 @@ private fun SelectorButton(
             .clip(RoundedCornerShape(8.dp))
             .border(
                 width = 1.dp,
-                color = if (selected) GaliciaPrimary else MaterialTheme.colorScheme.outline,
+                color = if (selected) AppPrimary else MaterialTheme.colorScheme.outline,
                 shape = RoundedCornerShape(8.dp),
             )
             .background(MaterialTheme.colorScheme.surface)
@@ -638,18 +631,18 @@ private fun TradeValidationError.toInputErrorMessage(): String =
         is TradeValidationError.LimitPriceNotMultiple ->
             "El precio limite debe ser multiplo de ${step.toPlainString()}"
         TradeValidationError.MissingTradePrice -> "No se pudo obtener un precio valido para la operacion"
-        is TradeValidationError.AmountNotEnoughForMin -> "El monto minimo a comprar es ${minAmount.formatCurrency()}"
+        is TradeValidationError.AmountNotEnoughForMin -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
         TradeValidationError.NominalsInvalid -> "La cantidad debe ser mayor a cero"
-        is TradeValidationError.NominalsBelowMin -> "La cantidad minima a comprar es ${minNominals.toPlainString()}"
+        is TradeValidationError.NominalsBelowMin -> "La cantidad minima para operar es ${minNominals.toPlainString()}"
         is TradeValidationError.NominalsNotMultiple -> "La cantidad debe ser multiplo de ${lotSize.toPlainString()}"
-        is TradeValidationError.NominalsOverMax -> "La cantidad maxima a comprar es ${maxNominals.toPlainString()}"
-        is TradeValidationError.NominalsOverAvailable -> "Supera tu saldo disponible"
-        is TradeValidationError.AmountOverMaxSellable -> "El monto maximo vendible es $${maxAmount.toPlainMoneyString()}"
+        is TradeValidationError.NominalsOverMax -> "La cantidad maxima para operar es ${maxNominals.toPlainString()}"
+        is TradeValidationError.NotEnoughNominals -> "Supera tu disponible"
+        is TradeValidationError.NotEnoughAvailableAmount -> "Supera tu disponible"
         is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
         TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para comisiones"
         is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
-        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo a comprar es ${minAmount.formatCurrency()}"
-        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo a comprar es ${maxAmount.formatCurrency()}"
+        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
+        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo para operar es ${maxAmount.formatCurrency()}"
     }
 
 private fun BigDecimal.toPlainMoneyString(): String =
