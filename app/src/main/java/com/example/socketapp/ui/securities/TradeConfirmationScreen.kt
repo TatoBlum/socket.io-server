@@ -171,9 +171,15 @@ fun TradeConfirmationScreen(
                 label = "Monto de la operacion",
                 value = validation.tradeAmount.formatCurrency(),
             )
-            ConfirmationRow(label = "Comisiones")
-            ConfirmationRow(label = "Derechos de mercado")
-            ConfirmationRow(label = "IVA")
+            ConfirmationRow(
+                label = "Comisiones",
+            )
+            ConfirmationRow(
+                label = "Derechos de mercado",
+            )
+            ConfirmationRow(
+                label = "IVA",
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
             ConfirmationRow(

@@ -119,17 +119,16 @@ class TradeValidator @Inject constructor() {
             ),
         )
 
-        val totalTradeAmount = tradeAmount.toMoneyAmount()
-        val maxTradeAmount = context.balanceFor(
+        val maxOperationAmount = context.balanceFor(
             currency = state.tradeCurrency,
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
-        errors += validateMaxTotal(
+        errors += validateOperationAmountLimits(
             inputMode = state.inputMode,
-            totalTradeAmount = totalTradeAmount,
-            minTradeAmount = minimumTotalAmount,
-            maxTradeAmount = maxTradeAmount,
+            operationAmount = tradeAmount,
+            minOperationAmount = minimumTotalAmount,
+            maxOperationAmount = maxOperationAmount,
             minimumAmountForOperation = effectiveMinimumAmount,
         )
 
@@ -137,7 +136,6 @@ class TradeValidator @Inject constructor() {
             tradePrice = tradePrice,
             tradeNominals = tradeNominals,
             tradeAmount = tradeAmount,
-            totalTradeAmount = totalTradeAmount,
             maxNominals = maxNominals,
             errors = errors,
         )
@@ -393,21 +391,21 @@ class TradeValidator @Inject constructor() {
             BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
         }
 
-    private fun validateMaxTotal(
+    private fun validateOperationAmountLimits(
         inputMode: BuyInputMode,
-        totalTradeAmount: BigDecimal,
-        minTradeAmount: BigDecimal,
-        maxTradeAmount: BigDecimal,
+        operationAmount: BigDecimal,
+        minOperationAmount: BigDecimal,
+        maxOperationAmount: BigDecimal,
         minimumAmountForOperation: BigDecimal,
     ): List<TradeValidationError> {
         val errors = mutableListOf<TradeValidationError>()
-        if (totalTradeAmount < minTradeAmount && inputMode == BuyInputMode.Amount) {
+        if (operationAmount < minOperationAmount && inputMode == BuyInputMode.Amount) {
             errors += TradeValidationError.AmountNotEnoughForMin(minimumAmountForOperation)
-        } else if (totalTradeAmount < minTradeAmount) {
-            errors += TradeValidationError.TotalBelowMinAmount(minTradeAmount)
+        } else if (operationAmount < minOperationAmount) {
+            errors += TradeValidationError.OperationAmountBelowMin(minOperationAmount)
         }
-        if (totalTradeAmount > maxTradeAmount) {
-            errors += TradeValidationError.TotalAboveMaxAmount(maxTradeAmount)
+        if (operationAmount > maxOperationAmount) {
+            errors += TradeValidationError.OperationAmountAboveMax(maxOperationAmount)
         }
         return errors
     }

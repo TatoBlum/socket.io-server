@@ -26,7 +26,6 @@ class TradeValidationRulesMatrixTest {
         assertEquals("100.00", result.tradePrice.toPlainString())
         assertEquals("2", result.tradeNominals.toPlainString())
         assertEquals("200.00", result.tradeAmount.toPlainString())
-        assertEquals("200.00", result.totalTradeAmount.toPlainString())
         assertTrue(result.canContinue)
     }
 
@@ -48,7 +47,6 @@ class TradeValidationRulesMatrixTest {
         assertEquals("90", result.tradePrice.toPlainString())
         assertEquals("3", result.tradeNominals.toPlainString())
         assertEquals("270.00", result.tradeAmount.toPlainString())
-        assertEquals("270.00", result.totalTradeAmount.toPlainString())
         assertTrue(result.canContinue)
     }
 
@@ -100,18 +98,18 @@ class TradeValidationRulesMatrixTest {
                 instrument = instrument(
                     bidPrice = BigDecimal("100.00"),
                     holdingQuantity = 10,
-                    percentageMovement = BigDecimal("1.00"),
+                    percentageMovement = BigDecimal("0.20"),
                 ),
                 orderType = BuyOrderType.Limit,
-                limitPriceInput = "80",
+                limitPriceInput = "90",
                 inputMode = BuyInputMode.Amount,
-                amountInputText = "801",
+                amountInputText = "901",
             ),
         )
 
         val error = result.errors.single() as TradeValidationError.NotEnoughAvailableAmount
-        assertEquals("800.00", error.availableAmount.toPlainString())
-        assertEquals("800.00", result.tradeAmount.toPlainString())
+        assertEquals("900.00", error.availableAmount.toPlainString())
+        assertEquals("900.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -186,7 +184,7 @@ class TradeValidationRulesMatrixTest {
 
         val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
         assertEquals("50.00", error.minAmount.toPlainString())
-        assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(result.totalTradeAmount))
+        assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(result.tradeAmount))
         assertFalse(result.canContinue)
     }
 
@@ -231,7 +229,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09d buy ars quantity below channel minimum rejects with total minimum`() {
+    fun `09d buy ars quantity below channel minimum rejects with operation minimum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -245,14 +243,14 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        val error = result.errors.single() as TradeValidationError.TotalBelowMinAmount
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
         assertEquals("100.00", error.minAmount.toPlainString())
-        assertEquals("30.00", result.totalTradeAmount.toPlainString())
+        assertEquals("30.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 
     @Test
-    fun `10 min max total rejects total above maximum amount`() {
+    fun `10 operation amount limits reject amount above maximum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(askPrice = BigDecimal("100.00")),
@@ -264,9 +262,9 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        val error = result.errors.filterIsInstance<TradeValidationError.TotalAboveMaxAmount>().single()
+        val error = result.errors.filterIsInstance<TradeValidationError.OperationAmountAboveMax>().single()
         assertEquals("1000.00", error.maxAmount.toPlainString())
-        assertEquals("1100.00", result.totalTradeAmount.toPlainString())
+        assertEquals("1100.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -372,7 +370,6 @@ class TradeValidationRulesMatrixTest {
 
         assertTrue(result.errors.any { error -> error is TradeValidationError.InsufficientUsd })
         assertEquals("1000.00", result.tradeAmount.toPlainString())
-        assertEquals("1000.00", result.totalTradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 

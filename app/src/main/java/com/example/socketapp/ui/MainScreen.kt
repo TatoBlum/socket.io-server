@@ -19,11 +19,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.socketapp.CheckNetworkConnection
-import com.example.socketapp.BuySecurityViewModel
+import com.example.socketapp.TradeViewModel
 import com.example.socketapp.MainViewModel
 import com.example.socketapp.SecuritiesViewModel
 import com.example.socketapp.ui.securities.BuySecurityScreen
 import com.example.socketapp.ui.securities.SecuritiesRoute
+import com.example.socketapp.ui.securities.TradeConfirmationScreen
 import com.example.socketapp.ui.tradingview.TradingViewScreen
 import com.example.socketapp.ui.tradingview.top5Favorites
 import kotlinx.serialization.Serializable
@@ -42,7 +43,8 @@ fun MainScreen(
     val currentRoute = currentBackStackEntry?.destination?.route
     val isSecuritiesRoute = currentRoute == MainRoute.Securities.route
     val isTitlesRoute = currentRoute == MainRoute.Titles.route
-    val isDetailRoute = isSecuritiesRoute || isTitlesRoute
+    val isTradeConfirmationRoute = currentRoute == MainRoute.TradeConfirmation.route
+    val isDetailRoute = isSecuritiesRoute || isTitlesRoute || isTradeConfirmationRoute
 
     LaunchedEffect(isConnected) {
         if (isConnected) {
@@ -58,6 +60,7 @@ fun MainScreen(
 
     Scaffold(
         topBar = {
+            if (!isTradeConfirmationRoute) {
             SearchableTopBar(
                 title = when {
                     isSecuritiesRoute -> "Acciones"
@@ -84,6 +87,7 @@ fun MainScreen(
                 },
                 onQueryChange = {},
             )
+            }
         },
     ) { innerPadding ->
         NavHost(
@@ -120,18 +124,46 @@ fun MainScreen(
                 val securityId = backStackEntry.arguments
                     ?.getString(MainRoute.Titles.SecurityIdArgument)
                     .orEmpty()
-                val buySecurityViewModel = hiltViewModel<BuySecurityViewModel>(backStackEntry)
+                val tradeViewModel = hiltViewModel<TradeViewModel>(backStackEntry)
 
                 LaunchedEffect(securityId) {
-                    buySecurityViewModel.loadInstrument(securityId)
+                    tradeViewModel.loadInstrument(securityId)
                 }
 
                 BuySecurityScreen(
-                    uiState = buySecurityViewModel.uiState,
-                    onInputModeChange = buySecurityViewModel::onInputModeChange,
-                    onInputChange = buySecurityViewModel::onInputChange,
-                    onOrderTypeChange = buySecurityViewModel::onOrderTypeChange,
-                    onLimitPriceChange = buySecurityViewModel::onLimitPriceChange,
+                    uiState = tradeViewModel.uiState,
+                    onInputModeChange = tradeViewModel::onInputModeChange,
+                    onInputChange = { inputMode, input -> tradeViewModel.onInputChange(inputMode, input) },
+                    onSettlementTermChange = tradeViewModel::onSettlementTermChange,
+                    onOrderTypeChange = tradeViewModel::onOrderTypeChange,
+                    onLimitPriceChange = tradeViewModel::onLimitPriceChange,
+                    onContinue = {
+                        if (tradeViewModel.uiState.canContinue) {
+                            navController.navigate(MainRoute.TradeConfirmation.createRoute(securityId))
+                        }
+                    },
+                )
+            }
+
+            composable(
+                route = MainRoute.TradeConfirmation.route,
+                arguments = listOf(navArgument(MainRoute.TradeConfirmation.SecurityIdArgument) {
+                    type = NavType.StringType
+                }),
+            ) { backStackEntry ->
+                val securityId = backStackEntry.arguments
+                    ?.getString(MainRoute.TradeConfirmation.SecurityIdArgument)
+                    .orEmpty()
+
+/*                val tradeEntry = remember(navController, securityId) {
+                    navController.getBackStackEntry(MainRoute.Titles.route)
+                }*/
+                val tradeViewModel = hiltViewModel<TradeViewModel>()
+
+                TradeConfirmationScreen(
+                    uiState = tradeViewModel.uiState,
+                    onBack = { navController.popBackStack() },
+                    onConfirm = {},
                 )
             }
         }
@@ -151,5 +183,12 @@ private sealed class MainRoute(val route: String) {
         const val SecurityIdArgument = "securityId"
 
         fun createRoute(securityId: String): String = "buy/$securityId"
+    }
+
+    @Serializable
+    data object TradeConfirmation : MainRoute("buy/{securityId}/confirm") {
+        const val SecurityIdArgument = "securityId"
+
+        fun createRoute(securityId: String): String = "buy/$securityId/confirm"
     }
 }

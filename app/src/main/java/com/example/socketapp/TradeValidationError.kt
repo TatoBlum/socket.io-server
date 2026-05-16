@@ -18,8 +18,8 @@ sealed interface TradeValidationError {
     data class InsufficientArs(val operationMode: BuyInputMode) : TradeValidationError
     data object InsufficientArsForFee : TradeValidationError
     data class InsufficientUsd(val operationMode: BuyInputMode) : TradeValidationError
-    data class TotalBelowMinAmount(val minAmount: BigDecimal) : TradeValidationError
-    data class TotalAboveMaxAmount(val maxAmount: BigDecimal) : TradeValidationError
+    data class OperationAmountBelowMin(val minAmount: BigDecimal) : TradeValidationError
+    data class OperationAmountAboveMax(val maxAmount: BigDecimal) : TradeValidationError
 }
 
 fun TradeValidationError.isLimitPriceError(): Boolean =

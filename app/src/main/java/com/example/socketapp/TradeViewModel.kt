@@ -129,12 +129,11 @@ data class BuyValidationResult(
     val tradePrice: BigDecimal = BigDecimal.ZERO,
     val tradeNominals: BigDecimal = BigDecimal.ZERO,
     val tradeAmount: BigDecimal = BigDecimal.ZERO,
-    val totalTradeAmount: BigDecimal = BigDecimal.ZERO,
     val maxNominals: BigDecimal = BigDecimal.ZERO,
     val errors: List<TradeValidationError> = emptyList(),
 ) {
     val canContinue: Boolean
-        get() = errors.isEmpty() && tradeNominals > BigDecimal.ZERO && totalTradeAmount > BigDecimal.ZERO
+        get() = errors.isEmpty() && tradeAmount > BigDecimal.ZERO
 }
 
 data class BuySecurityUiState(
@@ -298,7 +297,7 @@ class TradeViewModel @Inject constructor(
         }
 
         return when {
-            validation.totalTradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateDebit(validation.totalTradeAmount)
+            validation.tradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateDebit(validation.tradeAmount)
             state.inputMode == BuyInputMode.Amount -> TradeInputHelper.AvailableBalance(currencyBalance)
             else -> TradeInputHelper.AvailableToBuy(currencyBalance)
         }
@@ -322,6 +321,45 @@ class TradeViewModel @Inject constructor(
             )
         }
     }
+
+    /*
+     * Implementacion de fee pausada.
+     *
+     * Cuando retomemos la pantalla de confirmacion, la idea es volver a calcular:
+     * - comision
+     * - derechos de mercado
+     * - IVA
+     * - monto estimado a debitar/acreditar
+     *
+     * Tambien corresponde validar en esta etapa, no en BuySecurityScreen:
+     * - compra ARS: saldo ARS suficiente para tradeAmount + fees
+     * - compra USD: saldo USD suficiente para tradeAmount y saldo ARS suficiente para fees
+     *
+     * data class TradeFeeBreakdown(
+     *     val commission: BigDecimal = BigDecimal.ZERO,
+     *     val marketRights: BigDecimal = BigDecimal.ZERO,
+     *     val vat: BigDecimal = BigDecimal.ZERO,
+     * ) {
+     *     val total: BigDecimal
+     *         get() = commission.add(marketRights).add(vat).setScale(2, RoundingMode.HALF_UP)
+     * }
+     *
+     * data class TradeConfirmationValidation(
+     *     val fees: TradeFeeBreakdown = TradeFeeBreakdown(),
+     *     val estimatedAmount: BigDecimal = BigDecimal.ZERO,
+     *     val errors: List<TradeValidationError> = emptyList(),
+     * ) {
+     *     val canConfirm: Boolean
+     *         get() = errors.isEmpty() && estimatedAmount > BigDecimal.ZERO
+     * }
+     *
+     * private fun buildConfirmationValidation(
+     *     state: BuySecurityUiState,
+     *     validation: BuyValidationResult,
+     * ): TradeConfirmationValidation { ... }
+     *
+     * private fun calculateMockFees(tradeAmount: BigDecimal): TradeFeeBreakdown { ... }
+     */
 }
 
 internal fun BigDecimal.toMoneyString(): String =
