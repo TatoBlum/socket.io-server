@@ -141,6 +141,39 @@ class TradeValidator @Inject constructor() {
         )
     }
 
+    fun validateConfirmation(
+        state: BuySecurityUiState,
+        validation: BuyValidationResult = validate(state),
+    ): TradeConfirmationState {
+        if (!validation.canContinue) return TradeConfirmationState()
+
+        val fee = calculateMockFee(validation.tradeAmount)
+        val amountWithFee = if (state.tradeCurrency == ARS_CURRENCY) {
+            validation.tradeAmount.add(fee).toMoneyAmount()
+        } else {
+            validation.tradeAmount.toMoneyAmount()
+        }
+        val estimatedAmount = when {
+            state.tradeType == TradeType.Sell && state.tradeCurrency == ARS_CURRENCY ->
+                validation.tradeAmount.subtract(fee).coerceAtLeast(BigDecimal.ZERO).toMoneyAmount()
+
+            else -> amountWithFee
+        }
+        val errors = validateConfirmationBalances(
+            state = state,
+            validation = validation,
+            fee = fee,
+            amountWithFee = amountWithFee,
+        )
+
+        return TradeConfirmationState(
+            fee = fee,
+            amountWithFee = amountWithFee,
+            estimatedAmount = estimatedAmount,
+            errors = errors,
+        )
+    }
+
     private fun resolveTradePrice(
         orderType: BuyOrderType,
         tradeType: TradeType,
@@ -176,10 +209,11 @@ class TradeValidator @Inject constructor() {
         askPrice: BigDecimal,
         bidPrice: BigDecimal,
         percentageMovement: BigDecimal,
-    ): List<TradeValidationError> =
-        when (tradeType) {
+    ): List<TradeValidationError> {
+        val priceBandMovement = percentageMovement.toPriceBandMovement()
+        return when (tradeType) {
             TradeType.Buy -> {
-                val maxAllowed = askPrice.multiply(BigDecimal.ONE.add(percentageMovement))
+                val maxAllowed = askPrice.multiply(BigDecimal.ONE.add(priceBandMovement))
                 if (limitPrice > maxAllowed) {
                     listOf(TradeValidationError.LimitPriceOutOfBandBuy(maxAllowed))
                 } else {
@@ -188,7 +222,7 @@ class TradeValidator @Inject constructor() {
             }
 
             TradeType.Sell -> {
-                val minAllowed = bidPrice.multiply(BigDecimal.ONE.subtract(percentageMovement))
+                val minAllowed = bidPrice.multiply(BigDecimal.ONE.subtract(priceBandMovement))
                 if (limitPrice < minAllowed) {
                     listOf(TradeValidationError.LimitPriceOutOfBandSell(minAllowed))
                 } else {
@@ -196,6 +230,7 @@ class TradeValidator @Inject constructor() {
                 }
             }
         }
+    }
 
     private fun validateLimitPriceMultiple(
         instrumentSubType: String,
@@ -348,6 +383,41 @@ class TradeValidator @Inject constructor() {
         return errors
     }
 
+    private fun validateConfirmationBalances(
+        state: BuySecurityUiState,
+        validation: BuyValidationResult,
+        fee: BigDecimal,
+        amountWithFee: BigDecimal,
+    ): List<TradeValidationError> {
+        val arsBalance = state.accountContext.balanceFor(
+            currency = ARS_CURRENCY,
+            orderType = state.orderType,
+            settlementTerm = state.settlementTerm,
+        )
+        val errors = mutableListOf<TradeValidationError>()
+
+        if (state.tradeType == TradeType.Buy && state.tradeCurrency == ARS_CURRENCY && arsBalance < amountWithFee) {
+            errors += TradeValidationError.InsufficientArsForFee
+        }
+
+        if (state.tradeCurrency == USD_CURRENCY && arsBalance < fee) {
+            errors += TradeValidationError.InsufficientArsForFee
+        }
+
+        if (state.tradeType == TradeType.Buy && state.tradeCurrency == USD_CURRENCY) {
+            val usdBalance = state.accountContext.balanceFor(
+                currency = USD_CURRENCY,
+                orderType = state.orderType,
+                settlementTerm = state.settlementTerm,
+            )
+            if (usdBalance < validation.tradeAmount) {
+                errors += TradeValidationError.InsufficientUsd(state.inputMode)
+            }
+        }
+
+        return errors
+    }
+
     private fun validateSellByAmountMax(
         orderType: BuyOrderType,
         tradeAmount: BigDecimal,
@@ -418,6 +488,13 @@ class TradeValidator @Inject constructor() {
     private fun BigDecimal.toMoneyAmount(): BigDecimal =
         setScale(2, RoundingMode.HALF_UP)
 
+    private fun calculateMockFee(tradeAmount: BigDecimal): BigDecimal =
+        if (tradeAmount <= BigDecimal.ZERO) {
+            BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+        } else {
+            tradeAmount.multiply(FEE_RATE).toMoneyAmount()
+        }
+
     private fun BigDecimal.isMultipleOf(step: BigDecimal): Boolean {
         if (step <= BigDecimal.ZERO) return false
         val scale = maxOf(scale(), step.scale()).coerceAtLeast(0)
@@ -428,6 +505,18 @@ class TradeValidator @Inject constructor() {
     }
 
     private companion object {
+        const val ARS_CURRENCY = "ARS"
+        const val USD_CURRENCY = "USD"
         val MIN_BUY_ARS_AMOUNT: BigDecimal = BigDecimal("100.00")
+        val FEE_RATE: BigDecimal = BigDecimal("0.00702")
+    }
+}
+
+internal fun BigDecimal.toPriceBandMovement(): BigDecimal {
+    val positiveMovement = abs()
+    return if (positiveMovement > BigDecimal.ONE) {
+        positiveMovement.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)
+    } else {
+        positiveMovement
     }
 }

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
+import com.example.socketapp.TradeValidationError
 import com.example.socketapp.TradeType
 import com.example.socketapp.ui.theme.AppPrimary
 import java.math.BigDecimal
@@ -53,6 +54,7 @@ fun TradeConfirmationScreen(
 ) {
     val instrument = uiState.instrument
     val validation = uiState.validation
+    val confirmation = uiState.confirmation
     val accountValue = when (uiState.tradeCurrency) {
         "USD" -> uiState.accountContext.monetaryAccountUsd
         else -> uiState.accountContext.monetaryAccountArs
@@ -172,27 +174,32 @@ fun TradeConfirmationScreen(
                 value = validation.tradeAmount.formatCurrency(),
             )
             ConfirmationRow(
-                label = "Comisiones",
-            )
-            ConfirmationRow(
-                label = "Derechos de mercado",
-            )
-            ConfirmationRow(
-                label = "IVA",
+                label = "Fee",
+                value = confirmation.fee.formatCurrency(),
             )
 
             Spacer(modifier = Modifier.height(8.dp))
             ConfirmationRow(
                 label = estimatedTotalLabel,
-                value = "",
+                value = confirmation.estimatedAmount.formatCurrency(),
                 emphasized = true,
                 showDivider = false,
             )
+            confirmation.errors.firstOrNull()?.let { error ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = error.toConfirmationErrorMessage(),
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.End,
+                )
+            }
         }
 
         Button(
             onClick = onConfirm,
-            enabled = uiState.canContinue,
+            enabled = uiState.canContinue && confirmation.canConfirm,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -254,6 +261,14 @@ private fun ConfirmationRow(
 
 private fun BigDecimal.toPlainQuantityString(): String =
     stripTrailingZeros().toPlainString()
+
+private fun TradeValidationError.toConfirmationErrorMessage(): String =
+    when (this) {
+        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
+        is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
+        is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
+        else -> "No se puede confirmar la operacion"
+    }
 
 private fun BigDecimal.formatCurrency(): String {
     val plainValue = setScale(2, RoundingMode.HALF_UP).toPlainString()

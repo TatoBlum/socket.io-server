@@ -136,6 +136,16 @@ data class BuyValidationResult(
         get() = errors.isEmpty() && tradeAmount > BigDecimal.ZERO
 }
 
+data class TradeConfirmationState(
+    val fee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val amountWithFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val estimatedAmount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val errors: List<TradeValidationError> = emptyList(),
+) {
+    val canConfirm: Boolean
+        get() = errors.isEmpty() && estimatedAmount > BigDecimal.ZERO
+}
+
 data class BuySecurityUiState(
     val instrument: Security? = null,
     val accountContext: BuySecurityAccountContext = BuySecurityAccountContext(),
@@ -154,6 +164,7 @@ data class BuySecurityUiState(
     val inputHelper: TradeInputHelper = TradeInputHelper.None,
     val limitPriceError: TradeValidationError? = null,
     val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
+    val confirmation: TradeConfirmationState = TradeConfirmationState(),
 ) {
     val canContinue: Boolean
         get() = validation.canContinue && instrument?.hasRequiredTradingConfiguration == true
@@ -189,43 +200,43 @@ class TradeViewModel @Inject constructor(
                     instrument.askPrice.toMoneyString().replace(".", ","),
                 ),
             )
-            revalidate()
+            revalidateBuy()
         }
     }
 
     internal fun replaceInstrument(instrument: Security) {
         uiState = uiState.copy(instrument = instrument)
-        revalidate()
+        revalidateBuy()
     }
 
     internal fun replaceAccountContext(accountContext: BuySecurityAccountContext) {
         uiState = uiState.copy(accountContext = accountContext)
-        revalidate()
+        revalidateBuy()
     }
 
     internal fun replaceTradeCurrency(tradeCurrency: String) {
         uiState = uiState.copy(tradeCurrency = tradeCurrency)
-        revalidate()
+        revalidateBuy()
     }
 
     fun onTradeTypeChange(tradeType: TradeType) {
         uiState = uiState.copy(tradeType = tradeType)
-        revalidate()
+        revalidateBuy()
     }
 
     fun onOrderTypeChange(orderType: BuyOrderType) {
         uiState = uiState.copy(orderType = orderType)
-        revalidate()
+        revalidateBuy()
     }
 
     fun onSettlementTermChange(settlementTerm: SettlementTerm) {
         uiState = uiState.copy(settlementTerm = settlementTerm)
-        revalidate()
+        revalidateBuy()
     }
 
     fun onLimitPriceChange(input: String) {
         uiState = uiState.copy(limitPriceInput = TradeInputParser.formatLimitPriceInput(input))
-        revalidate()
+        revalidateBuy()
     }
 
     fun onInputModeChange(inputMode: BuyInputMode) {
@@ -239,14 +250,19 @@ class TradeViewModel @Inject constructor(
                 quantityInputText = "",
             )
         }
-        revalidate()
+        revalidateBuy()
     }
 
     fun onInputChange(inputMode: BuyInputMode, input: String) {
         if (inputMode != uiState.inputMode) return
         val sanitizedInput = sanitizeInput(inputMode, input)
         uiState = uiState.withInputText(inputMode, sanitizedInput)
-        revalidate()
+        revalidateBuy()
+    }
+
+    fun prepareConfirmation() {
+        val confirmation = validator.validateConfirmation(uiState, uiState.validation)
+        uiState = uiState.copy(confirmation = confirmation)
     }
 
     private fun sanitizeInput(inputMode: BuyInputMode, input: String): String =
@@ -264,16 +280,18 @@ class TradeViewModel @Inject constructor(
             BuyInputMode.Quantity -> copy(quantityInputText = input)
         }
 
-    private fun revalidate() {
-        val validation = validator.validate(uiState)
-        uiState = uiState.copy(
+    private fun revalidateBuy() {
+        val state = uiState
+        val validation = validator.validate(state)
+        uiState = state.copy(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
             validation = validation,
             inputError = validation.errors.firstOrNull { error -> !error.isLimitPriceError() },
-            inputHelper = buildInputHelper(uiState, validation),
+            inputHelper = buildInputHelper(state, validation),
             limitPriceError = validation.errors.firstOrNull { error -> error.isLimitPriceError() },
-            limitPriceHelper = buildLimitPriceHelper(uiState),
+            limitPriceHelper = buildLimitPriceHelper(state),
+            confirmation = TradeConfirmationState(),
         )
     }
 
@@ -310,56 +328,17 @@ class TradeViewModel @Inject constructor(
         return when (state.tradeType) {
             TradeType.Buy -> TradeInputLimitPriceHelper.MaxAllowed(
                 instrument.askPrice
-                    .multiply(BigDecimal.ONE.add(instrument.percentageMovement))
+                    .multiply(BigDecimal.ONE.add(instrument.percentageMovement.toPriceBandMovement()))
                     .setScale(2, RoundingMode.HALF_UP),
             )
 
             TradeType.Sell -> TradeInputLimitPriceHelper.MinAllowed(
                 instrument.bidPrice
-                    .multiply(BigDecimal.ONE.subtract(instrument.percentageMovement))
+                    .multiply(BigDecimal.ONE.subtract(instrument.percentageMovement.toPriceBandMovement()))
                     .setScale(2, RoundingMode.HALF_UP),
             )
         }
     }
-
-    /*
-     * Implementacion de fee pausada.
-     *
-     * Cuando retomemos la pantalla de confirmacion, la idea es volver a calcular:
-     * - comision
-     * - derechos de mercado
-     * - IVA
-     * - monto estimado a debitar/acreditar
-     *
-     * Tambien corresponde validar en esta etapa, no en BuySecurityScreen:
-     * - compra ARS: saldo ARS suficiente para tradeAmount + fees
-     * - compra USD: saldo USD suficiente para tradeAmount y saldo ARS suficiente para fees
-     *
-     * data class TradeFeeBreakdown(
-     *     val commission: BigDecimal = BigDecimal.ZERO,
-     *     val marketRights: BigDecimal = BigDecimal.ZERO,
-     *     val vat: BigDecimal = BigDecimal.ZERO,
-     * ) {
-     *     val total: BigDecimal
-     *         get() = commission.add(marketRights).add(vat).setScale(2, RoundingMode.HALF_UP)
-     * }
-     *
-     * data class TradeConfirmationValidation(
-     *     val fees: TradeFeeBreakdown = TradeFeeBreakdown(),
-     *     val estimatedAmount: BigDecimal = BigDecimal.ZERO,
-     *     val errors: List<TradeValidationError> = emptyList(),
-     * ) {
-     *     val canConfirm: Boolean
-     *         get() = errors.isEmpty() && estimatedAmount > BigDecimal.ZERO
-     * }
-     *
-     * private fun buildConfirmationValidation(
-     *     state: BuySecurityUiState,
-     *     validation: BuyValidationResult,
-     * ): TradeConfirmationValidation { ... }
-     *
-     * private fun calculateMockFees(tradeAmount: BigDecimal): TradeFeeBreakdown { ... }
-     */
 }
 
 internal fun BigDecimal.toMoneyString(): String =

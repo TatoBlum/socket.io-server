@@ -229,6 +229,92 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `09c2 buy ars exact channel minimum does not fail by channel rule`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("100.00"),
+                    minInstrumentNominals = 1,
+                    lotInstrumentSize = 1,
+                ),
+                tradeCurrency = "ARS",
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "100",
+            ),
+        )
+
+        assertFalse(
+            result.errors.any { error ->
+                error is TradeValidationError.AmountNotEnoughForMin ||
+                    error is TradeValidationError.OperationAmountBelowMin
+            },
+        )
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `09c3 buy ars amount one cent below channel minimum fails by channel rule`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("99.99"),
+                    minInstrumentNominals = 1,
+                    lotInstrumentSize = 1,
+                ),
+                tradeCurrency = "ARS",
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "99.99",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("100.00", error.minAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c3b buy ars amount input above channel minimum fails when rounded operation amount is below channel minimum`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("79.17"),
+                    minInstrumentNominals = 1,
+                    lotInstrumentSize = 1,
+                ),
+                tradeCurrency = "ARS",
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "90",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("1", result.tradeNominals.toPlainString())
+        assertEquals("79.17", result.tradeAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c4 buy ars amount equal channel minimum reports instrument minimum when higher`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("98.00"),
+                    minInstrumentNominals = 2,
+                    lotInstrumentSize = 1,
+                ),
+                tradeCurrency = "ARS",
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "100",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("196.00", error.minAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `09d buy ars quantity below channel minimum rejects with operation minimum`() {
         val result = validator.validate(
             state(
@@ -416,6 +502,24 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `18b buy limit normalizes negative percentage movement`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("102.42"),
+                    percentageMovement = BigDecimal("-1.82"),
+                ),
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "105",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.LimitPriceOutOfBandBuy
+        assertEquals(0, BigDecimal("104.284044").compareTo(error.maxAllowed))
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `19 bond tick size below 100 uses lower range step`() {
         val result = validator.validate(
             state(
@@ -522,6 +626,47 @@ class TradeValidationRulesMatrixTest {
 
         assertEquals(emptyList<TradeValidationError>(), result.errors)
         assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `25 buy validation excludes fee and confirmation validation includes fee`() {
+        val state = state(
+            instrument = instrument(askPrice = BigDecimal("100.00")),
+            inputMode = BuyInputMode.Quantity,
+            quantityInputText = "10",
+        )
+
+        val buyValidation = validator.validate(state)
+        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+
+        assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
+        assertEquals("7.02", confirmationValidation.fee.toPlainString())
+        assertEquals("1007.02", confirmationValidation.amountWithFee.toPlainString())
+        assertTrue(buyValidation.canContinue)
+        assertTrue(confirmationValidation.canConfirm)
+    }
+
+    @Test
+    fun `26 buy usd confirmation validation requires ars balance for fee`() {
+        val state = state(
+            instrument = instrument(askPrice = BigDecimal("100.00")),
+            accountContext = accountContext(
+                arsBalance = BigDecimal("7.01"),
+                usdBalance = BigDecimal("1000.00"),
+            ),
+            tradeCurrency = "USD",
+            inputMode = BuyInputMode.Quantity,
+            quantityInputText = "10",
+        )
+
+        val buyValidation = validator.validate(state)
+        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+
+        assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
+        assertEquals("1000.00", confirmationValidation.amountWithFee.toPlainString())
+        assertTrue(buyValidation.canContinue)
+        assertTrue(confirmationValidation.errors.contains(TradeValidationError.InsufficientArsForFee))
+        assertFalse(confirmationValidation.canConfirm)
     }
 
     private fun state(

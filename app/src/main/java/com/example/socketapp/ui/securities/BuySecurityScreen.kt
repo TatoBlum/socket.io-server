@@ -639,10 +639,10 @@ private fun TradeValidationError.toInputErrorMessage(): String =
         is TradeValidationError.NotEnoughNominals -> "Supera tu disponible"
         is TradeValidationError.NotEnoughAvailableAmount -> "Supera tu disponible"
         is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
-        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para comisiones"
+        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
         is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
-        is TradeValidationError.TotalBelowMinAmount -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
-        is TradeValidationError.TotalAboveMaxAmount -> "El monto maximo para operar es ${maxAmount.formatCurrency()}"
+        is TradeValidationError.OperationAmountBelowMin -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
+        is TradeValidationError.OperationAmountAboveMax -> "El monto maximo para operar es ${maxAmount.formatCurrency()}"
     }
 
 private fun BigDecimal.toPlainMoneyString(): String =
