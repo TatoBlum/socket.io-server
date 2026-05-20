@@ -189,6 +189,7 @@ data class TradeConfirmationState(
 
 data class BuySecurityUiState(
     val instrument: Security? = null,
+    val accounts: List<Account> = defaultTradeAccounts(),
     val accountContext: TradeAccountContext = TradeAccountContext(),
     val tradeType: TradeType = TradeType.Buy,
     val orderType: BuyOrderType = BuyOrderType.Market,
@@ -199,6 +200,7 @@ data class BuySecurityUiState(
     val amountInput: BigDecimal = BigDecimal.ZERO,
     val quantityInput: BigDecimal = BigDecimal.ZERO,
     val limitPriceInput: String = "19.210,00",
+    val limitPriceValidationEnabled: Boolean = true,
     val validation: BuyValidationResult = BuyValidationResult(),
     val inputError: TradeValidationError? = validation.errors.firstOrNull(),
     val inputHelper: TradeInputHelper = TradeInputHelper.None,
@@ -236,19 +238,25 @@ class TradeViewModel @Inject constructor(
     fun loadInstrument(securityId: String) {
         viewModelScope.launch {
             val instrument = repository.getBuyableInstrument(securityId) ?: return@launch
-            uiState = uiState.copy(
+            val nextState = uiState.copy(
                 instrument = instrument,
-                limitPriceInput = TradeInputParser.formatLimitPriceInput(
-                    instrument.askPrice.toMoneyString().replace(".", ","),
-                ),
             )
+            uiState = nextState.copy(limitPriceInput = defaultLimitPriceInput(nextState))
             revalidateBuy()
         }
     }
 
     internal fun replaceInstrument(instrument: Security) {
-        uiState = uiState.copy(instrument = instrument)
+        val nextState = uiState.copy(instrument = instrument)
+        uiState = nextState.copy(limitPriceInput = defaultLimitPriceInput(nextState))
         revalidateBuy()
+    }
+
+    fun onTradeAccountSelected(selectedAccount: Account) {
+        onTradeAccountSelected(
+            selectedAccount = selectedAccount,
+            availableArsAccounts = uiState.accounts.filter { account -> account.isArs },
+        )
     }
 
     fun onTradeAccountSelected(
@@ -285,12 +293,28 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onTradeTypeChange(tradeType: TradeType) {
-        uiState = uiState.copy(tradeType = tradeType)
+        val nextState = uiState.copy(tradeType = tradeType)
+        uiState = if (nextState.orderType == BuyOrderType.Limit) {
+            nextState.copy(
+                limitPriceInput = defaultLimitPriceInput(nextState),
+                limitPriceValidationEnabled = false,
+            )
+        } else {
+            nextState
+        }
         revalidateBuy()
     }
 
     fun onOrderTypeChange(orderType: BuyOrderType) {
-        uiState = uiState.copy(orderType = orderType)
+        val nextState = uiState.copy(orderType = orderType)
+        uiState = if (orderType == BuyOrderType.Limit) {
+            nextState.copy(
+                limitPriceInput = defaultLimitPriceInput(nextState),
+                limitPriceValidationEnabled = false,
+            )
+        } else {
+            nextState
+        }
         revalidateBuy()
     }
 
@@ -300,7 +324,10 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onLimitPriceChange(input: String) {
-        uiState = uiState.copy(limitPriceInput = TradeInputParser.formatLimitPriceInput(input))
+        uiState = uiState.copy(
+            limitPriceInput = TradeInputParser.formatLimitPriceInput(input),
+            limitPriceValidationEnabled = true,
+        )
         revalidateBuy()
     }
 
@@ -407,6 +434,15 @@ class TradeViewModel @Inject constructor(
             )
         }
     }
+
+    private fun defaultLimitPriceInput(state: BuySecurityUiState): String {
+        val instrument = state.instrument ?: return state.limitPriceInput
+        val price = when (state.tradeType) {
+            TradeType.Buy -> instrument.askPrice
+            TradeType.Sell -> instrument.bidPrice
+        }
+        return TradeInputParser.formatLimitPriceInput(price.toMoneyString().replace(".", ","))
+    }
 }
 
 internal fun String.toMoneyBigDecimal(): BigDecimal {
@@ -423,6 +459,37 @@ internal fun String.toMoneyBigDecimal(): BigDecimal {
 }
 
 internal fun String.normalizedCurrency(): String = trim().uppercase()
+
+private fun defaultTradeAccounts(): List<Account> =
+    listOf(
+        Account(
+            number = "428571545224",
+            type = "CA",
+            currency = "ARS",
+            branchId = "522",
+            relation = "TITU",
+            CBU = "0070522630004285715449",
+            balance = BigDecimal("101520709.11"),
+            balanceLimitNow = "89690294,9278",
+            balanceLimit24 = "89690294,9278",
+            balanceMarketNow = "86944673,6545",
+            balanceMarket24 = "86944673,6545",
+            description = "CA \$ Nro 428571545224 . \$101.520.709,11",
+        ),
+        Account(
+            number = "428571545225",
+            type = "CA",
+            currency = "USD",
+            branchId = "522",
+            relation = "TITU",
+            balance = BigDecimal("25000.00"),
+            balanceLimitNow = "25000.00",
+            balanceLimit24 = "25000.00",
+            balanceMarketNow = "25000.00",
+            balanceMarket24 = "25000.00",
+            description = "CA U\$S Nro 428571545225 . U\$S25.000,00",
+        ),
+    )
 
 private fun Account?.matchingAccountIn(accounts: List<Account>): Account? =
     this?.let { selected ->
