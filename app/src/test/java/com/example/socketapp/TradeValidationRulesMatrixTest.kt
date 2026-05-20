@@ -175,8 +175,9 @@ class TradeValidationRulesMatrixTest {
                     askPrice = BigDecimal("10.00"),
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 5,
+                    currency = "USD",
                 ),
-                tradeCurrency = "USD",
+                accountContext = accountContext(selectedCurrency = "USD"),
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "49",
             ),
@@ -197,7 +198,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "30",
             ),
@@ -217,7 +217,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "20",
             ),
@@ -237,7 +236,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "100",
             ),
@@ -261,7 +259,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "99.99",
             ),
@@ -281,7 +278,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "90",
             ),
@@ -303,7 +299,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "100",
             ),
@@ -323,7 +318,6 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                tradeCurrency = "ARS",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
             ),
@@ -424,6 +418,28 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `14b sell does not validate operation amount against selected account cash balance`() {
+        val result = validator.validate(
+            state(
+                tradeType = TradeType.Sell,
+                instrument = instrument(
+                    bidPrice = BigDecimal("100.00"),
+                    holdingQuantity = 10,
+                ),
+                accountContext = accountContext(
+                    arsBalance = BigDecimal("1.00"),
+                ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "500",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error is TradeValidationError.OperationAmountAboveMax })
+        assertEquals("500.00", result.tradeAmount.toPlainString())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
     fun `15 buy ars validates trade amount against ars balance`() {
         val result = validator.validate(
             state(
@@ -444,18 +460,72 @@ class TradeValidationRulesMatrixTest {
     fun `16 buy usd validates trade amount against selected usd balance`() {
         val result = validator.validate(
             state(
-                instrument = instrument(askPrice = BigDecimal("100.00")),
+                instrument = instrument(
+                    askPrice = BigDecimal("100.00"),
+                    currency = "USD",
+                ),
                 accountContext = accountContext(
                     usdBalance = BigDecimal("500.00"),
+                    selectedCurrency = "USD",
                 ),
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "1000",
-                tradeCurrency = "USD",
             ),
         )
 
         assertTrue(result.errors.any { error -> error is TradeValidationError.InsufficientUsd })
         assertEquals("1000.00", result.tradeAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `16a buy rejects selected account with different currency than instrument`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("100.00"),
+                    currency = "USD",
+                ),
+                accountContext = accountContext(
+                    arsBalance = BigDecimal("1000.00"),
+                    selectedCurrency = "ARS",
+                ),
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertEquals("100.00", result.tradeAmount.toPlainString())
+        assertTrue(result.errors.contains(TradeValidationError.SelectedAccountCurrencyMismatch))
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `16b currency comparisons are case insensitive`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("100.00"),
+                    currency = "usd",
+                ),
+                accountContext = TradeAccountContext(
+                    selectedAccount = accountWithBalances(
+                        currency = "usd",
+                        balances = tradingBalances(BigDecimal("500.00")),
+                    ),
+                    availableArsAccounts = listOf(
+                        accountWithBalances(
+                            currency = "ars",
+                            balances = tradingBalances(BigDecimal("999999999.99")),
+                        ),
+                    ),
+                ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "1000",
+            ),
+        )
+
+        assertTrue(result.errors.any { error -> error is TradeValidationError.InsufficientUsd })
         assertFalse(result.canContinue)
     }
 
@@ -649,12 +719,15 @@ class TradeValidationRulesMatrixTest {
     @Test
     fun `26 buy usd confirmation validation requires ars balance for fee`() {
         val state = state(
-            instrument = instrument(askPrice = BigDecimal("100.00")),
+            instrument = instrument(
+                askPrice = BigDecimal("100.00"),
+                currency = "USD",
+            ),
             accountContext = accountContext(
                 arsBalance = BigDecimal("7.01"),
                 usdBalance = BigDecimal("1000.00"),
+                selectedCurrency = "USD",
             ),
-            tradeCurrency = "USD",
             inputMode = BuyInputMode.Quantity,
             quantityInputText = "10",
         )
@@ -669,14 +742,65 @@ class TradeValidationRulesMatrixTest {
         assertFalse(confirmationValidation.canConfirm)
     }
 
+    @Test
+    fun `26a buy usd confirmation validation requires an ars fee account`() {
+        val state = state(
+            instrument = instrument(
+                askPrice = BigDecimal("100.00"),
+                currency = "USD",
+            ),
+            accountContext = accountContext(
+                usdBalance = BigDecimal("1000.00"),
+                selectedCurrency = "USD",
+                arsBalances = null,
+            ),
+            inputMode = BuyInputMode.Quantity,
+            quantityInputText = "10",
+        )
+
+        val buyValidation = validator.validate(state)
+        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+
+        assertTrue(buyValidation.canContinue)
+        assertTrue(confirmationValidation.errors.contains(TradeValidationError.MissingArsFeeAccount))
+        assertFalse(confirmationValidation.canConfirm)
+    }
+
+    @Test
+    fun `26b buy usd confirmation validation requires fee account selection when several ars accounts exist`() {
+        val arsAccount = accountWithBalances("ARS", tradingBalances(BigDecimal("999999999.99")))
+        val anotherArsAccount = accountWithBalances("ARS", tradingBalances(BigDecimal("999999999.99"))).copy(
+            number = "ARS-002",
+        )
+        val state = state(
+            instrument = instrument(
+                askPrice = BigDecimal("100.00"),
+                currency = "USD",
+            ),
+            accountContext = TradeAccountContext(
+                selectedAccount = accountWithBalances("USD", tradingBalances(BigDecimal("1000.00"))),
+                availableArsAccounts = listOf(arsAccount, anotherArsAccount),
+                selectedFeeAccount = null,
+            ),
+            inputMode = BuyInputMode.Quantity,
+            quantityInputText = "10",
+        )
+
+        val buyValidation = validator.validate(state)
+        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+
+        assertTrue(buyValidation.canContinue)
+        assertTrue(confirmationValidation.errors.contains(TradeValidationError.FeeAccountNotSelected))
+        assertFalse(confirmationValidation.canConfirm)
+    }
+
     private fun state(
         tradeType: TradeType = TradeType.Buy,
         orderType: BuyOrderType = BuyOrderType.Market,
         settlementTerm: SettlementTerm = SettlementTerm.Today,
         inputMode: BuyInputMode = BuyInputMode.Amount,
         instrument: Security = instrument(),
-        accountContext: BuySecurityAccountContext = accountContext(),
-        tradeCurrency: String = "ARS",
+        accountContext: TradeAccountContext = accountContext(),
         limitPriceInput: String = "100",
         amountInputText: String = "",
         quantityInputText: String = "",
@@ -688,7 +812,6 @@ class TradeValidationRulesMatrixTest {
             orderType = orderType,
             settlementTerm = settlementTerm,
             inputMode = inputMode,
-            tradeCurrency = tradeCurrency,
             limitPriceInput = limitPriceInput,
             amountInputText = amountInputText,
             quantityInputText = quantityInputText,
@@ -704,10 +827,12 @@ class TradeValidationRulesMatrixTest {
         askPrice: BigDecimal = BigDecimal("100.00"),
         bidPrice: BigDecimal = BigDecimal("99.00"),
         percentageMovement: BigDecimal = BigDecimal("0.10"),
+        currency: String = "ARS",
     ): Security =
         Security(
             id = 1,
             ticker = "TEST",
+            currency = currency,
             type = type,
             liderMerval = liderMerval,
             minInstrumentNominals = minInstrumentNominals,
@@ -722,12 +847,30 @@ class TradeValidationRulesMatrixTest {
     private fun accountContext(
         arsBalance: BigDecimal = BigDecimal("999999999.99"),
         usdBalance: BigDecimal = BigDecimal("999999999.99"),
-        arsBalances: TradingBalanceSet = tradingBalances(arsBalance),
+        arsBalances: TradingBalanceSet? = tradingBalances(arsBalance),
         usdBalances: TradingBalanceSet = tradingBalances(usdBalance),
-    ): BuySecurityAccountContext =
-        BuySecurityAccountContext(
-            arsBalances = arsBalances,
-            usdBalances = usdBalances,
+        selectedCurrency: String = "ARS",
+    ): TradeAccountContext =
+        TradeAccountContext(
+            selectedAccount = if (selectedCurrency.normalizedCurrency() == "USD") {
+                accountWithBalances("USD", usdBalances)
+            } else {
+                accountWithBalances("ARS", requireNotNull(arsBalances))
+            },
+            availableArsAccounts = arsBalances?.let { listOf(accountWithBalances("ARS", it)) }.orEmpty(),
+        )
+
+    private fun accountWithBalances(
+        currency: String,
+        balances: TradingBalanceSet,
+    ): Account =
+        Account(
+            number = "$currency-001",
+            currency = currency,
+            balanceLimitNow = balances.limitNow.toPlainString(),
+            balanceLimit24 = balances.limit24.toPlainString(),
+            balanceMarketNow = balances.marketNow.toPlainString(),
+            balanceMarket24 = balances.market24.toPlainString(),
         )
 
     private fun tradingBalances(balance: BigDecimal): TradingBalanceSet =
