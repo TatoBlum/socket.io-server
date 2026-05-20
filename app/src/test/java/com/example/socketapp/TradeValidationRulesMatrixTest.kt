@@ -127,7 +127,7 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.LimitPriceOutOfBandBuy
-        assertEquals("110.0000", error.maxAllowed.toPlainString())
+        assertEquals("110.00", error.maxAllowed.toPlainString())
     }
 
     @Test
@@ -145,7 +145,7 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.LimitPriceOutOfBandSell
-        assertEquals("90.0000", error.minAllowed.toPlainString())
+        assertEquals("90.00", error.minAllowed.toPlainString())
     }
 
     @Test
@@ -601,8 +601,70 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.LimitPriceOutOfBandBuy
-        assertEquals(0, BigDecimal("104.284044").compareTo(error.maxAllowed))
+        assertEquals("104.28", error.maxAllowed.toPlainString())
         assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `18c buy limit accepts displayed rounded upper price band`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("122.52"),
+                    percentageMovement = BigDecimal("0.15"),
+                ),
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "140,90",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error is TradeValidationError.LimitPriceOutOfBandBuy })
+        assertEquals("140.90", result.tradePrice.toPlainString())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `18d buy limit accepts price below displayed rounded upper price band`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice = BigDecimal("122.52"),
+                    percentageMovement = BigDecimal("0.15"),
+                ),
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "140,89",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error is TradeValidationError.LimitPriceOutOfBandBuy })
+        assertEquals("140.89", result.tradePrice.toPlainString())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `18e sell limit accepts displayed rounded lower price band`() {
+        val result = validator.validate(
+            state(
+                tradeType = TradeType.Sell,
+                instrument = instrument(
+                    bidPrice = BigDecimal("165.77"),
+                    holdingQuantity = 10,
+                    percentageMovement = BigDecimal("0.15"),
+                ),
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "140,90",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error is TradeValidationError.LimitPriceOutOfBandSell })
+        assertEquals("140.90", result.tradePrice.toPlainString())
+        assertTrue(result.canContinue)
     }
 
     @Test

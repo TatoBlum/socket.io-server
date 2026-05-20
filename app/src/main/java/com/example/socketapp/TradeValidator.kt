@@ -212,7 +212,9 @@ class TradeValidator @Inject constructor() {
         val priceBandMovement = percentageMovement.toPriceBandMovement()
         return when (tradeType) {
             TradeType.Buy -> {
-                val maxAllowed = askPrice.multiply(BigDecimal.ONE.add(priceBandMovement))
+                val maxAllowed = askPrice
+                    .multiply(BigDecimal.ONE.add(priceBandMovement))
+                    .toMoneyAmount()
                 if (limitPrice > maxAllowed) {
                     listOf(TradeValidationError.LimitPriceOutOfBandBuy(maxAllowed))
                 } else {
@@ -221,7 +223,9 @@ class TradeValidator @Inject constructor() {
             }
 
             TradeType.Sell -> {
-                val minAllowed = bidPrice.multiply(BigDecimal.ONE.subtract(priceBandMovement))
+                val minAllowed = bidPrice
+                    .multiply(BigDecimal.ONE.subtract(priceBandMovement))
+                    .toMoneyAmount()
                 if (limitPrice < minAllowed) {
                     listOf(TradeValidationError.LimitPriceOutOfBandSell(minAllowed))
                 } else {
