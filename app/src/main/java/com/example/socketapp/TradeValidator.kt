@@ -61,6 +61,7 @@ class TradeValidator @Inject constructor() {
             currency = state.tradeCurrency,
         )
         val effectiveMinimumAmount = maxOf(minimumAmountForOperation, minimumTotalAmount)
+        errors += validateSelectedAccountCurrency(state)
 
         if (activeInput == null) {
             return BuyValidationResult(
@@ -112,19 +113,18 @@ class TradeValidator @Inject constructor() {
             currency = state.tradeCurrency,
             operationMode = state.inputMode,
             tradeAmount = tradeAmount,
-            balance = context.balanceFor(
-                currency = state.tradeCurrency,
+            balance = context.selectedBalanceFor(
                 orderType = state.orderType,
                 settlementTerm = state.settlementTerm,
             ),
         )
 
-        val maxOperationAmount = context.balanceFor(
-            currency = state.tradeCurrency,
+        val maxOperationAmount = context.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
         errors += validateOperationAmountLimits(
+            tradeType = state.tradeType,
             inputMode = state.inputMode,
             operationAmount = tradeAmount,
             minOperationAmount = minimumTotalAmount,
@@ -161,7 +161,6 @@ class TradeValidator @Inject constructor() {
         }
         val errors = validateConfirmationBalances(
             state = state,
-            validation = validation,
             fee = fee,
             amountWithFee = amountWithFee,
         )
@@ -252,17 +251,16 @@ class TradeValidator @Inject constructor() {
     ): BigDecimal {
         val normalizedSubType = instrumentSubType.trim().lowercase()
         return when {
-            normalizedSubType in setOf("letras", "letras del tesoro") -> BigDecimal("0.001")
-            normalizedSubType in setOf("bonos", "obligaciones negociables", "on") ->
-                bondPriceStep(limitPrice)
+            normalizedSubType in TREASURY_BILL_SUBTYPES -> BigDecimal("0.001")
+            normalizedSubType in BOND_SUBTYPES -> bondPriceStep(limitPrice)
 
-            normalizedSubType in setOf("cedears", "cedear", "etfs", "etf") ->
+            normalizedSubType in VARIABLE_INCOME_LEADER_SUBTYPES ->
                 variableIncomeLeaderPriceStep(limitPrice)
 
-            normalizedSubType == "acciones" && isLiderMerval ->
+            normalizedSubType == STOCK_SUBTYPE && isLiderMerval ->
                 variableIncomeLeaderPriceStep(limitPrice)
 
-            normalizedSubType == "acciones" -> stockNonLeaderPriceStep(limitPrice)
+            normalizedSubType == STOCK_SUBTYPE -> stockNonLeaderPriceStep(limitPrice)
             else -> BigDecimal("0.01")
         }
     }
@@ -346,8 +344,7 @@ class TradeValidator @Inject constructor() {
         val operationalMaxNominals = when (state.tradeType) {
             TradeType.Sell -> configuredMaxNominals
             TradeType.Buy -> {
-                val balance = state.accountContext.balanceFor(
-                    currency = state.tradeCurrency,
+                val balance = state.accountContext.selectedBalanceFor(
                     orderType = state.orderType,
                     settlementTerm = state.settlementTerm,
                 )
@@ -385,33 +382,34 @@ class TradeValidator @Inject constructor() {
 
     private fun validateConfirmationBalances(
         state: BuySecurityUiState,
-        validation: BuyValidationResult,
         fee: BigDecimal,
         amountWithFee: BigDecimal,
     ): List<TradeValidationError> {
-        val arsBalance = state.accountContext.balanceFor(
-            currency = ARS_CURRENCY,
+        val feeBalance = state.accountContext.feeBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
         val errors = mutableListOf<TradeValidationError>()
 
-        if (state.tradeType == TradeType.Buy && state.tradeCurrency == ARS_CURRENCY && arsBalance < amountWithFee) {
+        if (
+            state.tradeType == TradeType.Buy &&
+            state.tradeCurrency == ARS_CURRENCY &&
+            feeBalance != null &&
+            feeBalance < amountWithFee
+        ) {
             errors += TradeValidationError.InsufficientArsForFee
         }
 
-        if (state.tradeCurrency == USD_CURRENCY && arsBalance < fee) {
-            errors += TradeValidationError.InsufficientArsForFee
-        }
+        if (state.tradeCurrency == USD_CURRENCY) {
+            when {
+                state.accountContext.availableArsAccounts.isEmpty() ->
+                    errors += TradeValidationError.MissingArsFeeAccount
 
-        if (state.tradeType == TradeType.Buy && state.tradeCurrency == USD_CURRENCY) {
-            val usdBalance = state.accountContext.balanceFor(
-                currency = USD_CURRENCY,
-                orderType = state.orderType,
-                settlementTerm = state.settlementTerm,
-            )
-            if (usdBalance < validation.tradeAmount) {
-                errors += TradeValidationError.InsufficientUsd(state.inputMode)
+                feeBalance == null ->
+                    errors += TradeValidationError.FeeAccountNotSelected
+
+                feeBalance < fee ->
+                    errors += TradeValidationError.InsufficientArsForFee
             }
         }
 
@@ -434,6 +432,15 @@ class TradeValidator @Inject constructor() {
         }
     }
 
+    private fun validateSelectedAccountCurrency(state: BuySecurityUiState): List<TradeValidationError> {
+        val selectedCurrency = state.accountContext.selectedAccount.currency.normalizedCurrency()
+        return if (state.tradeType == TradeType.Buy && selectedCurrency != state.tradeCurrency) {
+            listOf(TradeValidationError.SelectedAccountCurrencyMismatch)
+        } else {
+            emptyList()
+        }
+    }
+
     private fun validateBalances(
         tradeType: TradeType,
         currency: String,
@@ -442,10 +449,10 @@ class TradeValidator @Inject constructor() {
         balance: BigDecimal,
     ): List<TradeValidationError> {
         val errors = mutableListOf<TradeValidationError>()
-        if (tradeType == TradeType.Buy && currency == "ARS" && balance < tradeAmount) {
+        if (tradeType == TradeType.Buy && currency == ARS_CURRENCY && balance < tradeAmount) {
             errors += TradeValidationError.InsufficientArs(operationMode)
         }
-        if (tradeType == TradeType.Buy && currency == "USD" && balance < tradeAmount) {
+        if (tradeType == TradeType.Buy && currency == USD_CURRENCY && balance < tradeAmount) {
             errors += TradeValidationError.InsufficientUsd(operationMode)
         }
         return errors
@@ -455,13 +462,14 @@ class TradeValidator @Inject constructor() {
         tradeType: TradeType,
         currency: String,
     ): BigDecimal =
-        if (tradeType == TradeType.Buy && currency == "ARS") {
+        if (tradeType == TradeType.Buy && currency == ARS_CURRENCY) {
             MIN_BUY_ARS_AMOUNT
         } else {
             BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
         }
 
     private fun validateOperationAmountLimits(
+        tradeType: TradeType,
         inputMode: BuyInputMode,
         operationAmount: BigDecimal,
         minOperationAmount: BigDecimal,
@@ -474,7 +482,7 @@ class TradeValidator @Inject constructor() {
         } else if (operationAmount < minOperationAmount) {
             errors += TradeValidationError.OperationAmountBelowMin(minOperationAmount)
         }
-        if (operationAmount > maxOperationAmount) {
+        if (tradeType == TradeType.Buy && operationAmount > maxOperationAmount) {
             errors += TradeValidationError.OperationAmountAboveMax(maxOperationAmount)
         }
         return errors
@@ -507,6 +515,10 @@ class TradeValidator @Inject constructor() {
     private companion object {
         const val ARS_CURRENCY = "ARS"
         const val USD_CURRENCY = "USD"
+        const val STOCK_SUBTYPE = "acciones"
+        val TREASURY_BILL_SUBTYPES = setOf("letras", "letras del tesoro")
+        val BOND_SUBTYPES = setOf("bonos", "obligaciones negociables", "on")
+        val VARIABLE_INCOME_LEADER_SUBTYPES = setOf("cedears", "cedear", "etfs", "etf")
         val MIN_BUY_ARS_AMOUNT: BigDecimal = BigDecimal("100.00")
         val FEE_RATE: BigDecimal = BigDecimal("0.00702")
     }

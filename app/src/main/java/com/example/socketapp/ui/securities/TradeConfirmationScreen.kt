@@ -1,6 +1,8 @@
 package com.example.socketapp.ui.securities
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,15 +21,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.socketapp.Account
 import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
 import com.example.socketapp.TradeValidationError
@@ -45,20 +58,23 @@ import com.example.socketapp.ui.theme.AppPrimary
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TradeConfirmationScreen(
     uiState: BuySecurityUiState,
     onBack: () -> Unit,
+    onFeeAccountSelected: (Account) -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val instrument = uiState.instrument
     val validation = uiState.validation
     val confirmation = uiState.confirmation
-    val accountValue = when (uiState.tradeCurrency) {
-        "USD" -> uiState.accountContext.monetaryAccountUsd
-        else -> uiState.accountContext.monetaryAccountArs
-    }
+    val accountValue = uiState.accountContext.selectedAccount.number
+    val feeAccounts = uiState.accountContext.availableArsAccounts
+    val feeAccount = uiState.accountContext.effectiveFeeAccount
+    val needsFeeAccount = uiState.tradeCurrency == "USD"
+    var showFeeAccountSheet by remember { mutableStateOf(false) }
     val isSell = uiState.tradeType == TradeType.Sell
     val estimatedTotalLabel = if (isSell) {
         "Monto estimado a acreditar"
@@ -150,6 +166,14 @@ fun TradeConfirmationScreen(
                 label = "Cuenta inversora",
                 value = uiState.accountContext.investmentAccount,
             )
+            if (needsFeeAccount) {
+                FeeAccountRow(
+                    account = feeAccount,
+                    hasAccounts = feeAccounts.isNotEmpty(),
+                    enabled = feeAccounts.size > 1,
+                    onClick = { showFeeAccountSheet = true },
+                )
+            }
             ConfirmationRow(
                 label = "Plazo",
                 value = uiState.settlementTerm.label,
@@ -220,6 +244,23 @@ fun TradeConfirmationScreen(
             )
         }
     }
+
+    if (showFeeAccountSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFeeAccountSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            FeeAccountSelectionSheet(
+                accounts = feeAccounts,
+                selected = feeAccount,
+                onDismiss = { showFeeAccountSheet = false },
+                onSelect = { account ->
+                    onFeeAccountSelected(account)
+                    showFeeAccountSheet = false
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -259,14 +300,158 @@ private fun ConfirmationRow(
     }
 }
 
+@Composable
+private fun FeeAccountRow(
+    account: Account?,
+    hasAccounts: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val value = when {
+        account != null -> account.number
+        hasAccounts -> "Seleccionar cuenta"
+        else -> "Sin cuenta en pesos"
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Cuenta para fee",
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = value,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (enabled) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun FeeAccountSelectionSheet(
+    accounts: List<Account>,
+    selected: Account?,
+    onDismiss: () -> Unit,
+    onSelect: (Account) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Cuenta para fee",
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 22.sp,
+                lineHeight = 26.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Cerrar",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        accounts.forEachIndexed { index, account ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { onSelect(account) },
+                    ),
+                verticalAlignment = Alignment.Top,
+            ) {
+                RadioButton(
+                    selected = account == selected,
+                    onClick = { onSelect(account) },
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Column(modifier = Modifier.padding(top = 10.dp)) {
+                    Text(
+                        text = account.number,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 16.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = account.description.ifBlank { account.currency },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = 17.sp,
+                    )
+                }
+            }
+            if (index != accounts.lastIndex) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(start = 48.dp, top = 12.dp, bottom = 12.dp),
+                )
+            }
+        }
+    }
+}
+
 private fun BigDecimal.toPlainQuantityString(): String =
     stripTrailingZeros().toPlainString()
 
 private fun TradeValidationError.toConfirmationErrorMessage(): String =
     when (this) {
         TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
+        TradeValidationError.MissingArsFeeAccount -> "No hay cuenta en pesos para debitar el fee"
+        TradeValidationError.FeeAccountNotSelected -> "Selecciona una cuenta en pesos para debitar el fee"
         is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
         is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
+        TradeValidationError.SelectedAccountCurrencyMismatch -> "Selecciona una cuenta de la moneda del instrumento"
         else -> "No se puede confirmar la operacion"
     }
 

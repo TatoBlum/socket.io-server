@@ -77,6 +77,20 @@ This document maps the trading business rules to the unit tests that document th
   - BUY ARS balance validation.
 - `buy usd validates usd amount balance`
   - BUY USD uses the selected USD balance for trade amount.
+- `buy ars confirmation adds fee to amount with fee`
+  - Confirmation exposes `amountWithFee = tradeAmount + fee` only for ARS operations.
+- `buy ars confirmation requires ars balance for amount plus fee`
+  - Confirmation blocks BUY ARS when ARS balance covers `tradeAmount` but not `tradeAmount + fee`.
+- `buy usd confirmation does not add fee to amount and requires ars balance for fee`
+  - BUY USD keeps `amountWithFee = tradeAmount` and validates ARS balance against fee.
+- `sell usd confirmation requires ars balance for fee`
+  - SELL USD validates ARS balance against fee before confirm.
+- `26a buy usd confirmation validation requires an ars fee account`
+  - BUY USD confirmation blocks when no ARS account is available to debit the fee.
+- `26b buy usd confirmation validation requires fee account selection when several ars accounts exist`
+  - BUY USD confirmation blocks until the user selects which ARS account pays the fee when more than one is available.
+- `selecting fee account revalidates confirmation when several ars accounts exist`
+  - Selecting an ARS fee account in confirmation refreshes the confirmation validation and can enable confirm.
 
 ## Account Balance Selection
 

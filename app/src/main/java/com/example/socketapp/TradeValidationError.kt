@@ -17,7 +17,10 @@ sealed interface TradeValidationError {
     data class NotEnoughAvailableAmount(val availableAmount: BigDecimal) : TradeValidationError
     data class InsufficientArs(val operationMode: BuyInputMode) : TradeValidationError
     data object InsufficientArsForFee : TradeValidationError
+    data object MissingArsFeeAccount : TradeValidationError
+    data object FeeAccountNotSelected : TradeValidationError
     data class InsufficientUsd(val operationMode: BuyInputMode) : TradeValidationError
+    data object SelectedAccountCurrencyMismatch : TradeValidationError
     data class OperationAmountBelowMin(val minAmount: BigDecimal) : TradeValidationError
     data class OperationAmountAboveMax(val maxAmount: BigDecimal) : TradeValidationError
 }

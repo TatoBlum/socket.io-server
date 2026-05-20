@@ -98,31 +98,72 @@ data class TradingBalanceSet(
         }
 }
 
-data class BuySecurityAccountContext(
-    val monetaryAccountArs: String = "ARS-001",
-    val monetaryAccountUsd: String = "USD-001",
-    val investmentAccount: String = "COM-001",
-    val arsBalances: TradingBalanceSet = TradingBalanceSet(
-        limitNow = BigDecimal("1159000.00"),
-        limit24 = BigDecimal("1159000.00"),
-        marketNow = BigDecimal("1159000.00"),
-        market24 = BigDecimal("1159000.00"),
-    ),
-    val usdBalances: TradingBalanceSet = TradingBalanceSet(
-        limitNow = BigDecimal("5000.00"),
-        limit24 = BigDecimal("5000.00"),
-        marketNow = BigDecimal("5000.00"),
-        market24 = BigDecimal("5000.00"),
-    ),
+data class Account(
+    val number: String = "",
+    val type: String = "",
+    val balance: BigDecimal = BigDecimal.ZERO,
+    val currency: String = "ARS",
+    val branchId: String = "",
+    val relation: String = "",
+    val CBU: String = "",
+    val balanceLimitNow: String = "0",
+    val balanceLimit24: String = "0",
+    val balanceMarketNow: String = "0",
+    val balanceMarket24: String = "0",
+    val commitedLimitAmount: String = "0",
+    val productTypeId: String? = null,
+    val idFondo: Int = 0,
+    val description: String = "",
 ) {
-    fun balanceFor(
-        currency: String,
+    val tradingBalances: TradingBalanceSet
+        get() = TradingBalanceSet(
+            limitNow = balanceLimitNow.toMoneyBigDecimal(),
+            limit24 = balanceLimit24.toMoneyBigDecimal(),
+            marketNow = balanceMarketNow.toMoneyBigDecimal(),
+            market24 = balanceMarket24.toMoneyBigDecimal(),
+    )
+
+    val isArs: Boolean
+        get() = currency.normalizedCurrency() == "ARS"
+
+    val isUsd: Boolean
+        get() = currency.normalizedCurrency() == "USD"
+}
+
+data class TradeAccountContext(
+    val selectedAccount: Account = Account(
+        number = "ARS-001",
+        currency = "ARS",
+        balanceLimitNow = "1159000.00",
+        balanceLimit24 = "1159000.00",
+        balanceMarketNow = "1159000.00",
+        balanceMarket24 = "1159000.00",
+        description = "ARS-001",
+    ),
+    val availableArsAccounts: List<Account> = listOf(selectedAccount).filter { it.isArs },
+    val selectedFeeAccount: Account? = availableArsAccounts.singleOrNull(),
+    val investmentAccount: String = "COM-001",
+) {
+    val effectiveFeeAccount: Account?
+        get() {
+            val selectedAvailableFeeAccount = selectedFeeAccount.matchingAccountIn(availableArsAccounts)
+            return selectedAvailableFeeAccount ?: defaultFeeAccountFor(
+                selectedAccount = selectedAccount,
+                availableArsAccounts = availableArsAccounts,
+            )
+        }
+
+    fun selectedBalanceFor(
         orderType: BuyOrderType,
         settlementTerm: SettlementTerm,
-    ): BigDecimal {
-        val balances = if (currency == "USD") usdBalances else arsBalances
-        return balances.balanceFor(orderType, settlementTerm)
-    }
+    ): BigDecimal =
+        selectedAccount.tradingBalances.balanceFor(orderType, settlementTerm)
+
+    fun feeBalanceFor(
+        orderType: BuyOrderType,
+        settlementTerm: SettlementTerm,
+    ): BigDecimal? =
+        effectiveFeeAccount?.tradingBalances?.balanceFor(orderType, settlementTerm)
 }
 
 data class BuyValidationResult(
@@ -148,12 +189,11 @@ data class TradeConfirmationState(
 
 data class BuySecurityUiState(
     val instrument: Security? = null,
-    val accountContext: BuySecurityAccountContext = BuySecurityAccountContext(),
+    val accountContext: TradeAccountContext = TradeAccountContext(),
     val tradeType: TradeType = TradeType.Buy,
     val orderType: BuyOrderType = BuyOrderType.Market,
     val settlementTerm: SettlementTerm = SettlementTerm.Today,
     val inputMode: BuyInputMode = BuyInputMode.Amount,
-    val tradeCurrency: String = "ARS",
     val amountInputText: String = "",
     val quantityInputText: String = "",
     val amountInput: BigDecimal = BigDecimal.ZERO,
@@ -166,6 +206,9 @@ data class BuySecurityUiState(
     val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
     val confirmation: TradeConfirmationState = TradeConfirmationState(),
 ) {
+    val tradeCurrency: String
+        get() = (instrument?.currency ?: accountContext.selectedAccount.currency).normalizedCurrency()
+
     val canContinue: Boolean
         get() = validation.canContinue && instrument?.hasRequiredTradingConfiguration == true
 
@@ -195,7 +238,6 @@ class TradeViewModel @Inject constructor(
             val instrument = repository.getBuyableInstrument(securityId) ?: return@launch
             uiState = uiState.copy(
                 instrument = instrument,
-                tradeCurrency = instrument.currency,
                 limitPriceInput = TradeInputParser.formatLimitPriceInput(
                     instrument.askPrice.toMoneyString().replace(".", ","),
                 ),
@@ -209,14 +251,37 @@ class TradeViewModel @Inject constructor(
         revalidateBuy()
     }
 
-    internal fun replaceAccountContext(accountContext: BuySecurityAccountContext) {
-        uiState = uiState.copy(accountContext = accountContext)
+    fun onTradeAccountSelected(
+        selectedAccount: Account,
+        availableArsAccounts: List<Account>,
+    ) {
+        val normalizedArsAccounts = if (selectedAccount.isArs) {
+            (listOf(selectedAccount) + availableArsAccounts)
+                .distinctBy { account -> account.number }
+        } else {
+            availableArsAccounts
+        }.filter { account -> account.isArs }
+        uiState = uiState.copy(
+            accountContext = uiState.accountContext.copy(
+                selectedAccount = selectedAccount,
+                availableArsAccounts = normalizedArsAccounts,
+                selectedFeeAccount = defaultFeeAccountFor(
+                    selectedAccount = selectedAccount,
+                    availableArsAccounts = normalizedArsAccounts,
+                ),
+            ),
+        )
         revalidateBuy()
     }
 
-    internal fun replaceTradeCurrency(tradeCurrency: String) {
-        uiState = uiState.copy(tradeCurrency = tradeCurrency)
-        revalidateBuy()
+    fun onFeeAccountSelected(account: Account) {
+        val feeAccount = uiState.accountContext.availableArsAccounts
+            .firstOrNull { availableAccount -> availableAccount.number == account.number }
+            ?: return
+        uiState = uiState.copy(
+            accountContext = uiState.accountContext.copy(selectedFeeAccount = feeAccount),
+        )
+        revalidateConfirmation()
     }
 
     fun onTradeTypeChange(tradeType: TradeType) {
@@ -261,6 +326,10 @@ class TradeViewModel @Inject constructor(
     }
 
     fun prepareConfirmation() {
+        revalidateConfirmation()
+    }
+
+    private fun revalidateConfirmation() {
         val confirmation = validator.validateConfirmation(uiState, uiState.validation)
         uiState = uiState.copy(confirmation = confirmation)
     }
@@ -300,8 +369,7 @@ class TradeViewModel @Inject constructor(
         validation: BuyValidationResult,
     ): TradeInputHelper {
         val context = state.accountContext
-        val currencyBalance = context.balanceFor(
-            currency = state.tradeCurrency,
+        val selectedBalance = context.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
@@ -316,8 +384,8 @@ class TradeViewModel @Inject constructor(
 
         return when {
             validation.tradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateDebit(validation.tradeAmount)
-            state.inputMode == BuyInputMode.Amount -> TradeInputHelper.AvailableBalance(currencyBalance)
-            else -> TradeInputHelper.AvailableToBuy(currencyBalance)
+            state.inputMode == BuyInputMode.Amount -> TradeInputHelper.AvailableBalance(selectedBalance)
+            else -> TradeInputHelper.AvailableToBuy(selectedBalance)
         }
     }
 
@@ -340,6 +408,36 @@ class TradeViewModel @Inject constructor(
         }
     }
 }
+
+internal fun String.toMoneyBigDecimal(): BigDecimal {
+    val normalizedValue = trim()
+    if (normalizedValue.isBlank()) return BigDecimal.ZERO
+    return if (normalizedValue.contains(",")) {
+        normalizedValue
+            .replace(".", "")
+            .replace(",", ".")
+            .toBigDecimal()
+    } else {
+        normalizedValue.toBigDecimal()
+    }
+}
+
+internal fun String.normalizedCurrency(): String = trim().uppercase()
+
+private fun Account?.matchingAccountIn(accounts: List<Account>): Account? =
+    this?.let { selected ->
+        accounts.firstOrNull { account -> account.number == selected.number }
+    }
+
+private fun defaultFeeAccountFor(
+    selectedAccount: Account,
+    availableArsAccounts: List<Account>,
+): Account? =
+    when {
+        selectedAccount.isArs -> selectedAccount
+        availableArsAccounts.size == 1 -> availableArsAccounts.first()
+        else -> null
+    }
 
 internal fun BigDecimal.toMoneyString(): String =
     setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()

@@ -640,7 +640,10 @@ private fun TradeValidationError.toInputErrorMessage(): String =
         is TradeValidationError.NotEnoughAvailableAmount -> "Supera tu disponible"
         is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
         TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
+        TradeValidationError.MissingArsFeeAccount -> "No hay cuenta en pesos para debitar el fee"
+        TradeValidationError.FeeAccountNotSelected -> "Selecciona una cuenta en pesos para debitar el fee"
         is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
+        TradeValidationError.SelectedAccountCurrencyMismatch -> "Selecciona una cuenta de la moneda del instrumento"
         is TradeValidationError.OperationAmountBelowMin -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
         is TradeValidationError.OperationAmountAboveMax -> "El monto maximo para operar es ${maxAmount.formatCurrency()}"
     }
