@@ -398,6 +398,40 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `13b empty limit price is ignored until user interaction`() {
+        val result = validator.validate(
+            state(
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "",
+                limitPriceValidationEnabled = false,
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "10",
+            ),
+        )
+
+        assertEquals(emptyList<TradeValidationError>(), result.errors)
+        assertEquals("0", result.tradePrice.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `13c empty limit price is invalid after user interaction`() {
+        val result = validator.validate(
+            state(
+                orderType = BuyOrderType.Limit,
+                limitPriceInput = "",
+                limitPriceValidationEnabled = true,
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "10",
+            ),
+        )
+
+        assertEquals(listOf(TradeValidationError.InvalidLimitPrice), result.errors)
+        assertEquals("0", result.tradePrice.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `14 sell market by amount accepts exact max sellable amount`() {
         val result = validator.validate(
             state(
@@ -802,6 +836,7 @@ class TradeValidationRulesMatrixTest {
         instrument: Security = instrument(),
         accountContext: TradeAccountContext = accountContext(),
         limitPriceInput: String = "100",
+        limitPriceValidationEnabled: Boolean = orderType == BuyOrderType.Limit,
         amountInputText: String = "",
         quantityInputText: String = "",
     ): BuySecurityUiState =
@@ -813,6 +848,7 @@ class TradeValidationRulesMatrixTest {
             settlementTerm = settlementTerm,
             inputMode = inputMode,
             limitPriceInput = limitPriceInput,
+            limitPriceValidationEnabled = limitPriceValidationEnabled,
             amountInputText = amountInputText,
             quantityInputText = quantityInputText,
         )

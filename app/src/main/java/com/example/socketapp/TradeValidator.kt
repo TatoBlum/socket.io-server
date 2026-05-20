@@ -12,7 +12,9 @@ class TradeValidator @Inject constructor() {
         val errors = mutableListOf<TradeValidationError>()
 
         val limitPrice = TradeInputParser.parseLimitPriceInput(state.limitPriceInput)
-        if (state.orderType == BuyOrderType.Limit && state.limitPriceValidationEnabled) {
+        val shouldValidateLimitPrice = state.orderType == BuyOrderType.Limit &&
+            state.limitPriceValidationEnabled
+        if (shouldValidateLimitPrice) {
             if (limitPrice == null || limitPrice <= BigDecimal.ZERO) {
                 errors += TradeValidationError.InvalidLimitPrice
             } else {
@@ -34,12 +36,12 @@ class TradeValidator @Inject constructor() {
         val tradePrice = resolveTradePrice(
             orderType = state.orderType,
             tradeType = state.tradeType,
-            limitPrice = limitPrice,
+            limitPrice = if (shouldValidateLimitPrice) limitPrice else null,
             instrument = instrument,
         )
         if (
             state.orderType == BuyOrderType.Limit &&
-            !state.limitPriceValidationEnabled &&
+            !shouldValidateLimitPrice &&
             tradePrice == null
         ) {
             return BuyValidationResult(errors = errors)
