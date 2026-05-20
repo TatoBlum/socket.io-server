@@ -200,7 +200,6 @@ data class BuySecurityUiState(
     val amountInput: BigDecimal = BigDecimal.ZERO,
     val quantityInput: BigDecimal = BigDecimal.ZERO,
     val limitPriceInput: String = "",
-    val limitPriceValidationEnabled: Boolean = true,
     val validation: BuyValidationResult = BuyValidationResult(),
     val inputError: TradeValidationError? = validation.errors.firstOrNull(),
     val inputHelper: TradeInputHelper = TradeInputHelper.None,
@@ -289,28 +288,12 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onTradeTypeChange(tradeType: TradeType) {
-        val nextState = uiState.copy(tradeType = tradeType)
-        uiState = if (nextState.orderType == BuyOrderType.Limit) {
-            nextState.copy(
-                limitPriceInput = "",
-                limitPriceValidationEnabled = false,
-            )
-        } else {
-            nextState
-        }
+        uiState = uiState.copy(tradeType = tradeType).clearLimitPriceIfNeeded()
         revalidateBuy()
     }
 
     fun onOrderTypeChange(orderType: BuyOrderType) {
-        val nextState = uiState.copy(orderType = orderType)
-        uiState = if (orderType == BuyOrderType.Limit) {
-            nextState.copy(
-                limitPriceInput = "",
-                limitPriceValidationEnabled = false,
-            )
-        } else {
-            nextState
-        }
+        uiState = uiState.copy(orderType = orderType).clearLimitPriceIfNeeded()
         revalidateBuy()
     }
 
@@ -322,7 +305,6 @@ class TradeViewModel @Inject constructor(
     fun onLimitPriceChange(input: String) {
         uiState = uiState.copy(
             limitPriceInput = TradeInputParser.formatLimitPriceInput(input),
-            limitPriceValidationEnabled = true,
         )
         revalidateBuy()
     }
@@ -374,7 +356,11 @@ class TradeViewModel @Inject constructor(
 
     private fun revalidateBuy() {
         val state = uiState
-        val validation = validator.validate(state)
+        val validation = if (state.shouldSkipBuyValidation()) {
+            BuyValidationResult()
+        } else {
+            validator.validate(state)
+        }
         uiState = state.copy(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
@@ -386,6 +372,12 @@ class TradeViewModel @Inject constructor(
             confirmation = TradeConfirmationState(),
         )
     }
+
+    private fun BuySecurityUiState.clearLimitPriceIfNeeded(): BuySecurityUiState =
+        if (orderType == BuyOrderType.Limit) copy(limitPriceInput = "") else this
+
+    private fun BuySecurityUiState.shouldSkipBuyValidation(): Boolean =
+        orderType == BuyOrderType.Limit && limitPriceInput.isBlank()
 
     private fun buildInputHelper(
         state: BuySecurityUiState,
