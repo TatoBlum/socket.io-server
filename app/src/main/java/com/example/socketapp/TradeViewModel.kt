@@ -199,7 +199,7 @@ data class BuySecurityUiState(
     val quantityInputText: String = "",
     val amountInput: BigDecimal = BigDecimal.ZERO,
     val quantityInput: BigDecimal = BigDecimal.ZERO,
-    val limitPriceInput: String = "19.210,00",
+    val limitPriceInput: String = "",
     val limitPriceValidationEnabled: Boolean = true,
     val validation: BuyValidationResult = BuyValidationResult(),
     val inputError: TradeValidationError? = validation.errors.firstOrNull(),
@@ -238,17 +238,13 @@ class TradeViewModel @Inject constructor(
     fun loadInstrument(securityId: String) {
         viewModelScope.launch {
             val instrument = repository.getBuyableInstrument(securityId) ?: return@launch
-            val nextState = uiState.copy(
-                instrument = instrument,
-            )
-            uiState = nextState.copy(limitPriceInput = defaultLimitPriceInput(nextState))
+            uiState = uiState.copy(instrument = instrument)
             revalidateBuy()
         }
     }
 
     internal fun replaceInstrument(instrument: Security) {
-        val nextState = uiState.copy(instrument = instrument)
-        uiState = nextState.copy(limitPriceInput = defaultLimitPriceInput(nextState))
+        uiState = uiState.copy(instrument = instrument)
         revalidateBuy()
     }
 
@@ -296,7 +292,7 @@ class TradeViewModel @Inject constructor(
         val nextState = uiState.copy(tradeType = tradeType)
         uiState = if (nextState.orderType == BuyOrderType.Limit) {
             nextState.copy(
-                limitPriceInput = defaultLimitPriceInput(nextState),
+                limitPriceInput = "",
                 limitPriceValidationEnabled = false,
             )
         } else {
@@ -309,7 +305,7 @@ class TradeViewModel @Inject constructor(
         val nextState = uiState.copy(orderType = orderType)
         uiState = if (orderType == BuyOrderType.Limit) {
             nextState.copy(
-                limitPriceInput = defaultLimitPriceInput(nextState),
+                limitPriceInput = "",
                 limitPriceValidationEnabled = false,
             )
         } else {
@@ -435,14 +431,6 @@ class TradeViewModel @Inject constructor(
         }
     }
 
-    private fun defaultLimitPriceInput(state: BuySecurityUiState): String {
-        val instrument = state.instrument ?: return state.limitPriceInput
-        val price = when (state.tradeType) {
-            TradeType.Buy -> instrument.askPrice
-            TradeType.Sell -> instrument.bidPrice
-        }
-        return TradeInputParser.formatLimitPriceInput(price.toMoneyString().replace(".", ","))
-    }
 }
 
 internal fun String.toMoneyBigDecimal(): BigDecimal {

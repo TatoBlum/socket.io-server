@@ -37,6 +37,13 @@ class TradeValidator @Inject constructor() {
             limitPrice = limitPrice,
             instrument = instrument,
         )
+        if (
+            state.orderType == BuyOrderType.Limit &&
+            !state.limitPriceValidationEnabled &&
+            tradePrice == null
+        ) {
+            return BuyValidationResult(errors = errors)
+        }
         if (tradePrice == null) {
             if (errors.isEmpty()) {
                 errors += TradeValidationError.MissingTradePrice
