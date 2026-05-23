@@ -11,13 +11,13 @@ class TradeInputParserTest {
     }
 
     @Test
-    fun `whole number input parses double toString trailing zero as integer`() {
-        assertEquals(BigDecimal("313"), TradeInputParser.parseWholeNumberInput("313.0"))
+    fun `whole number input treats dot as thousand separator`() {
+        assertEquals(BigDecimal("3130"), TradeInputParser.parseWholeNumberInput("313.0"))
     }
 
     @Test
-    fun `whole number input parses double toString zero as integer`() {
-        assertEquals(BigDecimal.ZERO, TradeInputParser.parseWholeNumberInput("0.0"))
+    fun `whole number input parses formatted thousands`() {
+        assertEquals(BigDecimal("31313"), TradeInputParser.parseWholeNumberInput("31.313"))
     }
 
     @Test
@@ -31,18 +31,18 @@ class TradeInputParserTest {
     }
 
     @Test
-    fun `amount input parses decimal dot when it is not a thousand group`() {
-        assertEquals(BigDecimal("313.5"), TradeInputParser.parseAmountInput("313.5"))
+    fun `amount input treats dot as thousand separator`() {
+        assertEquals(BigDecimal("3135"), TradeInputParser.parseAmountInput("313.5"))
     }
 
     @Test
-    fun `amount input parses two decimal digits`() {
-        assertEquals(BigDecimal("313.25"), TradeInputParser.parseAmountInput("313.25"))
+    fun `amount input parses comma decimal digits`() {
+        assertEquals(BigDecimal("313.25"), TradeInputParser.parseAmountInput("313,25"))
     }
 
     @Test
-    fun `amount input parses double toString trailing zero as whole amount`() {
-        assertEquals(BigDecimal("313"), TradeInputParser.parseAmountInput("313.0"))
+    fun `amount input treats dot zero as thousand separator`() {
+        assertEquals(BigDecimal("3130"), TradeInputParser.parseAmountInput("313.0"))
     }
 
     @Test
@@ -66,6 +66,11 @@ class TradeInputParserTest {
     }
 
     @Test
+    fun `limit price treats dot as thousand separator`() {
+        assertEquals(BigDecimal("14089"), TradeInputParser.parseLimitPriceInput("140.89"))
+    }
+
+    @Test
     fun `limit price sanitizer keeps only digits thousand dots and decimal comma`() {
         assertEquals("19.210,25", TradeInputParser.sanitizeLimitPriceInput("abc19.210,25$"))
     }
@@ -78,6 +83,21 @@ class TradeInputParserTest {
     @Test
     fun `limit price formatter keeps comma decimals`() {
         assertEquals("19.210,25", TradeInputParser.formatLimitPriceInput("19210,25"))
+    }
+
+    @Test
+    fun `limit price formatter truncates extra comma decimals`() {
+        assertEquals("1.000,00", TradeInputParser.formatLimitPriceInput("1000,0001"))
+    }
+
+    @Test
+    fun `limit price formatter treats dot as thousand separator`() {
+        assertEquals("14.089", TradeInputParser.formatLimitPriceInput("140.89"))
+    }
+
+    @Test
+    fun `limit price formatter ignores dot decimals as decimals`() {
+        assertEquals("10.000.001", TradeInputParser.formatLimitPriceInput("1000.0001"))
     }
 
     @Test
