@@ -41,4 +41,36 @@
     <string name="titles_pager_step_6_helper_1">Guardás favoritos para seguirlos de cerca.</string>
     <string name="titles_pager_step_6_helper_2">Revisás oportunidades del mercado.</string>
     <string name="titles_pager_step_6_helper_3">Volvés a operar cuando lo necesites.</string>
+
+
+    // TradeValidationError
+    <string name="trade_error_invalid_limit_price">Ingresa un precio limite valido</string>
+    <string name="trade_error_limit_price_out_of_band_buy">El precio limite supera el maximo permitido de %1$s</string>
+    <string name="trade_error_limit_price_out_of_band_sell">El precio limite esta por debajo del minimo permitido de %1$s</string>
+    <string name="trade_error_limit_price_not_multiple">El precio limite debe ser multiplo de %1$s</string>
+    <string name="trade_error_missing_trade_price">No se pudo obtener un precio valido para la operacion</string>
+    <string name="trade_error_amount_not_enough_for_min">El monto minimo para operar es %1$s</string>
+    <string name="trade_error_nominals_invalid">La cantidad debe ser mayor a cero</string>
+    <string name="trade_error_nominals_below_min">La cantidad minima para operar es %1$s</string>
+    <string name="trade_error_nominals_not_multiple">La cantidad debe ser multiplo de %1$s</string>
+    <string name="trade_error_nominals_over_max">La cantidad maxima para operar es %1$s</string>
+    <string name="trade_error_not_enough_available">Supera tu disponible</string>
+    <string name="trade_error_insufficient_balance">Supera tu saldo disponible</string>
+    <string name="trade_error_insufficient_ars_for_fee">Saldo insuficiente en pesos para fee</string>
+    <string name="trade_error_missing_ars_fee_account">No hay cuenta en pesos para debitar el fee</string>
+    <string name="trade_error_fee_account_not_selected">Selecciona una cuenta en pesos para debitar el fee</string>
+    <string name="trade_error_selected_account_currency_mismatch">Selecciona una cuenta de la moneda del instrumento</string>
+    <string name="trade_error_operation_amount_above_max">El monto maximo para operar es %1$s</string>
+    <string name="trade_error_confirmation_generic">No se puede confirmar la operacion</string>
+
+    // TradeInputHelper
+    <string name="trade_helper_available_balance">Saldo disponible %1$s</string>
+    <string name="trade_helper_available_to_buy">Disponible para comprar %1$s</string>
+    <string name="trade_helper_available_nominals">Nominales disponibles %1$s</string>
+    <string name="trade_helper_approximate_debit">Valor aproximado a debitar %1$s</string>
+    <string name="trade_helper_approximate_credit">Valor aproximado a acreditar %1$s</string>
+
+    // TradeInputLimitPriceHelper
+    <string name="trade_helper_limit_price_max_allowed">Precio maximo permitido %1$s</string>
+    <string name="trade_helper_limit_price_min_allowed">Precio minimo permitido %1$s</string>
 </resources>

@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyInputMode
 import com.example.socketapp.BuyOrderType
 import com.example.socketapp.BuySecurityUiState
+import com.example.socketapp.R
 import com.example.socketapp.Security
 import com.example.socketapp.SettlementTerm
 import com.example.socketapp.TradeInputHelper
@@ -626,48 +628,65 @@ private enum class TradeSheet {
     OrderType,
 }
 
+@Composable
 private fun TradeInputHelper.toInputHelperMessage(): String =
     when (this) {
         TradeInputHelper.None -> ""
-        is TradeInputHelper.AvailableBalance -> "Saldo disponible ${amount.formatCurrency()}"
-        is TradeInputHelper.AvailableToBuy -> "Disponible para comprar ${amount.formatCurrency()}"
-        is TradeInputHelper.AvailableNominals -> "Nominales disponibles $quantity"
-        is TradeInputHelper.ApproximateDebit -> "Valor aproximado a debitar ${amount.formatCurrency()}"
-        is TradeInputHelper.ApproximateCredit -> "Valor aproximado a acreditar ${amount.formatCurrency()}"
+        is TradeInputHelper.AvailableBalance ->
+            stringResource(R.string.trade_helper_available_balance, amount.formatCurrency())
+        is TradeInputHelper.AvailableToBuy ->
+            stringResource(R.string.trade_helper_available_to_buy, amount.formatCurrency())
+        is TradeInputHelper.AvailableNominals ->
+            stringResource(R.string.trade_helper_available_nominals, quantity.toString())
+        is TradeInputHelper.ApproximateDebit ->
+            stringResource(R.string.trade_helper_approximate_debit, amount.formatCurrency())
+        is TradeInputHelper.ApproximateCredit ->
+            stringResource(R.string.trade_helper_approximate_credit, amount.formatCurrency())
     }
 
+@Composable
 private fun TradeInputLimitPriceHelper.toLimitPriceHelperMessage(): String =
     when (this) {
         TradeInputLimitPriceHelper.None -> ""
-        is TradeInputLimitPriceHelper.MaxAllowed -> "Precio maximo permitido ${amount.formatCurrency()}"
-        is TradeInputLimitPriceHelper.MinAllowed -> "Precio minimo permitido ${amount.formatCurrency()}"
+        is TradeInputLimitPriceHelper.MaxAllowed ->
+            stringResource(R.string.trade_helper_limit_price_max_allowed, amount.formatCurrency())
+        is TradeInputLimitPriceHelper.MinAllowed ->
+            stringResource(R.string.trade_helper_limit_price_min_allowed, amount.formatCurrency())
     }
 
+@Composable
 private fun TradeValidationError.toInputErrorMessage(): String =
     when (this) {
-        TradeValidationError.InvalidLimitPrice -> "Ingresa un precio limite valido"
+        TradeValidationError.InvalidLimitPrice -> stringResource(R.string.trade_error_invalid_limit_price)
         is TradeValidationError.LimitPriceOutOfBandBuy ->
-            "El precio limite supera el maximo permitido de ${maxAllowed.toPlainMoneyString()}"
+            stringResource(R.string.trade_error_limit_price_out_of_band_buy, maxAllowed.toPlainMoneyString())
         is TradeValidationError.LimitPriceOutOfBandSell ->
-            "El precio limite esta por debajo del minimo permitido de ${minAllowed.toPlainMoneyString()}"
+            stringResource(R.string.trade_error_limit_price_out_of_band_sell, minAllowed.toPlainMoneyString())
         is TradeValidationError.LimitPriceNotMultiple ->
-            "El precio limite debe ser multiplo de ${step.toPlainString()}"
-        TradeValidationError.MissingTradePrice -> "No se pudo obtener un precio valido para la operacion"
-        is TradeValidationError.AmountNotEnoughForMin -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
-        TradeValidationError.NominalsInvalid -> "La cantidad debe ser mayor a cero"
-        is TradeValidationError.NominalsBelowMin -> "La cantidad minima para operar es ${minNominals.toPlainString()}"
-        is TradeValidationError.NominalsNotMultiple -> "La cantidad debe ser multiplo de ${lotSize.toPlainString()}"
-        is TradeValidationError.NominalsOverMax -> "La cantidad maxima para operar es ${maxNominals.toPlainString()}"
-        is TradeValidationError.NotEnoughNominals -> "Supera tu disponible"
-        is TradeValidationError.NotEnoughAvailableAmount -> "Supera tu disponible"
-        is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
-        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
-        TradeValidationError.MissingArsFeeAccount -> "No hay cuenta en pesos para debitar el fee"
-        TradeValidationError.FeeAccountNotSelected -> "Selecciona una cuenta en pesos para debitar el fee"
-        is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
-        TradeValidationError.SelectedAccountCurrencyMismatch -> "Selecciona una cuenta de la moneda del instrumento"
-        is TradeValidationError.OperationAmountBelowMin -> "El monto minimo para operar es ${minAmount.formatCurrency()}"
-        is TradeValidationError.OperationAmountAboveMax -> "El monto maximo para operar es ${maxAmount.formatCurrency()}"
+            stringResource(R.string.trade_error_limit_price_not_multiple, step.toPlainString())
+        TradeValidationError.MissingTradePrice -> stringResource(R.string.trade_error_missing_trade_price)
+        is TradeValidationError.AmountNotEnoughForMin ->
+            stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency())
+        TradeValidationError.NominalsInvalid -> stringResource(R.string.trade_error_nominals_invalid)
+        is TradeValidationError.NominalsBelowMin ->
+            stringResource(R.string.trade_error_nominals_below_min, minNominals.toPlainString())
+        is TradeValidationError.NominalsNotMultiple ->
+            stringResource(R.string.trade_error_nominals_not_multiple, lotSize.toPlainString())
+        is TradeValidationError.NominalsOverMax ->
+            stringResource(R.string.trade_error_nominals_over_max, maxNominals.toPlainString())
+        is TradeValidationError.NotEnoughNominals -> stringResource(R.string.trade_error_not_enough_available)
+        is TradeValidationError.NotEnoughAvailableAmount -> stringResource(R.string.trade_error_not_enough_available)
+        is TradeValidationError.InsufficientArs -> stringResource(R.string.trade_error_insufficient_balance)
+        TradeValidationError.InsufficientArsForFee -> stringResource(R.string.trade_error_insufficient_ars_for_fee)
+        TradeValidationError.MissingArsFeeAccount -> stringResource(R.string.trade_error_missing_ars_fee_account)
+        TradeValidationError.FeeAccountNotSelected -> stringResource(R.string.trade_error_fee_account_not_selected)
+        is TradeValidationError.InsufficientUsd -> stringResource(R.string.trade_error_insufficient_balance)
+        TradeValidationError.SelectedAccountCurrencyMismatch ->
+            stringResource(R.string.trade_error_selected_account_currency_mismatch)
+        is TradeValidationError.OperationAmountBelowMin ->
+            stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency())
+        is TradeValidationError.OperationAmountAboveMax ->
+            stringResource(R.string.trade_error_operation_amount_above_max, maxAmount.formatCurrency())
     }
 
 private fun BigDecimal.toPlainMoneyString(): String =
