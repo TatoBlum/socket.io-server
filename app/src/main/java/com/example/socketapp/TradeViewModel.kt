@@ -362,7 +362,7 @@ class TradeViewModel @Inject constructor(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
             validation = validation,
-            inputError = validation.errors.firstOrNull { error -> !error.isLimitPriceError() },
+            inputError = validation.errors.primaryInputError(state.inputMode),
             inputHelper = buildInputHelper(state, validation),
             limitPriceError = validation.errors.firstOrNull { error -> error.isLimitPriceError() },
             limitPriceHelper = buildLimitPriceHelper(state),
@@ -422,6 +422,15 @@ class TradeViewModel @Inject constructor(
         }
     }
 
+}
+
+private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode): TradeValidationError? {
+    val inputErrors = filter { error -> !error.isLimitPriceError() }
+    return when (inputMode) {
+        BuyInputMode.Amount -> inputErrors.firstOrNull { error -> error is TradeValidationError.OperationAmountAboveMax }
+        BuyInputMode.Quantity -> inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverMax }
+    }
+        ?: inputErrors.firstOrNull()
 }
 
 internal fun String.toMoneyBigDecimal(): BigDecimal {
