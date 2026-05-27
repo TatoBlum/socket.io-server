@@ -358,6 +358,16 @@ class TradeViewModel @Inject constructor(
         } else {
             validator.validate(state)
         }
+        println(
+            "tradeDebug inputMode=${state.inputMode}, " +
+                "amountText=${state.amountInputText}, " +
+                "quantityText=${state.quantityInputText}, " +
+                "activeInput=${state.activeInput}, " +
+                "tradeNominals=${validation.tradeNominals}, " +
+                "tradeAmount=${validation.tradeAmount}, " +
+                "errors=${validation.errors}, " +
+                "inputError=${validation.errors.primaryInputError(state.inputMode)}",
+        )
         uiState = state.copy(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
