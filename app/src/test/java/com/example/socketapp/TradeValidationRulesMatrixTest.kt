@@ -260,7 +260,7 @@ class TradeValidationRulesMatrixTest {
                     lotInstrumentSize = 1,
                 ),
                 inputMode = BuyInputMode.Amount,
-                amountInputText = "99.99",
+                amountInputText = "99,99",
             ),
         )
 

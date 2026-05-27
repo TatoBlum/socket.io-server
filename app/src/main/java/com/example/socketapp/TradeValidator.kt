@@ -90,6 +90,7 @@ class TradeValidator @Inject constructor() {
         }
 
         errors += validateNominals(
+            inputMode = state.inputMode,
             tradeType = state.tradeType,
             tradeNominals = tradeNominals,
             minNominals = minNominals,
@@ -119,10 +120,7 @@ class TradeValidator @Inject constructor() {
             ),
         )
 
-        val maxOperationAmount = context.selectedBalanceFor(
-            orderType = state.orderType,
-            settlementTerm = state.settlementTerm,
-        )
+        val maxOperationAmount = maxNominals.multiply(tradePrice).toMoneyAmount()
         errors += validateOperationAmountLimits(
             tradeType = state.tradeType,
             inputMode = state.inputMode,
@@ -359,6 +357,7 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun validateNominals(
+        inputMode: BuyInputMode,
         tradeType: TradeType,
         tradeNominals: BigDecimal,
         minNominals: BigDecimal,
@@ -378,7 +377,7 @@ class TradeValidator @Inject constructor() {
         if (tradeType == TradeType.Sell && tradeNominals > holdingQuantity) {
             errors += TradeValidationError.NotEnoughNominals(holdingQuantity)
         }
-        if (tradeNominals > maxNominals) {
+        if (inputMode == BuyInputMode.Quantity && tradeNominals > maxNominals) {
             errors += TradeValidationError.NominalsOverMax(maxNominals)
         }
         return errors
@@ -437,7 +436,7 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun validateSelectedAccountCurrency(state: BuySecurityUiState): List<TradeValidationError> {
-        val selectedCurrency = state.accountContext.selectedAccount.currency.normalizedCurrency()
+        val selectedCurrency = state.accountContext.selectedAccount?.currency?.normalizedCurrency()
         return if (state.tradeType == TradeType.Buy && selectedCurrency != state.tradeCurrency) {
             listOf(TradeValidationError.SelectedAccountCurrencyMismatch)
         } else {

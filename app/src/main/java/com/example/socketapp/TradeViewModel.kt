@@ -25,7 +25,7 @@ enum class BuyOrderType(val label: String, val description: String) {
     ),
     Limit(
         label = "Limite",
-        description = "Podes definir un precio maximo de compra.",
+        description = "Podes definir un precio limite para la operacion.",
     ),
 }
 
@@ -131,16 +131,8 @@ data class Account(
 }
 
 data class TradeAccountContext(
-    val selectedAccount: Account = Account(
-        number = "ARS-001",
-        currency = "ARS",
-        balanceLimitNow = "1159000.00",
-        balanceLimit24 = "1159000.00",
-        balanceMarketNow = "1159000.00",
-        balanceMarket24 = "1159000.00",
-        description = "ARS-001",
-    ),
-    val availableArsAccounts: List<Account> = listOf(selectedAccount).filter { it.isArs },
+    val selectedAccount: Account? = null,
+    val availableArsAccounts: List<Account> = emptyList(),
     val selectedFeeAccount: Account? = availableArsAccounts.singleOrNull(),
     val investmentAccount: String = "COM-001",
 ) {
@@ -157,7 +149,10 @@ data class TradeAccountContext(
         orderType: BuyOrderType,
         settlementTerm: SettlementTerm,
     ): BigDecimal =
-        selectedAccount.tradingBalances.balanceFor(orderType, settlementTerm)
+        selectedAccount
+            ?.tradingBalances
+            ?.balanceFor(orderType, settlementTerm)
+            ?: BigDecimal.ZERO
 
     fun feeBalanceFor(
         orderType: BuyOrderType,
@@ -208,10 +203,12 @@ data class BuySecurityUiState(
     val confirmation: TradeConfirmationState = TradeConfirmationState(),
 ) {
     val tradeCurrency: String
-        get() = (instrument?.currency ?: accountContext.selectedAccount.currency).normalizedCurrency()
+        get() = (instrument?.currency ?: accountContext.selectedAccount?.currency.orEmpty()).normalizedCurrency()
 
     val canContinue: Boolean
-        get() = validation.canContinue && instrument?.hasRequiredTradingConfiguration == true
+        get() = validation.canContinue &&
+            instrument?.hasRequiredTradingConfiguration == true &&
+            accountContext.selectedAccount != null
 
     val activeInputText: String
         get() = when (inputMode) {
@@ -384,6 +381,8 @@ class TradeViewModel @Inject constructor(
         validation: BuyValidationResult,
     ): TradeInputHelper {
         val context = state.accountContext
+        if (context.selectedAccount == null) return TradeInputHelper.None
+
         val selectedBalance = context.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
@@ -477,11 +476,11 @@ private fun Account?.matchingAccountIn(accounts: List<Account>): Account? =
     }
 
 private fun defaultFeeAccountFor(
-    selectedAccount: Account,
+    selectedAccount: Account?,
     availableArsAccounts: List<Account>,
 ): Account? =
     when {
-        selectedAccount.isArs -> selectedAccount
+        selectedAccount?.isArs == true -> selectedAccount
         availableArsAccounts.size == 1 -> availableArsAccounts.first()
         else -> null
     }
