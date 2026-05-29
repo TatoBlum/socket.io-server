@@ -239,7 +239,14 @@ class TradeValidator @Inject constructor() {
         limitPrice: BigDecimal,
     ): List<TradeValidationError> {
         val priceStep = resolvePriceMultiple(instrumentSubType, isLiderMerval, limitPrice)
-        return if (!limitPrice.isMultipleOf(priceStep)) {
+        val isMultiple = limitPrice.isMultipleOf(priceStep)
+        println(
+            "limitMultipleDebug subtype=$instrumentSubType, " +
+                "limitPrice=$limitPrice, " +
+                "step=$priceStep, " +
+                "isMultiple=$isMultiple",
+        )
+        return if (!isMultiple) {
             listOf(TradeValidationError.LimitPriceNotMultiple(priceStep))
         } else {
             emptyList()
