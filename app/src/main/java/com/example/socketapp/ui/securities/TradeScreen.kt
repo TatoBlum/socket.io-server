@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +43,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -51,21 +55,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.BuyInputMode
-import com.example.socketapp.BuyOrderType
-import com.example.socketapp.BuySecurityUiState
+import com.example.socketapp.TradeOrderType
+import com.example.socketapp.TradeViewModelState
 import com.example.socketapp.R
 import com.example.socketapp.Security
-import com.example.socketapp.SettlementTerm
+import com.example.socketapp.SettlementType
 import com.example.socketapp.TradeInputHelper
 import com.example.socketapp.TradeInputLimitPriceHelper
+import com.example.socketapp.TradeOption
 import com.example.socketapp.TradeValidationError
 import com.example.socketapp.ui.theme.AppPrimary
 import com.example.socketapp.ui.theme.PriceUpText
@@ -75,17 +82,42 @@ import java.math.RoundingMode
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TradeScreen(
-    uiState: BuySecurityUiState,
+    uiState: TradeViewModelState,
     onInputModeChange: (BuyInputMode) -> Unit,
     onInputChange: (BuyInputMode, String) -> Unit,
-    onSettlementTermChange: (SettlementTerm) -> Unit,
-    onOrderTypeChange: (BuyOrderType) -> Unit,
+    onSettlementTermChange: (SettlementType) -> Unit,
+    onOrderTypeChange: (TradeOrderType) -> Unit,
     onLimitPriceChange: (String) -> Unit,
+    onTradeOptionsChange : (TradeOption) -> Unit = {},
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var activeSheet by remember { mutableStateOf<TradeSheet?>(null) }
+    var orderSheetKeyboardWasVisible by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val density = LocalDensity.current
+    val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
+    val isOrderTypeSheetOpen = activeSheet == TradeSheet.OrderType
+
+    LaunchedEffect(
+        isOrderTypeSheetOpen,
+        isKeyboardVisible,
+    ) {
+        if (!isOrderTypeSheetOpen) {
+            orderSheetKeyboardWasVisible = false
+            return@LaunchedEffect
+        }
+
+        if (isKeyboardVisible) {
+            orderSheetKeyboardWasVisible = true
+            return@LaunchedEffect
+        }
+
+        if (orderSheetKeyboardWasVisible) {
+            orderSheetKeyboardWasVisible = false
+            activeSheet = null
+        }
+    }
 
     Column(
         modifier = modifier
@@ -113,6 +145,29 @@ fun TradeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Button(
+                    onClick =  {
+                        onTradeOptionsChange(TradeOption.SIMPLE)
+                    }
+                ) {
+                    Text("Simple")
+                }
+
+                Button(onClick = {
+                    onTradeOptionsChange(TradeOption.ADVANCE)
+                }) {
+                    Text("Avanzado")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
+
+            if (uiState.tradeOption == TradeOption.ADVANCE) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 SelectorButton(
                     label = "Plazo: ${uiState.settlementTerm.label}",
                     selected = true,
@@ -125,25 +180,15 @@ fun TradeScreen(
                     onClick = { activeSheet = TradeSheet.OrderType },
                     modifier = Modifier.weight(1f),
                 )
-            }
+            } }
 
-            if (uiState.orderType == BuyOrderType.Limit) {
+            if (uiState.orderType == TradeOrderType.Limit && TradeOption.ADVANCE == uiState.tradeOption) {
                 Spacer(modifier = Modifier.height(14.dp))
-                OutlinedTextField(
+                LimitPriceInput(
                     value = uiState.limitPriceInput,
+                    error = uiState.limitPriceError,
+                    helper = uiState.limitPriceHelper,
                     onValueChange = onLimitPriceChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Precio limite") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(8.dp),
-                    isError = uiState.limitPriceError != null,
-                    supportingText = {
-                        Text(
-                            text = uiState.limitPriceError?.toInputErrorMessage()
-                                ?: uiState.limitPriceHelper.toLimitPriceHelperMessage(),
-                        )
-                    },
                 )
             }
 
@@ -180,7 +225,7 @@ fun TradeScreen(
         ) {
             SelectionSheet(
                 title = "Plazo de liquidacion",
-                options = SettlementTerm.entries,
+                options = SettlementType.entries,
                 selected = uiState.settlementTerm,
                 label = { it.label },
                 description = { it.description },
@@ -196,22 +241,55 @@ fun TradeScreen(
             onDismissRequest = { activeSheet = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
-            SelectionSheet(
-                title = "Tipo de orden",
-                options = BuyOrderType.entries,
+            OrderTypeSheet(
                 selected = uiState.orderType,
-                label = { it.label },
-                description = { it.description },
+                limitPriceInput = uiState.limitPriceInput,
+                limitPriceError = uiState.limitPriceError,
+                limitPriceHelper = uiState.limitPriceHelper,
                 onDismiss = { activeSheet = null },
-                onSelect = {
-                    onOrderTypeChange(it)
-                    activeSheet = null
+                onSelect = { orderType ->
+                    onOrderTypeChange(orderType)
+                    if (orderType == TradeOrderType.Market) {
+                        orderSheetKeyboardWasVisible = false
+                        activeSheet = null
+                    }
                 },
+                onLimitPriceChange = onLimitPriceChange,
             )
         }
 
         null -> Unit
     }
+}
+
+@Composable
+private fun LimitPriceInput(
+    value: String,
+    error: TradeValidationError?,
+    helper: TradeInputLimitPriceHelper,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier
+            .fillMaxWidth(),
+        singleLine = true,
+        label = { Text("Precio limite") },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Decimal,
+            imeAction = ImeAction.Done,
+        ),
+        shape = RoundedCornerShape(8.dp),
+        isError = error != null,
+        supportingText = {
+            Text(
+                text = error?.toInputErrorMessage()
+                    ?: helper.toLimitPriceHelperMessage(),
+            )
+        },
+    )
 }
 
 @Composable
@@ -467,7 +545,7 @@ private fun SecurityHeader(instrument: Security) {
 
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = instrument.lastPrice.formatCurrency(),
+                text = instrument.price.formatCurrency(),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -538,6 +616,7 @@ private fun <T> SelectionSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .imePadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(bottom = 24.dp),
@@ -573,6 +652,76 @@ private fun <T> SelectionSheet(
                 onClick = { onSelect(option) },
             )
             if (index != options.lastIndex) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(start = 48.dp, top = 12.dp, bottom = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderTypeSheet(
+    selected: TradeOrderType,
+    limitPriceInput: String,
+    limitPriceError: TradeValidationError?,
+    limitPriceHelper: TradeInputLimitPriceHelper,
+    onDismiss: () -> Unit,
+    onSelect: (TradeOrderType) -> Unit,
+    onLimitPriceChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Tipo de orden",
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 22.sp,
+                lineHeight = 26.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Cerrar",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        TradeOrderType.entries.forEachIndexed { index, orderType ->
+            SheetOptionRow(
+                selected = orderType == selected,
+                title = orderType.label,
+                description = orderType.description,
+                onClick = { onSelect(orderType) },
+            )
+
+            if (orderType == TradeOrderType.Limit && selected == TradeOrderType.Limit) {
+                Spacer(modifier = Modifier.height(12.dp))
+                LimitPriceInput(
+                    value = limitPriceInput,
+                    error = limitPriceError,
+                    helper = limitPriceHelper,
+                    onValueChange = onLimitPriceChange,
+                    modifier = Modifier.padding(start = 48.dp),
+                )
+            }
+
+            if (index != TradeOrderType.entries.lastIndex) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     modifier = Modifier.padding(start = 48.dp, top = 12.dp, bottom = 12.dp),
@@ -636,8 +785,12 @@ private fun TradeInputHelper.toInputHelperMessage(): String =
             stringResource(R.string.trade_helper_available_balance, amount.formatCurrency())
         is TradeInputHelper.AvailableToBuy ->
             stringResource(R.string.trade_helper_available_to_buy, amount.formatCurrency())
+        is TradeInputHelper.AvailableNominalsToBuy ->
+            stringResource(R.string.trade_helper_available_nominals_to_buy, quantity.toNominalsString())
         is TradeInputHelper.AvailableNominals ->
             stringResource(R.string.trade_helper_available_nominals, quantity.toString())
+        is TradeInputHelper.EquivalentAmount ->
+            stringResource(R.string.trade_helper_equivalent_amount, amount.formatCurrency())
         is TradeInputHelper.ApproximateDebit ->
             stringResource(R.string.trade_helper_approximate_debit, amount.formatCurrency())
         is TradeInputHelper.ApproximateCredit ->
@@ -649,9 +802,15 @@ private fun TradeInputLimitPriceHelper.toLimitPriceHelperMessage(): String =
     when (this) {
         TradeInputLimitPriceHelper.None -> ""
         is TradeInputLimitPriceHelper.MaxAllowed ->
-            stringResource(R.string.trade_helper_limit_price_max_allowed, amount.formatCurrency())
+            stringResource(
+                R.string.trade_helper_limit_price_max_allowed,
+                amount.formatCurrency(currencySymbol),
+            )
         is TradeInputLimitPriceHelper.MinAllowed ->
-            stringResource(R.string.trade_helper_limit_price_min_allowed, amount.formatCurrency())
+            stringResource(
+                R.string.trade_helper_limit_price_min_allowed,
+                amount.formatCurrency(currencySymbol),
+            )
     }
 
 @Composable
@@ -674,6 +833,8 @@ private fun TradeValidationError.toInputErrorMessage(): String =
             stringResource(R.string.trade_error_nominals_not_multiple, lotSize.toPlainString())
         is TradeValidationError.NominalsOverMax ->
             stringResource(R.string.trade_error_nominals_over_max, maxNominals.toPlainString())
+        is TradeValidationError.NominalsOverAvailableBalance ->
+            stringResource(R.string.trade_error_nominals_over_available_balance)
         is TradeValidationError.NotEnoughNominals -> stringResource(R.string.trade_error_not_enough_available)
         is TradeValidationError.NotEnoughAvailableAmount -> stringResource(R.string.trade_error_not_enough_available)
         is TradeValidationError.InsufficientArs -> stringResource(R.string.trade_error_insufficient_balance)
@@ -691,6 +852,9 @@ private fun TradeValidationError.toInputErrorMessage(): String =
 
 private fun BigDecimal.toPlainMoneyString(): String =
     setScale(2, RoundingMode.HALF_UP).toPlainString()
+
+private fun BigDecimal.toNominalsString(): String =
+    stripTrailingZeros().toPlainString()
 
 private fun BigDecimal.formatSignedPercent(): String {
     val sign = if (this >= java.math.BigDecimal.ZERO) "+" else "-"
