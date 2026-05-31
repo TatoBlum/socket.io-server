@@ -3,7 +3,7 @@ package com.example.socketapp
 import java.math.BigDecimal
 
 object TradeInputParser {
-    private const val LIMIT_PRICE_MAX_DECIMALS = 2
+    private const val LIMIT_PRICE_MAX_DECIMALS = 3
 
     fun sanitizeWholeNumberInput(input: String): String =
         input.filter { character -> character.isDigit() || character == '.' }

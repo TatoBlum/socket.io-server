@@ -865,66 +865,61 @@ private fun BigDecimal.formatSignedPercent(): String {
     return "$sign${abs().setScale(2, RoundingMode.HALF_UP).toPlainString().replace(".", ",")}%"
 }
 
-class LocalizedDecimalVisualTransformation(
+class ThousandsVisualTransformation(
     private val thousandsSeparator: Char = '.',
     private val decimalSeparator: Char = ',',
 ) : VisualTransformation {
 
     override fun filter(text: AnnotatedString): TransformedText {
         val raw = text.text
-        if (raw.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+        if (raw.isEmpty()) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
 
-        val separatorIndex = raw.indexOf(decimalSeparator)
-        val integerPart = if (separatorIndex >= 0) raw.take(separatorIndex) else raw
-        val decimalPart = if (separatorIndex >= 0) raw.drop(separatorIndex + 1) else ""
+        val commaIndex = raw.indexOf(decimalSeparator)
+        val integerLength = if (commaIndex >= 0) commaIndex else raw.length
 
         val formatted = buildString {
-            integerPart.forEachIndexed { index, char ->
+            raw.forEachIndexed { index, char ->
                 append(char)
 
-                val digitsAfter = integerPart.length - index - 1
-                if (digitsAfter > 0 && digitsAfter % 3 == 0) {
-                    append(thousandsSeparator)
+                if (index < integerLength - 1) {
+                    val digitsAfter = integerLength - index - 1
+                    if (digitsAfter % 3 == 0) {
+                        append(thousandsSeparator)
+                    }
                 }
-            }
-
-            if (separatorIndex >= 0) {
-                append(decimalSeparator)
-                append(decimalPart)
             }
         }
 
         val offsetMapping = object : OffsetMapping {
             override fun originalToTransformed(offset: Int): Int {
-                var transformedOffset = 0
+                val safeOffset = offset.coerceIn(0, raw.length)
+                var extraSeparators = 0
 
-                for (rawIndex in 0 until offset.coerceAtMost(raw.length)) {
-                    transformedOffset++
-
-                    if (rawIndex < integerPart.length) {
-                        val digitsAfter = integerPart.length - rawIndex - 1
-                        if (digitsAfter > 0 && digitsAfter % 3 == 0) {
-                            transformedOffset++
+                for (index in 0 until safeOffset) {
+                    if (index < integerLength - 1) {
+                        val digitsAfter = integerLength - index - 1
+                        if (digitsAfter % 3 == 0) {
+                            extraSeparators++
                         }
                     }
                 }
 
-                return transformedOffset.coerceIn(0, formatted.length)
+                return (safeOffset + extraSeparators).coerceIn(0, formatted.length)
             }
 
             override fun transformedToOriginal(offset: Int): Int {
+                val safeOffset = offset.coerceIn(0, formatted.length)
                 var originalOffset = 0
                 var transformedOffset = 0
 
-                while (
-                    originalOffset < raw.length &&
-                    transformedOffset < offset
-                ) {
+                while (originalOffset < raw.length && transformedOffset < safeOffset) {
                     transformedOffset++
 
-                    if (originalOffset < integerPart.length) {
-                        val digitsAfter = integerPart.length - originalOffset - 1
-                        if (digitsAfter > 0 && digitsAfter % 3 == 0) {
+                    if (originalOffset < integerLength - 1) {
+                        val digitsAfter = integerLength - originalOffset - 1
+                        if (digitsAfter % 3 == 0) {
                             transformedOffset++
                         }
                     }
@@ -936,9 +931,6 @@ class LocalizedDecimalVisualTransformation(
             }
         }
 
-        return TransformedText(
-            text = AnnotatedString(formatted),
-            offsetMapping = offsetMapping,
-        )
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
     }
 }
