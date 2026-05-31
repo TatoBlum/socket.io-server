@@ -43,7 +43,7 @@
     <string name="titles_pager_step_6_helper_3">Volvés a operar cuando lo necesites.</string>
 
 
-    // TradeValidationError
+    <!-- TradeValidationError -->
     <string name="trade_error_invalid_limit_price">Ingresa un precio limite valido</string>
     <string name="trade_error_limit_price_out_of_band_buy">El precio limite supera el maximo permitido de %1$s</string>
     <string name="trade_error_limit_price_out_of_band_sell">El precio limite esta por debajo del minimo permitido de %1$s</string>
@@ -53,7 +53,8 @@
     <string name="trade_error_nominals_invalid">La cantidad debe ser mayor a cero</string>
     <string name="trade_error_nominals_below_min">La cantidad minima para operar es %1$s</string>
     <string name="trade_error_nominals_not_multiple">La cantidad debe ser multiplo de %1$s</string>
-    <string name="trade_error_nominals_over_max">La cantidad maxima para operar es %1$s</string>
+    <string name="trade_error_nominals_over_max">La cantidad maxima a comprar es %1$s</string>
+    <string name="trade_error_nominals_over_available_balance">Supera tu saldo disponible</string>
     <string name="trade_error_not_enough_available">Supera tu disponible</string>
     <string name="trade_error_insufficient_balance">Supera tu saldo disponible</string>
     <string name="trade_error_insufficient_ars_for_fee">Saldo insuficiente en pesos para fee</string>
@@ -63,14 +64,16 @@
     <string name="trade_error_operation_amount_above_max">El monto maximo para operar es %1$s</string>
     <string name="trade_error_confirmation_generic">No se puede confirmar la operacion</string>
 
-    // TradeInputHelper
+    <!-- TradeInputHelper -->
     <string name="trade_helper_available_balance">Saldo disponible %1$s</string>
     <string name="trade_helper_available_to_buy">Disponible para comprar %1$s</string>
+    <string name="trade_helper_available_nominals_to_buy">Disponible: %1$s nominales</string>
     <string name="trade_helper_available_nominals">Nominales disponibles %1$s</string>
+    <string name="trade_helper_equivalent_amount">Equivale a %1$s</string>
     <string name="trade_helper_approximate_debit">Valor aproximado a debitar %1$s</string>
     <string name="trade_helper_approximate_credit">Valor aproximado a acreditar %1$s</string>
 
-    // TradeInputLimitPriceHelper
+    <!-- TradeInputLimitPriceHelper -->
     <string name="trade_helper_limit_price_max_allowed">Precio maximo permitido %1$s</string>
     <string name="trade_helper_limit_price_min_allowed">Precio minimo permitido %1$s</string>
 </resources>
