@@ -1,6 +1,6 @@
 package com.example.socketapp.data
 
-import com.example.socketapp.model.Security
+import com.example.socketapp.Security
 import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.inject.Inject
@@ -22,14 +22,14 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
             val (ask, bid) = nextPrice.toMockAskBid()
 
             security.copy(
-                rawPrice = nextPrice.setScale(2, RoundingMode.HALF_UP).toPlainString(),
-                rawPriceChange = movement.toPlainString(),
-                rawPercentageChange = percent.toPlainString(),
-                rawAskPrice00 = ask.toPlainString(),
-                rawAskPrice24 = ask.toPlainString(),
-                rawBidPrice00 = bid.toPlainString(),
-                rawBidPrice24 = bid.toPlainString(),
-                rawMinBuyArsAmount = MOCK_MIN_BUY_ARS_AMOUNT,
+                price = nextPrice.setScale(2, RoundingMode.HALF_UP),
+                priceChange = movement,
+                dailyVariationPercent = percent,
+                askPrice00 = ask,
+                askPrice24 = ask,
+                bidPrice00 = bid,
+                bidPrice24 = bid,
+                minBuyArsAmount = BigDecimal(MOCK_MIN_BUY_ARS_AMOUNT),
             )
         }
     }
@@ -88,19 +88,28 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
             val (ask, bid) = price.toMockAskBid()
 
             Security(
-                id = "$symbol-$suffix",
-                symbol = if (suffix == 0) symbol else "$symbol$suffix",
-                name = names.getValue(symbol),
-                rawPrice = price.toPlainString(),
-                rawPriceChange = change.toPlainString(),
-                rawPercentageChange = percent.toPlainString(),
-                currency = if (symbol in usdSymbols) "Dolares" else "Pesos",
+                id = "$symbol-$suffix".hashCode() and Int.MAX_VALUE,
+                ticker = if (suffix == 0) symbol else "$symbol$suffix",
+                description = names.getValue(symbol),
+                type = "Acciones",
+                currency = if (symbol in usdSymbols) "USD" else "ARS",
+                codeType = "MOCK_SECURITY_ID",
+                codeValue = "$symbol-$suffix",
+                industry = sectors[index % sectors.size],
                 panel = if (index % 4 == 0) "General" else "S&P Merval",
-                sector = sectors[index % sectors.size],
-                rawAskPrice00 = ask.toPlainString(),
-                rawAskPrice24 = ask.toPlainString(),
-                rawBidPrice00 = bid.toPlainString(),
-                rawBidPrice24 = bid.toPlainString(),
+                liderMerval = index % 4 != 0,
+                minInstrumentNominals = 1,
+                maxInstrumentNominals = 999999999,
+                lotInstrumentSize = 1,
+                price = price.setScale(2, RoundingMode.HALF_UP),
+                priceChange = change,
+                dailyVariationPercent = percent,
+                askPrice00 = ask,
+                askPrice24 = ask,
+                bidPrice00 = bid,
+                bidPrice24 = bid,
+                percentageMovement = BigDecimal("0.015"),
+                minBuyArsAmount = BigDecimal(MOCK_MIN_BUY_ARS_AMOUNT),
             )
         }
     }
