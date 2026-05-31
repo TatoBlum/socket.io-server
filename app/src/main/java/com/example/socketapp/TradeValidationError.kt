@@ -13,6 +13,7 @@ sealed interface TradeValidationError {
     data class NominalsBelowMin(val minNominals: BigDecimal) : TradeValidationError
     data class NominalsNotMultiple(val lotSize: BigDecimal) : TradeValidationError
     data class NominalsOverMax(val maxNominals: BigDecimal) : TradeValidationError
+    data class NominalsOverAvailableBalance(val maxAffordableNominals: BigDecimal) : TradeValidationError
     data class NotEnoughNominals(val holdingQuantity: BigDecimal) : TradeValidationError
     data class NotEnoughAvailableAmount(val availableAmount: BigDecimal) : TradeValidationError
     data class InsufficientArs(val operationMode: BuyInputMode) : TradeValidationError

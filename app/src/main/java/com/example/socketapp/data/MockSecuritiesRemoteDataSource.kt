@@ -19,21 +19,28 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
                 .divide(security.price, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal("100"))
                 .setScale(2, RoundingMode.HALF_UP)
+            val (ask, bid) = nextPrice.toMockAskBid()
 
             security.copy(
                 rawPrice = nextPrice.setScale(2, RoundingMode.HALF_UP).toPlainString(),
                 rawPriceChange = movement.toPlainString(),
                 rawPercentageChange = percent.toPlainString(),
+                rawAskPrice00 = ask.toPlainString(),
+                rawAskPrice24 = ask.toPlainString(),
+                rawBidPrice00 = bid.toPlainString(),
+                rawBidPrice24 = bid.toPlainString(),
+                rawMinBuyArsAmount = MOCK_MIN_BUY_ARS_AMOUNT,
             )
         }
     }
 
     private fun buildMockSecurities(): List<Security> {
         val symbols = listOf(
-            "ALUA", "BBAR", "BMA", "BYMA", "CEPU", "COME", "CRES", "EDN", "GGAL", "LOMA",
+            "ALUA", "BBAR", "BMA", "BYMA", "CEPU", "COME", "CRES", "EDN", "MOLI", "LOMA",
             "MIRG", "PAMP", "SUPV", "TECO2", "TGNO4", "TGSU2", "TRAN", "TXAR", "VALO", "YPFD",
             "AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA", "AMD", "JPM", "V",
         )
+        val usdSymbols = setOf("AAPL", "AMZN", "GOOGL", "META", "MSFT", "NVDA", "TSLA", "AMD", "JPM", "V")
 
         val names = mapOf(
             "ALUA" to "Aluar",
@@ -44,7 +51,7 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
             "COME" to "Sociedad Comercial del Plata",
             "CRES" to "Cresud",
             "EDN" to "Edenor",
-            "GGAL" to "Grupo Financiero Galicia",
+            "MOLI" to "Molinos Rio de la Plata",
             "LOMA" to "Loma Negra",
             "MIRG" to "Mirgor",
             "PAMP" to "Pampa Energia",
@@ -78,6 +85,7 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
                 .divide(price, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal("100"))
                 .setScale(2, RoundingMode.HALF_UP)
+            val (ask, bid) = price.toMockAskBid()
 
             Security(
                 id = "$symbol-$suffix",
@@ -86,13 +94,28 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
                 rawPrice = price.toPlainString(),
                 rawPriceChange = change.toPlainString(),
                 rawPercentageChange = percent.toPlainString(),
-                currency = if (index % 3 == 0) "Dolares" else "Pesos",
+                currency = if (symbol in usdSymbols) "Dolares" else "Pesos",
                 panel = if (index % 4 == 0) "General" else "S&P Merval",
                 sector = sectors[index % sectors.size],
+                rawAskPrice00 = ask.toPlainString(),
+                rawAskPrice24 = ask.toPlainString(),
+                rawBidPrice00 = bid.toPlainString(),
+                rawBidPrice24 = bid.toPlainString(),
             )
         }
     }
 
     private fun randomDecimalCents(fromCents: Long, untilCents: Long): BigDecimal =
         BigDecimal.valueOf(Random.nextLong(fromCents, untilCents), 2)
+
+    private fun BigDecimal.toMockAskBid(): Pair<BigDecimal, BigDecimal> {
+        val spread = multiply(BigDecimal("0.0015")).setScale(2, RoundingMode.HALF_UP)
+        val ask = add(spread).setScale(2, RoundingMode.HALF_UP)
+        val bid = subtract(spread).coerceAtLeast(BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP)
+        return ask to bid
+    }
+
+    private companion object {
+        const val MOCK_MIN_BUY_ARS_AMOUNT = "100.00"
+    }
 }

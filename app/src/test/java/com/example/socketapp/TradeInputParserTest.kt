@@ -86,8 +86,13 @@ class TradeInputParserTest {
     }
 
     @Test
+    fun `limit price formatter keeps up to three comma decimals`() {
+        assertEquals("1.000,000", TradeInputParser.formatLimitPriceInput("1000,000"))
+    }
+
+    @Test
     fun `limit price formatter truncates extra comma decimals`() {
-        assertEquals("1.000,00", TradeInputParser.formatLimitPriceInput("1000,0001"))
+        assertEquals("1.000,000", TradeInputParser.formatLimitPriceInput("1000,0001"))
     }
 
     @Test

@@ -14,7 +14,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 2,
                 ),
@@ -34,10 +34,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("1.00"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "3",
@@ -55,7 +55,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 2,
                 ),
@@ -71,12 +71,30 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `03b buy ars minimum amount uses instrument server value`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("10.00"),
+                    minBuyArsAmount = BigDecimal("250.00"),
+                ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "200",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("250.00", error.minAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `04 sell by amount max for market uses holding quantity and bid price`() {
         val result = validator.validate(
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                 ),
                 inputMode = BuyInputMode.Amount,
@@ -96,11 +114,11 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                     percentageMovement = BigDecimal("0.20"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "901",
@@ -118,10 +136,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("0.10"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "111",
             ),
         )
@@ -136,10 +154,10 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("0.10"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "89",
             ),
         )
@@ -155,10 +173,10 @@ class TradeValidationRulesMatrixTest {
                 instrument = instrument(
                     type = "Acciones",
                     liderMerval = false,
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("0.50"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "75,10",
             ),
         )
@@ -172,7 +190,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("10.00"),
+                    askPrice00 = BigDecimal("10.00"),
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 5,
                     currency = "USD",
@@ -194,7 +212,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("30.00"),
+                    askPrice00 = BigDecimal("30.00"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -213,7 +231,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("30.00"),
+                    askPrice00 = BigDecimal("30.00"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -232,7 +250,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -255,7 +273,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("99.99"),
+                    askPrice00 = BigDecimal("99.99"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -274,7 +292,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("79.17"),
+                    askPrice00 = BigDecimal("79.17"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -295,7 +313,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("98.00"),
+                    askPrice00 = BigDecimal("98.00"),
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 1,
                 ),
@@ -314,7 +332,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("30.00"),
+                    askPrice00 = BigDecimal("30.00"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -333,7 +351,7 @@ class TradeValidationRulesMatrixTest {
     fun `10 operation amount limits reject amount above maximum`() {
         val result = validator.validate(
             state(
-                instrument = instrument(askPrice = BigDecimal("100.00")),
+                instrument = instrument(askPrice00 = BigDecimal("100.00")),
                 accountContext = accountContext(
                     arsBalance = BigDecimal("1000.00"),
                 ),
@@ -352,7 +370,7 @@ class TradeValidationRulesMatrixTest {
     fun `11 buy market without ask price returns missing trade price`() {
         val result = validator.validate(
             state(
-                instrument = instrument(askPrice = BigDecimal.ZERO),
+                instrument = instrument(askPrice00 = BigDecimal.ZERO),
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
             ),
@@ -368,7 +386,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 tradeType = TradeType.Sell,
-                instrument = instrument(bidPrice = BigDecimal.ZERO),
+                instrument = instrument(bidPrice00 = BigDecimal.ZERO),
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
             ),
@@ -383,7 +401,7 @@ class TradeValidationRulesMatrixTest {
     fun `13 invalid limit price cannot build valid order`() {
         val result = validator.validate(
             state(
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "0",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "10",
@@ -401,7 +419,7 @@ class TradeValidationRulesMatrixTest {
     fun `13b empty limit price is invalid if validator receives it`() {
         val result = validator.validate(
             state(
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "10",
@@ -419,7 +437,7 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                 ),
                 inputMode = BuyInputMode.Amount,
@@ -439,7 +457,7 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                 ),
                 accountContext = accountContext(
@@ -459,7 +477,7 @@ class TradeValidationRulesMatrixTest {
     fun `15 buy ars validates trade amount against ars balance`() {
         val result = validator.validate(
             state(
-                instrument = instrument(askPrice = BigDecimal("100.00")),
+                instrument = instrument(askPrice00 = BigDecimal("100.00")),
                 accountContext = accountContext(arsBalance = BigDecimal("500.00")),
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "1000",
@@ -477,7 +495,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     currency = "USD",
                 ),
                 accountContext = accountContext(
@@ -499,7 +517,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     currency = "USD",
                 ),
                 accountContext = accountContext(
@@ -521,7 +539,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     currency = "usd",
                 ),
                 accountContext = TradeAccountContext(
@@ -550,10 +568,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("0.10"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "110",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
@@ -571,11 +589,11 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("100.00"),
+                    bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                     percentageMovement = BigDecimal("0.10"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
@@ -592,10 +610,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("102.42"),
+                    askPrice00 = BigDecimal("102.42"),
                     percentageMovement = BigDecimal("-1.82"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "105",
             ),
         )
@@ -610,10 +628,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("122.52"),
+                    askPrice00 = BigDecimal("122.52"),
                     percentageMovement = BigDecimal("0.15"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,90",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
@@ -630,10 +648,10 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice = BigDecimal("122.52"),
+                    askPrice00 = BigDecimal("122.52"),
                     percentageMovement = BigDecimal("0.15"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,89",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
@@ -651,11 +669,11 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(
-                    bidPrice = BigDecimal("165.77"),
+                    bidPrice00 = BigDecimal("165.77"),
                     holdingQuantity = 10,
                     percentageMovement = BigDecimal("0.15"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,90",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
@@ -673,10 +691,10 @@ class TradeValidationRulesMatrixTest {
             state(
                 instrument = instrument(
                     type = "Bonos",
-                    askPrice = BigDecimal("100.00"),
+                    askPrice00 = BigDecimal("100.00"),
                     percentageMovement = BigDecimal("0.50"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "99,99",
             ),
         )
@@ -690,10 +708,10 @@ class TradeValidationRulesMatrixTest {
             state(
                 instrument = instrument(
                     type = "Bonos",
-                    askPrice = BigDecimal("101.00"),
+                    askPrice00 = BigDecimal("101.00"),
                     percentageMovement = BigDecimal("0.50"),
                 ),
-                orderType = BuyOrderType.Limit,
+                orderType = TradeOrderType.Limit,
                 limitPriceInput = "100,01",
             ),
         )
@@ -703,14 +721,49 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `21 treasury bill accepts three decimal price multiple`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    type = "Letras",
+                    askPrice00 = BigDecimal("100.00"),
+                    percentageMovement = BigDecimal("0.50"),
+                ),
+                orderType = TradeOrderType.Limit,
+                limitPriceInput = "50,001",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error is TradeValidationError.LimitPriceNotMultiple })
+    }
+
+    @Test
+    fun `22 bond rejects three decimals when range step is one cent`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    type = "Bonos",
+                    askPrice00 = BigDecimal("100.00"),
+                    percentageMovement = BigDecimal("0.50"),
+                ),
+                orderType = TradeOrderType.Limit,
+                limitPriceInput = "50,001",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.LimitPriceNotMultiple
+        assertEquals("0.01", error.step.toPlainString())
+    }
+
+    @Test
     fun `21 market today uses market now balance`() {
         val result = validator.validate(
             state(
                 accountContext = accountContext(
                     arsBalances = TradingBalanceSet(marketNow = BigDecimal("200.00")),
                 ),
-                orderType = BuyOrderType.Market,
-                settlementTerm = SettlementTerm.Today,
+                orderType = TradeOrderType.Market,
+                settlementTerm = SettlementType.TODAY,
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "200",
             ),
@@ -727,8 +780,8 @@ class TradeValidationRulesMatrixTest {
                 accountContext = accountContext(
                     arsBalances = TradingBalanceSet(market24 = BigDecimal("200.00")),
                 ),
-                orderType = BuyOrderType.Market,
-                settlementTerm = SettlementTerm.TwentyFourHours,
+                orderType = TradeOrderType.Market,
+                settlementTerm = SettlementType.TWENTY_FOUR_HOURS,
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "200",
             ),
@@ -745,8 +798,8 @@ class TradeValidationRulesMatrixTest {
                 accountContext = accountContext(
                     arsBalances = TradingBalanceSet(limitNow = BigDecimal("200.00")),
                 ),
-                orderType = BuyOrderType.Limit,
-                settlementTerm = SettlementTerm.Today,
+                orderType = TradeOrderType.Limit,
+                settlementTerm = SettlementType.TODAY,
                 limitPriceInput = "100",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "200",
@@ -764,8 +817,8 @@ class TradeValidationRulesMatrixTest {
                 accountContext = accountContext(
                     arsBalances = TradingBalanceSet(limit24 = BigDecimal("200.00")),
                 ),
-                orderType = BuyOrderType.Limit,
-                settlementTerm = SettlementTerm.TwentyFourHours,
+                orderType = TradeOrderType.Limit,
+                settlementTerm = SettlementType.TWENTY_FOUR_HOURS,
                 limitPriceInput = "100",
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "200",
@@ -779,17 +832,26 @@ class TradeValidationRulesMatrixTest {
     @Test
     fun `25 buy validation excludes fee and confirmation validation includes fee`() {
         val state = state(
-            instrument = instrument(askPrice = BigDecimal("100.00")),
+            instrument = instrument(askPrice00 = BigDecimal("100.00")),
             inputMode = BuyInputMode.Quantity,
             quantityInputText = "10",
         )
 
         val buyValidation = validator.validate(state)
-        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+        val confirmationValidation = validator.validateConfirmation(
+            state = state,
+            validation = buyValidation,
+            fee = BigDecimal("7.02"),
+            marketFee = BigDecimal("5.00"),
+            vat = BigDecimal("300.00"),
+        )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
         assertEquals("7.02", confirmationValidation.fee.toPlainString())
-        assertEquals("1007.02", confirmationValidation.amountWithFee.toPlainString())
+        assertEquals("5.00", confirmationValidation.marketFee.toPlainString())
+        assertEquals("300.00", confirmationValidation.vat.toPlainString())
+        assertEquals("312.02", confirmationValidation.totalFees.toPlainString())
+        assertEquals("1312.02", confirmationValidation.amountWithFee.toPlainString())
         assertTrue(buyValidation.canContinue)
         assertTrue(confirmationValidation.canConfirm)
     }
@@ -798,7 +860,7 @@ class TradeValidationRulesMatrixTest {
     fun `26 buy usd confirmation validation requires ars balance for fee`() {
         val state = state(
             instrument = instrument(
-                askPrice = BigDecimal("100.00"),
+                askPrice00 = BigDecimal("100.00"),
                 currency = "USD",
             ),
             accountContext = accountContext(
@@ -811,7 +873,13 @@ class TradeValidationRulesMatrixTest {
         )
 
         val buyValidation = validator.validate(state)
-        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+        val confirmationValidation = validator.validateConfirmation(
+            state = state,
+            validation = buyValidation,
+            fee = BigDecimal("7.02"),
+            marketFee = BigDecimal("5.00"),
+            vat = BigDecimal("300.00"),
+        )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
         assertEquals("1000.00", confirmationValidation.amountWithFee.toPlainString())
@@ -824,7 +892,7 @@ class TradeValidationRulesMatrixTest {
     fun `26a buy usd confirmation validation requires an ars fee account`() {
         val state = state(
             instrument = instrument(
-                askPrice = BigDecimal("100.00"),
+                askPrice00 = BigDecimal("100.00"),
                 currency = "USD",
             ),
             accountContext = accountContext(
@@ -837,7 +905,13 @@ class TradeValidationRulesMatrixTest {
         )
 
         val buyValidation = validator.validate(state)
-        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+        val confirmationValidation = validator.validateConfirmation(
+            state = state,
+            validation = buyValidation,
+            fee = BigDecimal("7.02"),
+            marketFee = BigDecimal("5.00"),
+            vat = BigDecimal("300.00"),
+        )
 
         assertTrue(buyValidation.canContinue)
         assertTrue(confirmationValidation.errors.contains(TradeValidationError.MissingArsFeeAccount))
@@ -852,7 +926,7 @@ class TradeValidationRulesMatrixTest {
         )
         val state = state(
             instrument = instrument(
-                askPrice = BigDecimal("100.00"),
+                askPrice00 = BigDecimal("100.00"),
                 currency = "USD",
             ),
             accountContext = TradeAccountContext(
@@ -865,7 +939,13 @@ class TradeValidationRulesMatrixTest {
         )
 
         val buyValidation = validator.validate(state)
-        val confirmationValidation = validator.validateConfirmation(state, buyValidation)
+        val confirmationValidation = validator.validateConfirmation(
+            state = state,
+            validation = buyValidation,
+            fee = BigDecimal("7.02"),
+            marketFee = BigDecimal("5.00"),
+            vat = BigDecimal("300.00"),
+        )
 
         assertTrue(buyValidation.canContinue)
         assertTrue(confirmationValidation.errors.contains(TradeValidationError.FeeAccountNotSelected))
@@ -874,16 +954,16 @@ class TradeValidationRulesMatrixTest {
 
     private fun state(
         tradeType: TradeType = TradeType.Buy,
-        orderType: BuyOrderType = BuyOrderType.Market,
-        settlementTerm: SettlementTerm = SettlementTerm.Today,
+        orderType: TradeOrderType = TradeOrderType.Market,
+        settlementTerm: SettlementType = SettlementType.TODAY,
         inputMode: BuyInputMode = BuyInputMode.Amount,
         instrument: Security = instrument(),
         accountContext: TradeAccountContext = accountContext(),
         limitPriceInput: String = "100",
         amountInputText: String = "",
         quantityInputText: String = "",
-    ): BuySecurityUiState =
-        BuySecurityUiState(
+    ): TradeViewModelState =
+        TradeViewModelState(
             instrument = instrument,
             accountContext = accountContext,
             tradeType = tradeType,
@@ -902,10 +982,11 @@ class TradeValidationRulesMatrixTest {
         maxInstrumentNominals: Int = 999999,
         lotInstrumentSize: Int = 1,
         holdingQuantity: Int = 0,
-        askPrice: BigDecimal = BigDecimal("100.00"),
-        bidPrice: BigDecimal = BigDecimal("99.00"),
+        askPrice00: BigDecimal = BigDecimal("100.00"),
+        bidPrice00: BigDecimal = BigDecimal("99.00"),
         percentageMovement: BigDecimal = BigDecimal("0.10"),
         currency: String = "ARS",
+        minBuyArsAmount: BigDecimal = BigDecimal("100.00"),
     ): Security =
         Security(
             id = 1,
@@ -917,9 +998,12 @@ class TradeValidationRulesMatrixTest {
             maxInstrumentNominals = maxInstrumentNominals,
             lotInstrumentSize = lotInstrumentSize,
             holdingQuantity = holdingQuantity,
-            askPrice = askPrice,
-            bidPrice = bidPrice,
+            askPrice00 = askPrice00,
+            askPrice24 = askPrice00,
+            bidPrice00 = bidPrice00,
+            bidPrice24 = bidPrice00,
             percentageMovement = percentageMovement,
+            minBuyArsAmount = minBuyArsAmount,
         )
 
     private fun accountContext(

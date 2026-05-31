@@ -32,10 +32,6 @@ class MockSecuritiesRepository @Inject constructor(
             "dolares" -> "USD"
             else -> "ARS"
         }
-        val spread = price.multiply(BigDecimal("0.0015")).setScale(2, RoundingMode.HALF_UP)
-        val ask = price.add(spread).setScale(2, RoundingMode.HALF_UP)
-        val bid = price.subtract(spread).coerceAtLeast(BigDecimal("0.01")).setScale(2, RoundingMode.HALF_UP)
-
         return BuyableSecurity(
             id = id.hashCode() and Int.MAX_VALUE,
             ticker = symbol,
@@ -52,11 +48,14 @@ class MockSecuritiesRepository @Inject constructor(
             maxInstrumentNominals = 999999999,
             lotInstrumentSize = 1,
             holdingQuantity = 0,
-            lastPrice = price.setScale(2, RoundingMode.HALF_UP),
+            price = price.setScale(2, RoundingMode.HALF_UP),
             dailyVariationPercent = percentageChange.setScale(2, RoundingMode.HALF_UP),
-            askPrice = ask,
-            bidPrice = bid,
-            percentageMovement = BigDecimal("0.15"),
+            askPrice00 = askPrice00,
+            askPrice24 = askPrice24,
+            bidPrice00 = bidPrice00,
+            bidPrice24 = bidPrice24,
+            percentageMovement = BigDecimal("0.015"),
+            minBuyArsAmount = minBuyArsAmount,
         )
     }
 }
