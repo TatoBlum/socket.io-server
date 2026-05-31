@@ -78,6 +78,10 @@ import com.example.socketapp.ui.theme.AppPrimary
 import com.example.socketapp.ui.theme.PriceUpText
 import java.math.BigDecimal
 import java.math.RoundingMode
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -860,3 +864,68 @@ private fun BigDecimal.formatSignedPercent(): String {
     val sign = if (this >= java.math.BigDecimal.ZERO) "+" else "-"
     return "$sign${abs().setScale(2, RoundingMode.HALF_UP).toPlainString().replace(".", ",")}%"
 }
+
+class LocalizedDecimalVisualTransformation(
+    private val thousandsSeparator: Char = '.',
+    private val decimalSeparator: Char = ',',
+) : VisualTransformation {
+
+    override fun filter(text: AnnotatedString): TransformedText {
+        val rawText = text.text
+        if (rawText.isEmpty()) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+
+        val integerPart = rawText.substringBefore(decimalSeparator)
+        val decimalPart = rawText.substringAfter(decimalSeparator, missingDelimiterValue = "")
+        val hasDecimalSeparator = rawText.contains(decimalSeparator)
+
+        val formattedInteger = integerPart
+            .reversed()
+            .chunked(3)
+            .joinToString(thousandsSeparator.toString())
+            .reversed()
+
+        val formattedText = buildString {
+            append(formattedInteger)
+            if (hasDecimalSeparator) {
+                append(decimalSeparator)
+                append(decimalPart)
+            }
+        }
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val rawBeforeCursor = rawText.take(offset)
+                val integerBeforeCursor = rawBeforeCursor.substringBefore(decimalSeparator)
+                val decimalBeforeCursor = rawBeforeCursor.substringAfter(decimalSeparator, "")
+
+                val formattedIntegerBeforeCursor = integerBeforeCursor
+                    .reversed()
+                    .chunked(3)
+                    .joinToString(thousandsSeparator.toString())
+                    .reversed()
+
+                return if (rawBeforeCursor.contains(decimalSeparator)) {
+                    formattedIntegerBeforeCursor.length + 1 + decimalBeforeCursor.length
+                } else {
+                    formattedIntegerBeforeCursor.length
+                }.coerceIn(0, formattedText.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val transformedBeforeCursor = formattedText.take(offset)
+                val rawBeforeCursor = transformedBeforeCursor
+                    .filter { it != thousandsSeparator }
+
+                return rawBeforeCursor.length.coerceIn(0, rawText.length)
+            }
+        }
+
+        return TransformedText(
+            text = AnnotatedString(formattedText),
+            offsetMapping = offsetMapping,
+        )
+    }
+}
+
