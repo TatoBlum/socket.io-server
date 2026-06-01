@@ -7,7 +7,7 @@ _Fecha: 2026-04-17_
 - **Binance WS NO ofrece acciones.** Es exchange cripto puro. Stock Tokens discontinuados 2021-22, BLVT terminados abril 2024. No hay ni hubo equities reales en `stream.binance.com`.
 - **US stocks (NASDAQ/NYSE) — hay alternativas free:** Alpaca IEX (`wss://stream.data.alpaca.markets/v2/iex`) y Finnhub (`wss://ws.finnhub.io`). Ambos piden API key gratis (registro web, sin tarjeta). Recomendado: **Alpaca**.
 - **Merval (AR) — no hay WS público gratuito.** Primary (`apihub.primary.com.ar`) tiene WS pero requiere credenciales comerciales. BYMA requiere contacto. Finnhub free tier parece bloquear `.BA` (issue GitHub #366).
-- **Alternativa Merval sin WS:** Yahoo Finance REST polling (`query1.finance.yahoo.com/v8/finance/chart/GGAL.BA`) — delay ~15 min, sin auth. NO es tiempo real.
+- **Alternativa Merval sin WS:** Yahoo Finance REST polling (`query1.finance.yahoo.com/v8/finance/chart/ALUA.BA`) — delay ~15 min, sin auth. NO es tiempo real.
 - **Costo de integración en este proyecto:** `WebSocketClient`, `MainViewModel`, `CryptoTicker` son genéricos (magnitud trivial). Rompen: `Constants.kt` (URL + 100 USDT + helpers), `TickerData`/`CombinedStreamMessage` (envelope Binance), `CryptoTickerDataSource.parse()`, `CombinedStreamParsingTest` (magnitud alta).
 - **Alpaca ≠ drop-in de Binance:** requiere handshake (auth + subscribe), campos distintos (`T`, `S`, `p`), y schema por array de trades no por envelope `stream`/`data`.
 - **Gap clave:** el sort del `MainScreen` usa `Constants.SYMBOLS.indexOf(...)` — depende del hardcode cripto. Al cambiar feed hay que redefinir la lista de símbolos.
@@ -51,7 +51,7 @@ Campo `p` = precio (ya parseás algo similar en Binance ticker).
 
 - **Primary** (`apihub.primary.com.ar`): tiene WS "modelo suscripción" para Merval real-time, pero requiere cuenta comercial. Contacto: `remarkets@primary.com.ar`.
 - **BYMA**: contactar `marketdata@byma.com.ar`. No self-service.
-- **Yahoo Finance REST** (no WS): `query1.finance.yahoo.com/v8/finance/chart/{GGAL.BA,YPFD.BA,PAMP.BA,BMA.BA}` — delay ~15 min, sin auth. Viable para polling cada N segundos pero NO es tiempo real.
+- **Yahoo Finance REST** (no WS): `query1.finance.yahoo.com/v8/finance/chart/{ALUA.BA,YPFD.BA,PAMP.BA,BMA.BA}` — delay ~15 min, sin auth. Viable para polling cada N segundos pero NO es tiempo real.
 
 ### Conflictos / dudas
 

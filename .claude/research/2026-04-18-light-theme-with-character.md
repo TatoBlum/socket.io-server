@@ -251,9 +251,9 @@ Ninguno. El web recomienda eliminar surface tint; el codebase muestra que ya no 
 
 ## Conclusión
 
-**Decisión del usuario (2026-04-18)**: **Option D Monocromo + Naranja Galicia `#E67B21`** como signature accent único.
+**Decisión del usuario (2026-04-18)**: **Option D Monocromo + naranja accent `#E67B21`** como signature accent único.
 
-### Paleta final "Galicia Editorial"
+### Paleta final "Editorial"
 
 ```
 background:        #FFFFFF    (blanco puro)
@@ -264,11 +264,11 @@ onSurface:         #0A0A0A    (near-black, no azulado)
 onSurfaceVariant:  #6B6B6B
 outline:           #EBEBEB    (hairline neutra)
 outlineVariant:    #F0F0F0
-primary:           #E67B21    (Naranja Galicia — signature único)
+primary:           #E67B21    (naranja accent — signature único)
 onPrimary:         #FFFFFF
 primaryContainer:  #FBE8D4    (para chips/badges sutiles con accent)
 onPrimaryContainer: #6B3A0F
-error:             #B91C1C    (rojo saturado, no el rojo Galicia por claridad semántica)
+error:             #B91C1C    (rojo saturado, no el rojo de marca por claridad semántica)
 
 PriceUp:           #16A34A    (green-600 saturado — único verde permitido)
 PriceDown:         #DC2626    (red-600 saturado — diferenciado del primary naranja)
@@ -277,10 +277,10 @@ PriceDownFlash:    #FEE2E2    (tinte rojo muy sutil)
 SegmentedTrack:    #F4F4F4    (neutro sin tinte)
 ```
 
-Colores Galicia secundarios disponibles si se quieren badges/estados con variantes de marca (uso opcional y puntual):
+Colores secundarios disponibles si se quieren badges/estados con variantes de marca (uso opcional y puntual):
 - `#EF945A` — naranja claro (hover states, chips secundarios)
 - `#F7CEB5` — naranja palest (backgrounds de badge muy sutiles)
-- `#AD2931` — rojo profundo Galicia (NO usar como `PriceDown` — reservar para error crítico si se necesita)
+- `#AD2931` — rojo profundo (NO usar como `PriceDown` — reservar para error crítico si se necesita)
 
 ### Regla de uso del accent `#E67B21`
 - **Sí**: focus rings del search field, underline de tab activo, CircularProgressIndicator, botón "Conectar"/"Reintentar", badge de status conectado, `primaryContainer` para chips de filtro activos.
@@ -291,7 +291,7 @@ Reemplazar los 8 pasteles por **8 shades de gris neutro** (editorial) con el tex
 
 ### Fases de implementación
 
-1. **Fase 1 — Despastelizar core** (`Color.kt`): renombrar `SoftSky*` → `Galicia*`, aplicar paleta de arriba, mapear a `lightColorScheme(...)`.
+1. **Fase 1 — Despastelizar core** (`Color.kt`): renombrar `SoftSky*` → `App*`, aplicar paleta de arriba, mapear a `lightColorScheme(...)`.
 2. **Fase 2 — Semántica saturada**: `PriceUp #16A34A` / `PriceDown #DC2626` + flashes sutiles.
 3. **Fase 3 — Eliminar shadow pastel**: `WidgetCard` pasar de `elevation = 4.dp` → `elevation = 0.dp` + `Modifier.border(1.dp, outline)`. Mismo tratamiento en cualquier Card con shadow blanda.
 4. **Fase 4 — Rework avatares**: `SoftAvatarPalette` → 8 shades grises con texto en naranja ExtraBold.
@@ -302,12 +302,10 @@ Reemplazar los 8 pasteles por **8 shades de gris neutro** (editorial) con el tex
 
 - **Carácter**: el naranja `#E67B21` es saturado y reconocible — no es un azul genérico ni un verde financiero clásico. Evoca marca argentina sin ser literal.
 - **Sutileza**: al ser Option D (monocromo + 1 accent), el naranja aparece en puntos quirúrgicos. El 95% del chrome sigue siendo blanco + gris + near-black.
-- **Identidad sin copiar**: no decimos "esto es Galicia", pero el usuario argentino lo siente cálido/familiar. No cae en el patrón "otra app fintech azul corporate".
+- **Identidad sin copiar**: no decimos "esto es Editorial", pero el usuario argentino lo siente cálido/familiar. No cae en el patrón "otra app fintech azul corporate".
 - **Compatibilidad semántica**: el naranja NO colisiona con verde/rojo de precios (hue distinta). Blue-600 habría competido con el azul del TradingView widget; naranja no.
 
 ---
-
-_Sources de la paleta Galicia_: logo oficial SVG en [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Logo_Banco_Galicia.svg) — colores extraídos directamente del CSS embebido del SVG (`.fil4 {fill:#E67B21}` como naranja principal).
 
 Implementación por fases sugerida (a confirmar con el usuario):
 1. **Fase 1 — Despastelizar core (alto impacto, bajo riesgo)**: reemplazar tokens M3 en `Color.kt` (background → `#FFFFFF`, onSurface → `#111111`, primary → `#2563EB`, outline → `#E5E5E5`, CardSurface → `#F5F5F5` o blanco + hairline).
