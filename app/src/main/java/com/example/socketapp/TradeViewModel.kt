@@ -58,6 +58,7 @@ data class Security(
     val codeType: String = "",
     val codeValue: String = "",
     val industry: String = "",
+    val panel: String = "",
     val liderMerval: Boolean = false,
     val indexationType: String? = null,
     val isFavorite: Boolean = false,
@@ -66,6 +67,7 @@ data class Security(
     val lotInstrumentSize: Int = 0,
     val holdingQuantity: Int = 0,
     val price: BigDecimal = BigDecimal.ZERO,
+    val priceChange: BigDecimal = BigDecimal.ZERO,
     val dailyVariationPercent: BigDecimal = BigDecimal.ZERO,
     val askPrice00: BigDecimal = BigDecimal.ZERO,
     val askPrice24: BigDecimal = BigDecimal.ZERO,
@@ -224,6 +226,7 @@ data class TradeViewModelState(
     val amountInput: BigDecimal = BigDecimal.ZERO,
     val quantityInput: BigDecimal = BigDecimal.ZERO,
     val limitPriceInput: String = "",
+    val isLimitPriceInputTouched: Boolean = false,
     val validation: TradeValidationResult = TradeValidationResult(),
     val inputError: TradeValidationError? = validation.errors.firstOrNull(),
     val inputHelper: TradeInputHelper = TradeInputHelper.None,
@@ -333,7 +336,10 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onLimitPriceChange(input: String) {
-        uiState = uiState.copy(limitPriceInput = TradeInputParser.formatLimitPriceInput(input))
+        uiState = uiState.copy(
+            limitPriceInput = TradeInputParser.formatLimitPriceInput(input),
+            isLimitPriceInputTouched = true,
+        )
         revalidateBuy()
     }
 
@@ -402,14 +408,21 @@ class TradeViewModel @Inject constructor(
             validation = validation,
             inputError = validation.errors.primaryInputError(state.inputMode),
             inputHelper = buildInputHelper(state, validation),
-            limitPriceError = validation.errors.firstOrNull { error -> error.isLimitPriceError() },
+            limitPriceError = validation.visibleLimitPriceError(state),
             limitPriceHelper = buildLimitPriceHelper(state),
             confirmation = TradeConfirmationState(),
         )
     }
 
     private fun TradeViewModelState.clearLimitPrice(): TradeViewModelState =
-        if (orderType == TradeOrderType.Limit) copy(limitPriceInput = "") else this
+        if (orderType == TradeOrderType.Limit) {
+            copy(
+                limitPriceInput = "",
+                isLimitPriceInputTouched = false,
+            )
+        } else {
+            this
+        }
 
     private fun TradeViewModelState.shouldSkipBuyValidation(): Boolean =
         orderType == TradeOrderType.Limit &&
@@ -494,6 +507,16 @@ private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode
             ?: inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverAvailableBalance }
     }
         ?: inputErrors.firstOrNull()
+}
+
+private fun TradeValidationResult.visibleLimitPriceError(
+    state: TradeViewModelState,
+): TradeValidationError? {
+    val limitPriceError = errors.firstOrNull { error -> error.isLimitPriceError() }
+        ?: return null
+    val userInteractedWithLimitPrice = state.isLimitPriceInputTouched || state.limitPriceInput.isNotBlank()
+
+    return if (userInteractedWithLimitPrice) limitPriceError else null
 }
 
 internal fun String.toMoneyBigDecimal(): BigDecimal {

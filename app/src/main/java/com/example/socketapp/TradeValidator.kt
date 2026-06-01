@@ -65,17 +65,29 @@ class TradeValidator @Inject constructor() {
             lotSize = lotSize,
             tradePrice = tradePrice,
         )
-        val minimumTotalAmount = minimumChannelAmount(
+        val minimumChannelAmount = minimumChannelAmount(
             tradeType = state.tradeType,
             currency = state.tradeCurrency,
             instrument = instrument,
         )
-        val effectiveMinimumAmount = maxOf(minimumAmountForOperation, minimumTotalAmount)
         errors += validateSelectedAccountCurrency(state)
 
         if (activeInput == null) {
             return TradeValidationResult(
                 tradePrice = tradePrice,
+                maxNominals = maxNominals,
+                errors = errors,
+            )
+        }
+
+        if (
+            state.inputMode == BuyInputMode.Amount &&
+            activeInput <= minimumChannelAmount
+        ) {
+            errors += TradeValidationError.OperationAmountBelowMin(minimumChannelAmount)
+            return TradeValidationResult(
+                tradePrice = tradePrice,
+                tradeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                 maxNominals = maxNominals,
                 errors = errors,
             )
@@ -89,7 +101,7 @@ class TradeValidator @Inject constructor() {
         )
 
         if (state.inputMode == BuyInputMode.Amount && tradeNominals < minNominals.roundUpToMultipleOf(lotSize)) {
-            errors += TradeValidationError.AmountNotEnoughForMin(effectiveMinimumAmount)
+            errors += TradeValidationError.AmountNotEnoughForMin(minimumAmountForOperation)
             return TradeValidationResult(
                 tradePrice = tradePrice,
                 tradeNominals = tradeNominals,
@@ -136,9 +148,8 @@ class TradeValidator @Inject constructor() {
             tradeType = state.tradeType,
             inputMode = state.inputMode,
             operationAmount = tradeAmount,
-            minOperationAmount = minimumTotalAmount,
+            minOperationAmount = minimumChannelAmount,
             maxOperationAmount = maxOperationAmount,
-            minimumAmountForOperation = effectiveMinimumAmount,
         )
 
         return TradeValidationResult(
@@ -500,12 +511,9 @@ class TradeValidator @Inject constructor() {
         operationAmount: BigDecimal,
         minOperationAmount: BigDecimal,
         maxOperationAmount: BigDecimal,
-        minimumAmountForOperation: BigDecimal,
     ): List<TradeValidationError> {
         val errors = mutableListOf<TradeValidationError>()
-        if (operationAmount < minOperationAmount && inputMode == BuyInputMode.Amount) {
-            errors += TradeValidationError.AmountNotEnoughForMin(minimumAmountForOperation)
-        } else if (operationAmount < minOperationAmount) {
+        if (inputMode == BuyInputMode.Quantity && operationAmount < minOperationAmount) {
             errors += TradeValidationError.OperationAmountBelowMin(minOperationAmount)
         }
         if (tradeType == TradeType.Buy && operationAmount > maxOperationAmount) {

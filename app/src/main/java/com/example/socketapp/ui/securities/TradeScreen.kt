@@ -829,7 +829,7 @@ private fun TradeValidationError.toInputErrorMessage(): String =
             stringResource(R.string.trade_error_limit_price_not_multiple, step.toPlainString())
         TradeValidationError.MissingTradePrice -> stringResource(R.string.trade_error_missing_trade_price)
         is TradeValidationError.AmountNotEnoughForMin ->
-            stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency())
+            stringResource(R.string.trade_error_operation_min_amount, minAmount.formatCurrency())
         TradeValidationError.NominalsInvalid -> stringResource(R.string.trade_error_nominals_invalid)
         is TradeValidationError.NominalsBelowMin ->
             stringResource(R.string.trade_error_nominals_below_min, minNominals.toPlainString())
