@@ -246,7 +246,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c2 buy ars exact channel minimum fails by channel rule`() {
+    fun `09c2 buy ars exact channel minimum can operate when it buys first nominal`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -259,9 +259,10 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
-        assertFalse(result.canContinue)
+        assertEquals(emptyList<TradeValidationError>(), result.errors)
+        assertEquals("1", result.tradeNominals.toPlainString())
+        assertEquals("100.00", result.tradeAmount.toPlainString())
+        assertTrue(result.canContinue)
     }
 
     @Test
@@ -304,7 +305,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c4 buy ars amount equal channel minimum reports channel minimum even when instrument minimum is higher`() {
+    fun `09c4 buy ars amount equal channel minimum reports instrument minimum when higher`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -317,8 +318,32 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("196.00", error.minAmount.toPlainString())
+        assertEquals("1", result.tradeNominals.toPlainString())
+        assertEquals("98.00", result.tradeAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c4b buy ars amount equal channel minimum below first nominal reports first nominal amount`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("6054.97"),
+                    minInstrumentNominals = 1,
+                    lotInstrumentSize = 1,
+                    minBuyArsAmount = BigDecimal("100.00"),
+                ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "100",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.AmountNotEnoughForMin
+        assertEquals("6054.97", error.minAmount.toPlainString())
+        assertEquals("0", result.tradeNominals.toPlainString())
+        assertEquals("0.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 
