@@ -82,7 +82,7 @@ class TradeValidator @Inject constructor() {
 
         if (
             state.inputMode == BuyInputMode.Amount &&
-            activeInput <= minimumChannelAmount
+            activeInput < minimumChannelAmount
         ) {
             errors += TradeValidationError.OperationAmountBelowMin(minimumChannelAmount)
             return TradeValidationResult(
