@@ -262,9 +262,20 @@ class TradeViewModel @Inject constructor(
     var uiState by mutableStateOf(TradeViewModelState())
         private set
 
-    fun loadInstrument(securityId: String) {
+    fun loadInstrument(
+        codeType: String,
+        codeValue: String,
+    ) {
         viewModelScope.launch {
-            val instrument = repository.getBuyableInstrument(securityId) ?: return@launch
+            val instrument = repository.getBuyableInstrument(
+                codeType = codeType,
+                codeValue = codeValue,
+            )
+                ?: repository.refreshSecurities()
+                    .firstOrNull { security ->
+                        security.codeType == codeType && security.codeValue == codeValue
+                    }
+                ?: return@launch
             uiState = uiState.copy(instrument = instrument)
             revalidateBuy()
         }

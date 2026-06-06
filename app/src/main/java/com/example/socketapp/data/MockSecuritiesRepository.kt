@@ -19,7 +19,12 @@ class MockSecuritiesRepository @Inject constructor(
     override suspend fun getBuyableInstruments(): List<Security> =
         cachedSecurities.orEmpty()
 
-    override suspend fun getBuyableInstrument(id: String): Security? =
+    override suspend fun getBuyableInstrument(
+        codeType: String,
+        codeValue: String,
+    ): Security? =
         cachedSecurities.orEmpty()
-            .firstOrNull { security -> security.codeValue == id }
+            .firstOrNull { security ->
+                security.codeType == codeType && security.codeValue == codeValue
+            }
 }

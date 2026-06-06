@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.socketapp.data.SecuritiesRepository
 import com.example.socketapp.di.DefaultDispatcher
 import com.example.socketapp.di.IoDispatcher
-import com.example.socketapp.model.Security
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -64,13 +63,13 @@ class SecuritiesViewModel @Inject constructor(
     }
 
     fun onFavouriteClick(securityId: String) {
-        val selectedSecurity = allSecurities.firstOrNull { security -> security.id == securityId } ?: return
-        val newFavourite = !selectedSecurity.isFavourite
+        val selectedSecurity = allSecurities.firstOrNull { security -> security.codeValue == securityId } ?: return
+        val newFavourite = !selectedSecurity.isFavorite
 
         favouriteOverrides[securityId] = newFavourite
         allSecurities = allSecurities.map { security ->
-            if (security.id == securityId) {
-                security.copy(isFavourite = newFavourite)
+            if (security.codeValue == securityId) {
+                security.copy(isFavorite = newFavourite)
             } else {
                 security
             }
@@ -137,8 +136,8 @@ class SecuritiesViewModel @Inject constructor(
 
     private fun applyFavouriteOverrides(securities: List<Security>): List<Security> =
         securities.map { security ->
-            val favouriteOverride = favouriteOverrides[security.id]
-            security.copy(isFavourite = favouriteOverride ?: security.isFavourite)
+            val favouriteOverride = favouriteOverrides[security.codeValue]
+            security.copy(isFavorite = favouriteOverride ?: security.isFavorite)
         }
 
     private fun applyFilters(
@@ -172,18 +171,18 @@ class SecuritiesViewModel @Inject constructor(
     ): List<Security> = withContext(defaultDispatcher) {
         val filteredSecurities: List<Security> = securities.filter { security ->
             val matchesQuery = query.isBlank() ||
-                    security.symbol.contains(query, ignoreCase = true) ||
-                    security.name.contains(query, ignoreCase = true)
+                    security.ticker.contains(query, ignoreCase = true) ||
+                    security.description.contains(query, ignoreCase = true)
             val matchesCurrency = filters.currencies.isEmpty() || security.currency in filters.currencies
             val matchesPanel = filters.panels.isEmpty() || security.panel in filters.panels
-            val matchesSector = filters.sectors.isEmpty() || security.sector in filters.sectors
+            val matchesSector = filters.sectors.isEmpty() || security.industry in filters.sectors
 
             matchesQuery && matchesCurrency && matchesPanel && matchesSector
         }
 
         when (filters.sortOption) {
-            SecuritySortOption.HighestYield -> filteredSecurities.sortedByDescending { it.percentageChange }
-            SecuritySortOption.LowestYield -> filteredSecurities.sortedBy { it.percentageChange }
+            SecuritySortOption.HighestYield -> filteredSecurities.sortedByDescending { it.dailyVariationPercent }
+            SecuritySortOption.LowestYield -> filteredSecurities.sortedBy { it.dailyVariationPercent }
             SecuritySortOption.HighestPrice -> filteredSecurities.sortedByDescending { it.price }
             SecuritySortOption.LowestPrice -> filteredSecurities.sortedBy { it.price }
         }

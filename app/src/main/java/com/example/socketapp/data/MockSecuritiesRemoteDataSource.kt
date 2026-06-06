@@ -109,10 +109,26 @@ class MockSecuritiesRemoteDataSource @Inject constructor() : SecuritiesRemoteDat
                 bidPrice00 = bid,
                 bidPrice24 = bid,
                 percentageMovement = BigDecimal("0.015"),
+                holdingQuantity = mockHoldingQuantity(symbol, suffix),
                 minBuyArsAmount = BigDecimal(MOCK_MIN_BUY_ARS_AMOUNT),
             )
         }
     }
+
+    private fun mockHoldingQuantity(
+        symbol: String,
+        suffix: Int,
+    ): Int =
+        if (suffix == 0) {
+            when (symbol) {
+                "PAMP" -> 125
+                "YPFD" -> 80
+                "ALUA" -> 250
+                else -> 0
+            }
+        } else {
+            0
+        }
 
     private fun randomDecimalCents(fromCents: Long, untilCents: Long): BigDecimal =
         BigDecimal.valueOf(Random.nextLong(fromCents, untilCents), 2)
