@@ -503,6 +503,7 @@ private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode
     val inputErrors = filter { error -> !error.isLimitPriceError() }
     return when (inputMode) {
         BuyInputMode.Amount -> inputErrors.firstOrNull { error -> error is TradeValidationError.OperationAmountAboveMax }
+            ?: inputErrors.firstOrNull { error -> error is TradeValidationError.AmountNotEnoughForMin }
         BuyInputMode.Quantity -> inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverMax }
             ?: inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverAvailableBalance }
     }
