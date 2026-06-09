@@ -43,6 +43,24 @@ open class MockSecuritiesRepository @Inject constructor() {
     open suspend fun getBuyableInstruments(): List<Security> =
         cachedSecurities.orEmpty()
 
+    open suspend fun refreshSecuritySectors(): List<String> {
+        delay(150)
+        return MOCK_SECURITY_SECTORS
+    }
+
+    open suspend fun toggleFavorites(tickers: List<String>) {
+        delay(150)
+        val toggleSet = tickers.toSet()
+        val securities = cachedSecurities ?: buildMockSecurities()
+        cachedSecurities = securities.map { security ->
+            if (security.ticker in toggleSet) {
+                security.copy(isFavorite = !security.isFavorite)
+            } else {
+                security
+            }
+        }
+    }
+
     open suspend fun getBuyableInstrument(
         codeType: String,
         codeValue: String,
@@ -156,7 +174,7 @@ open class MockSecuritiesRepository @Inject constructor() {
             "JPM" to "JPMorgan Chase",
             "V" to "Visa",
         )
-        val sectors = listOf("Energia", "Tecnologia", "IA", "Industriales", "Transporte", "Finanzas")
+        val sectors = MOCK_SECURITY_SECTORS
 
         return List(1_000) { index ->
             val symbol = symbols[index % symbols.size]
@@ -228,5 +246,6 @@ open class MockSecuritiesRepository @Inject constructor() {
         const val DEFAULT_TICKER = "MOCK"
         const val DEFAULT_HOLDING_QUANTITY = 100
         const val MOCK_MIN_BUY_ARS_AMOUNT = "100.00"
+        val MOCK_SECURITY_SECTORS = listOf("CER", "Dolar Linked")
     }
 }
