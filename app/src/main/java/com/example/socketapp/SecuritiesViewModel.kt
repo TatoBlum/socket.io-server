@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.socketapp.data.SecuritiesRepository
+import com.example.socketapp.data.MockSecuritiesRepository
 import com.example.socketapp.di.DefaultDispatcher
 import com.example.socketapp.di.IoDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,12 +26,13 @@ data class SecuritiesUiState(
     val searchQuery: String = "",
     val filters: SecurityFilters = SecurityFilters(),
     val items: List<Security> = emptyList(),
+    val sectorOptions: List<String> = emptyList(),
     val errorState: Pair<Boolean, String?> = false to null,
 )
 
 @HiltViewModel
 class SecuritiesViewModel @Inject constructor(
-    private val repository: SecuritiesRepository,
+    private val repository: MockSecuritiesRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -44,6 +45,7 @@ class SecuritiesViewModel @Inject constructor(
     private var filterJob: Job? = null
 
     init {
+        loadSecuritySectors()
         loadInitialSecurities()
     }
 
@@ -107,6 +109,18 @@ class SecuritiesViewModel @Inject constructor(
             isLoading = false,
             errorState = false to null,
         )
+    }
+
+    private fun loadSecuritySectors() {
+        viewModelScope.launch {
+            runCatching {
+                withContext(ioDispatcher) {
+                    repository.refreshSecuritySectors()
+                }
+            }.onSuccess { sectors ->
+                uiState = uiState.copy(sectorOptions = sectors.distinct())
+            }
+        }
     }
 
     private suspend fun refreshSecurities() {
