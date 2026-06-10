@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val SECURITIES_POLLING_INTERVAL_MS = 60_000L
-private const val FAVORITES_SYNC_DEBOUNCE_MS = 800L
 
 data class SecuritiesUiState(
     val isLoading: Boolean = true,
@@ -41,12 +40,9 @@ class SecuritiesViewModel @Inject constructor(
         private set
 
     private var allSecurities: List<Security> = emptyList()
-    private val favouriteOverrides = mutableMapOf<String, Boolean>()
-    private var pendingFavoriteToggles: Set<String> = emptySet()
-    private var favoritesSyncInFlight = false
+    private val favoriteStateOverrides = mutableMapOf<String, Boolean>()
     private var pollingJob: Job? = null
     private var filterJob: Job? = null
-    private var favoritesSyncJob: Job? = null
 
     init {
         loadSecuritySectors()
@@ -72,8 +68,7 @@ class SecuritiesViewModel @Inject constructor(
         val selectedSecurity = allSecurities.firstOrNull { security -> security.ticker == ticker } ?: return
         val newFavourite = !selectedSecurity.isFavorite
 
-        favouriteOverrides[ticker] = newFavourite
-        pendingFavoriteToggles = pendingFavoriteToggles.toggled(ticker)
+        favoriteStateOverrides[ticker] = newFavourite
 
         allSecurities = allSecurities.map { security ->
             if (security.ticker == ticker) {
@@ -84,13 +79,7 @@ class SecuritiesViewModel @Inject constructor(
         }
         applyFilters()
 
-        if (pendingFavoriteToggles.isEmpty()) {
-            if (!favoritesSyncInFlight) {
-                favoritesSyncJob?.cancel()
-            }
-        } else {
-            scheduleFavoritesSync()
-        }
+        syncFavorite(ticker)
     }
 
     fun startPollingIfNeeded() {
@@ -109,15 +98,6 @@ class SecuritiesViewModel @Inject constructor(
         pollingJob = null
     }
 
-    fun flushFavorites() {
-        if (favoritesSyncInFlight) return
-
-        favoritesSyncJob?.cancel()
-        favoritesSyncJob = viewModelScope.launch {
-            syncFavoritesIfNeeded()
-        }
-    }
-
     private fun loadInitialSecurities() {
         val cachedSecurities = repository.getCachedSecurities()
         if (cachedSecurities == null) {
@@ -127,7 +107,7 @@ class SecuritiesViewModel @Inject constructor(
             return
         }
 
-        allSecurities = applyFavouriteOverrides(cachedSecurities)
+        allSecurities = applyFavoriteStateOverrides(cachedSecurities)
         applyFilters(
             isLoading = false,
             errorState = false to null,
@@ -156,7 +136,7 @@ class SecuritiesViewModel @Inject constructor(
                 repository.refreshSecurities()
             }
         }.onSuccess { securities ->
-            allSecurities = applyFavouriteOverrides(securities)
+            allSecurities = applyFavoriteStateOverrides(securities)
             applyFilters(
                 isLoading = false,
                 errorState = false to null,
@@ -171,50 +151,27 @@ class SecuritiesViewModel @Inject constructor(
         }
     }
 
-    private fun scheduleFavoritesSync() {
-        if (favoritesSyncInFlight) return
+    private fun syncFavorite(ticker: String) {
+        viewModelScope.launch {
+            runCatching {
+                withContext(ioDispatcher) {
+                    repository.toggleFavorite(ticker)
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
 
-        favoritesSyncJob?.cancel()
-        favoritesSyncJob = viewModelScope.launch {
-            delay(FAVORITES_SYNC_DEBOUNCE_MS)
-            syncFavoritesIfNeeded()
+                uiState = uiState.copy(
+                    errorState = true to (error.message ?: "No se pudo actualizar el favorito"),
+                )
+            }
         }
     }
 
-    private suspend fun syncFavoritesIfNeeded() {
-        if (pendingFavoriteToggles.isEmpty() || favoritesSyncInFlight) return
-
-        val togglesToSync = pendingFavoriteToggles
-        pendingFavoriteToggles = emptySet()
-        favoritesSyncInFlight = true
-
-        val result = runCatching {
-            withContext(ioDispatcher) {
-                repository.toggleFavorites(togglesToSync.toList())
-            }
-        }
-        favoritesSyncInFlight = false
-
-        result.onSuccess {
-            if (pendingFavoriteToggles.isNotEmpty()) {
-                scheduleFavoritesSync()
-            }
-        }.onFailure {
-            pendingFavoriteToggles = pendingFavoriteToggles.withToggles(togglesToSync)
-        }
-    }
-
-    private fun applyFavouriteOverrides(securities: List<Security>): List<Security> =
+    private fun applyFavoriteStateOverrides(securities: List<Security>): List<Security> =
         securities.map { security ->
-            val favouriteOverride = favouriteOverrides[security.ticker]
-            security.copy(isFavorite = favouriteOverride ?: security.isFavorite)
+            val favoriteStateOverride = favoriteStateOverrides[security.ticker]
+            security.copy(isFavorite = favoriteStateOverride ?: security.isFavorite)
         }
-
-    private fun Set<String>.toggled(ticker: String): Set<String> =
-        if (ticker in this) this - ticker else this + ticker
-
-    private fun Set<String>.withToggles(tickers: Set<String>): Set<String> =
-        tickers.fold(this) { favorites, ticker -> favorites.toggled(ticker) }
 
     private fun applyFilters(
         isLoading: Boolean = uiState.isLoading,
