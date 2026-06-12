@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.socketapp.data.SecuritiesRepository
+import com.example.socketapp.data.MockSecuritiesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -80,7 +80,7 @@ data class Security(
         get() = minInstrumentNominals > 0 && lotInstrumentSize > 0
 
     val currencySymbol: String
-        get() = if (currency.normalizedCurrency() == "USD") "USD" else "\$"
+        get() = if (currency.normalizedCurrency() == "USD") "USD " else "\$"
 
     fun askPriceFor(settlementTerm: SettlementType): BigDecimal =
         when (settlementTerm) {
@@ -256,7 +256,7 @@ data class TradeViewModelState(
 
 @HiltViewModel
 class TradeViewModel @Inject constructor(
-    private val repository: SecuritiesRepository,
+    private val repository: MockSecuritiesRepository,
     private val validator: TradeValidator,
 ) : ViewModel() {
     var uiState by mutableStateOf(TradeViewModelState())
@@ -478,12 +478,16 @@ class TradeViewModel @Inject constructor(
         )
 
         return when {
-            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == BuyInputMode.Quantity && state.tradeOption == TradeOption.ADVANCE ->
-                TradeInputHelper.EquivalentAmount(validation.tradeAmount)
+            validation.tradeNominals > BigDecimal.ZERO && state.inputMode == BuyInputMode.Amount ->
+                TradeInputHelper.EquivalentNominals(
+                    amount = validation.tradeAmount,
+                    quantity = validation.tradeNominals,
+                )
 
-            validation.tradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateDebit(validation.tradeAmount)
-            state.inputMode == BuyInputMode.Amount -> TradeInputHelper.AvailableBalance(selectedBalance)
-            else -> TradeInputHelper.AvailableNominalsToBuy(validation.maxNominals)
+            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == BuyInputMode.Quantity ->
+                TradeInputHelper.ApproximateDebit(validation.tradeAmount)
+
+            else -> TradeInputHelper.AvailableToBuy(selectedBalance)
         }
     }
 

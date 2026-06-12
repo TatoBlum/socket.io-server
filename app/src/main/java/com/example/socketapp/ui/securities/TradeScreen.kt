@@ -102,6 +102,7 @@ fun TradeScreen(
     val density = LocalDensity.current
     val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
     val isOrderTypeSheetOpen = activeSheet == TradeSheet.OrderType
+    val currencyPrefix = uiState.tradeCurrency.currencyPrefix()
 
     LaunchedEffect(
         isOrderTypeSheetOpen,
@@ -192,6 +193,7 @@ fun TradeScreen(
                     value = uiState.limitPriceInput,
                     error = uiState.limitPriceError,
                     helper = uiState.limitPriceHelper,
+                    currencyPrefix = currencyPrefix,
                     onValueChange = onLimitPriceChange,
                 )
             }
@@ -201,8 +203,8 @@ fun TradeScreen(
             TradeInputSection(
                 mode = uiState.inputMode,
                 value = uiState.activeInputText,
-                helperMessage = uiState.inputHelper.toInputHelperMessage(),
-                errorMessage = uiState.inputError?.toInputErrorMessage(),
+                helperMessage = uiState.inputHelper.toInputHelperMessage(currencyPrefix),
+                errorMessage = uiState.inputError?.toInputErrorMessage(currencyPrefix),
                 onModeChange = { inputMode ->
                     focusManager.clearFocus(force = true)
                     onInputModeChange(inputMode)
@@ -250,6 +252,7 @@ fun TradeScreen(
                 limitPriceInput = uiState.limitPriceInput,
                 limitPriceError = uiState.limitPriceError,
                 limitPriceHelper = uiState.limitPriceHelper,
+                currencyPrefix = currencyPrefix,
                 onDismiss = { activeSheet = null },
                 onSelect = { orderType ->
                     onOrderTypeChange(orderType)
@@ -271,6 +274,7 @@ private fun LimitPriceInput(
     value: String,
     error: TradeValidationError?,
     helper: TradeInputLimitPriceHelper,
+    currencyPrefix: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -289,7 +293,7 @@ private fun LimitPriceInput(
         isError = error != null,
         supportingText = {
             Text(
-                text = error?.toInputErrorMessage()
+                text = error?.toInputErrorMessage(currencyPrefix)
                     ?: helper.toLimitPriceHelperMessage(),
             )
         },
@@ -549,7 +553,7 @@ private fun SecurityHeader(instrument: Security) {
 
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = instrument.price.formatCurrency(),
+                text = instrument.price.formatCurrency(instrument.currencySymbol),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -671,6 +675,7 @@ private fun OrderTypeSheet(
     limitPriceInput: String,
     limitPriceError: TradeValidationError?,
     limitPriceHelper: TradeInputLimitPriceHelper,
+    currencyPrefix: String,
     onDismiss: () -> Unit,
     onSelect: (TradeOrderType) -> Unit,
     onLimitPriceChange: (String) -> Unit,
@@ -720,6 +725,7 @@ private fun OrderTypeSheet(
                     value = limitPriceInput,
                     error = limitPriceError,
                     helper = limitPriceHelper,
+                    currencyPrefix = currencyPrefix,
                     onValueChange = onLimitPriceChange,
                     modifier = Modifier.padding(start = 48.dp),
                 )
@@ -782,23 +788,29 @@ private enum class TradeSheet {
 }
 
 @Composable
-private fun TradeInputHelper.toInputHelperMessage(): String =
+private fun TradeInputHelper.toInputHelperMessage(currencyPrefix: String): String =
     when (this) {
         TradeInputHelper.None -> ""
         is TradeInputHelper.AvailableBalance ->
-            stringResource(R.string.trade_helper_available_balance, amount.formatCurrency())
+            stringResource(R.string.trade_helper_available_balance, amount.formatCurrency(currencyPrefix))
         is TradeInputHelper.AvailableToBuy ->
-            stringResource(R.string.trade_helper_available_to_buy, amount.formatCurrency())
+            stringResource(R.string.trade_helper_available_to_buy, amount.formatCurrency(currencyPrefix))
         is TradeInputHelper.AvailableNominalsToBuy ->
             stringResource(R.string.trade_helper_available_nominals_to_buy, quantity.toNominalsString())
         is TradeInputHelper.AvailableNominals ->
             stringResource(R.string.trade_helper_available_nominals, quantity.toString())
         is TradeInputHelper.EquivalentAmount ->
-            stringResource(R.string.trade_helper_equivalent_amount, amount.formatCurrency())
+            stringResource(R.string.trade_helper_equivalent_amount, amount.formatCurrency(currencyPrefix))
+        is TradeInputHelper.EquivalentNominals ->
+            stringResource(
+                R.string.trade_helper_equivalent_nominals,
+                amount.formatCurrency(currencyPrefix),
+                quantity.toNominalsString(),
+            )
         is TradeInputHelper.ApproximateDebit ->
-            stringResource(R.string.trade_helper_approximate_debit, amount.formatCurrency())
+            stringResource(R.string.trade_helper_approximate_debit, amount.formatCurrency(currencyPrefix))
         is TradeInputHelper.ApproximateCredit ->
-            stringResource(R.string.trade_helper_approximate_credit, amount.formatCurrency())
+            stringResource(R.string.trade_helper_approximate_credit, amount.formatCurrency(currencyPrefix))
     }
 
 @Composable
@@ -818,18 +830,18 @@ private fun TradeInputLimitPriceHelper.toLimitPriceHelperMessage(): String =
     }
 
 @Composable
-private fun TradeValidationError.toInputErrorMessage(): String =
+private fun TradeValidationError.toInputErrorMessage(currencyPrefix: String): String =
     when (this) {
         TradeValidationError.InvalidLimitPrice -> stringResource(R.string.trade_error_invalid_limit_price)
         is TradeValidationError.LimitPriceOutOfBandBuy ->
-            stringResource(R.string.trade_error_limit_price_out_of_band_buy, maxAllowed.toPlainMoneyString())
+            stringResource(R.string.trade_error_limit_price_out_of_band_buy, maxAllowed.formatCurrency(currencyPrefix))
         is TradeValidationError.LimitPriceOutOfBandSell ->
-            stringResource(R.string.trade_error_limit_price_out_of_band_sell, minAllowed.toPlainMoneyString())
+            stringResource(R.string.trade_error_limit_price_out_of_band_sell, minAllowed.formatCurrency(currencyPrefix))
         is TradeValidationError.LimitPriceNotMultiple ->
             stringResource(R.string.trade_error_limit_price_not_multiple, step.toPlainString())
         TradeValidationError.MissingTradePrice -> stringResource(R.string.trade_error_missing_trade_price)
         is TradeValidationError.AmountNotEnoughForMin ->
-            stringResource(R.string.trade_error_operation_min_amount, minAmount.formatCurrency())
+            stringResource(R.string.trade_error_operation_min_amount, minAmount.formatCurrency(currencyPrefix))
         TradeValidationError.NominalsInvalid -> stringResource(R.string.trade_error_nominals_invalid)
         is TradeValidationError.NominalsBelowMin ->
             stringResource(R.string.trade_error_nominals_below_min, minNominals.toPlainString())
@@ -849,13 +861,12 @@ private fun TradeValidationError.toInputErrorMessage(): String =
         TradeValidationError.SelectedAccountCurrencyMismatch ->
             stringResource(R.string.trade_error_selected_account_currency_mismatch)
         is TradeValidationError.OperationAmountBelowMin ->
-            stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency())
+            minNominals?.let { nominalAmount ->
+                stringResource(R.string.trade_error_nominals_below_min, nominalAmount.toPlainString())
+            } ?: stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency(currencyPrefix))
         is TradeValidationError.OperationAmountAboveMax ->
-            stringResource(R.string.trade_error_operation_amount_above_max, maxAmount.formatCurrency())
+            stringResource(R.string.trade_error_insufficient_balance)
     }
-
-private fun BigDecimal.toPlainMoneyString(): String =
-    setScale(2, RoundingMode.HALF_UP).toPlainString()
 
 private fun BigDecimal.toNominalsString(): String =
     stripTrailingZeros().toPlainString()

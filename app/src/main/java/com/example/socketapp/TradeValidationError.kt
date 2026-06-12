@@ -22,7 +22,10 @@ sealed interface TradeValidationError {
     data object FeeAccountNotSelected : TradeValidationError
     data class InsufficientUsd(val operationMode: BuyInputMode) : TradeValidationError
     data object SelectedAccountCurrencyMismatch : TradeValidationError
-    data class OperationAmountBelowMin(val minAmount: BigDecimal) : TradeValidationError
+    data class OperationAmountBelowMin(
+        val minAmount: BigDecimal,
+        val minNominals: BigDecimal? = null,
+    ) : TradeValidationError
     data class OperationAmountAboveMax(val maxAmount: BigDecimal) : TradeValidationError
 }
 
