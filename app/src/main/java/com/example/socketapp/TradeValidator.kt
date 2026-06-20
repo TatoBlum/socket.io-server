@@ -8,7 +8,6 @@ class TradeValidator @Inject constructor() {
     fun validate(state: TradeViewModelState): TradeValidationResult {
         val instrument = state.instrument
             ?: return TradeValidationResult()
-        val context = state.accountContext
         val errors = mutableListOf<TradeValidationError>()
 
         val limitPrice = TradeInputParser.parseLimitPriceInput(state.limitPriceInput)
@@ -135,7 +134,7 @@ class TradeValidator @Inject constructor() {
             currency = state.tradeCurrency,
             operationMode = state.inputMode,
             tradeAmount = tradeAmount,
-            balance = context.selectedBalanceFor(
+            balance = state.selectedBalanceFor(
                 orderType = state.orderType,
                 settlementTerm = state.settlementTerm,
             ),
@@ -381,7 +380,7 @@ class TradeValidator @Inject constructor() {
     ): BigDecimal {
         val instrument = state.instrument ?: return BigDecimal.ZERO
         if (tradePrice <= BigDecimal.ZERO) return BigDecimal.ZERO
-        val balance = state.accountContext.selectedBalanceFor(
+        val balance = state.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
@@ -433,7 +432,11 @@ class TradeValidator @Inject constructor() {
         totalFees: BigDecimal,
         amountWithFee: BigDecimal,
     ): List<TradeValidationError> {
-        val feeBalance = state.accountContext.feeBalanceFor(
+        val feeBalance = state.feeBalanceFor(
+            orderType = state.orderType,
+            settlementTerm = state.settlementTerm,
+        )
+        val selectedTradeBalance = state.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
@@ -442,15 +445,14 @@ class TradeValidator @Inject constructor() {
         if (
             state.tradeType == TradeType.Buy &&
             state.tradeCurrency == ARS_CURRENCY &&
-            feeBalance != null &&
-            feeBalance < amountWithFee
+            selectedTradeBalance < amountWithFee
         ) {
             errors += TradeValidationError.InsufficientArsForFee
         }
 
         if (state.tradeCurrency == USD_CURRENCY) {
             when {
-                state.accountContext.availableArsAccounts.isEmpty() ->
+                state.availableFeeCommissionAccounts.isEmpty() ->
                     errors += TradeValidationError.MissingArsFeeAccount
 
                 feeBalance == null ->
@@ -481,8 +483,8 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun validateSelectedAccountCurrency(state: TradeViewModelState): List<TradeValidationError> {
-        val selectedCurrency = state.accountContext.selectedAccount?.currency?.normalizedCurrency()
-        return if (state.tradeType == TradeType.Buy && selectedCurrency != state.tradeCurrency) {
+        val selectedCurrency = state.selectedAccount?.currency?.normalizedCurrency()
+        return if (selectedCurrency != null && selectedCurrency != state.tradeCurrency) {
             listOf(TradeValidationError.SelectedAccountCurrencyMismatch)
         } else {
             emptyList()
