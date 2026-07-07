@@ -150,37 +150,6 @@ data class Account(
         get() = currency.normalizedCurrency() == "USD"
 }
 
-data class TradeAccountContext(
-    val selectedAccount: Account? = null,
-    val availableArsAccounts: List<Account> = emptyList(),
-    val selectedFeeAccount: Account? = availableArsAccounts.singleOrNull(),
-    val investmentAccount: String = "COM-001",
-) {
-    val effectiveFeeAccount: Account?
-        get() {
-            val selectedAvailableFeeAccount = selectedFeeAccount.matchingAccountIn(availableArsAccounts)
-            return selectedAvailableFeeAccount ?: defaultFeeAccountFor(
-                selectedAccount = selectedAccount,
-                availableArsAccounts = availableArsAccounts,
-            )
-        }
-
-    fun selectedBalanceFor(
-        orderType: TradeOrderType,
-        settlementTerm: SettlementType,
-    ): BigDecimal =
-        selectedAccount
-            ?.tradingBalances
-            ?.balanceFor(orderType, settlementTerm)
-            ?: BigDecimal.ZERO
-
-    fun feeBalanceFor(
-        orderType: TradeOrderType,
-        settlementTerm: SettlementType,
-    ): BigDecimal? =
-        effectiveFeeAccount?.tradingBalances?.balanceFor(orderType, settlementTerm)
-}
-
 data class TradeValidationResult(
     val tradePrice: BigDecimal = BigDecimal.ZERO,
     val tradeNominals: BigDecimal = BigDecimal.ZERO,
@@ -192,16 +161,43 @@ data class TradeValidationResult(
         get() = errors.isEmpty() && tradeAmount > BigDecimal.ZERO
 }
 
-data class TradeConfirmationState(
-    val fee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+data class TradeFeeQuote(
+    val subTotal: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val taxes: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val marketFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-    val vat: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val operationFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val bonusDiscount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val nominals: BigDecimal = BigDecimal.ZERO,
+    val estimatedAmount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val totalDeductions: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val finalFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val feePercent: BigDecimal = BigDecimal.ZERO,
+    val finalFeePercent: BigDecimal = BigDecimal.ZERO,
+)
+
+data class TradeConfirmationState(
+    val subTotal: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val taxes: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val marketFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val operationFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val bonusDiscount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val nominals: BigDecimal = BigDecimal.ZERO,
     val amountWithFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val estimatedAmount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val totalDeductions: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val finalFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+    val feePercent: BigDecimal = BigDecimal.ZERO,
+    val finalFeePercent: BigDecimal = BigDecimal.ZERO,
     val errors: List<TradeValidationError> = emptyList(),
 ) {
+    val fee: BigDecimal
+        get() = finalFee
+
+    val vat: BigDecimal
+        get() = taxes
+
     val totalFees: BigDecimal
-        get() = fee.add(marketFee).add(vat).setScale(2, RoundingMode.HALF_UP)
+        get() = totalDeductions
 
     val canConfirm: Boolean
         get() = errors.isEmpty() && estimatedAmount > BigDecimal.ZERO
@@ -215,7 +211,9 @@ enum class TradeOption(val label: String)  {
 data class TradeViewModelState(
     val instrument: Security? = null,
     val accounts: List<Account> = defaultTradeAccounts(),
-    val accountContext: TradeAccountContext = TradeAccountContext(),
+    val selectedAccount: Account? = null,
+    val selectedFeeCommissionAccount: Account? = null,
+    val investmentAccount: String = "COM-001",
     val tradeType: TradeType = TradeType.Buy,
     val orderType: TradeOrderType = TradeOrderType.Market,
     val settlementTerm: SettlementType = SettlementType.TODAY,
@@ -234,12 +232,21 @@ data class TradeViewModelState(
     val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
     val confirmation: TradeConfirmationState = TradeConfirmationState(),
 ) {
+    val availableTradeAccounts: List<Account>
+        get() {
+            val currency = instrument?.currency?.normalizedCurrency() ?: return emptyList()
+            return accounts.filter { account -> account.currency.normalizedCurrency() == currency }
+        }
+
+    val availableFeeCommissionAccounts: List<Account>
+        get() = accounts.filter { account -> account.isArs }
+
     val tradeCurrency: String
-        get() = (instrument?.currency ?: accountContext.selectedAccount?.currency.orEmpty()).normalizedCurrency()
+        get() = (instrument?.currency ?: selectedAccount?.currency.orEmpty()).normalizedCurrency()
 
     val canContinue: Boolean
         get() = validation.canContinue &&
-            accountContext.selectedAccount != null
+            selectedAccount != null
 
     val activeInputText: String
         get() = when (inputMode) {
@@ -252,6 +259,21 @@ data class TradeViewModelState(
             BuyInputMode.Amount -> TradeInputParser.parseAmountInput(activeInputText)
             BuyInputMode.Quantity -> TradeInputParser.parseWholeNumberInput(activeInputText)
         }
+
+    fun feeBalanceFor(
+        orderType: TradeOrderType,
+        settlementTerm: SettlementType,
+    ): BigDecimal? =
+        selectedFeeCommissionAccount?.tradingBalances?.balanceFor(orderType, settlementTerm)
+
+    fun selectedBalanceFor(
+        orderType: TradeOrderType,
+        settlementTerm: SettlementType,
+    ): BigDecimal =
+        selectedAccount
+            ?.tradingBalances
+            ?.balanceFor(orderType, settlementTerm)
+            ?: BigDecimal.ZERO
 }
 
 @HiltViewModel
@@ -286,32 +308,14 @@ class TradeViewModel @Inject constructor(
         revalidateBuy()
     }
 
-    fun onTradeAccountSelected(selectedAccount: Account) {
-        onTradeAccountSelected(
-            selectedAccount = selectedAccount,
-            availableArsAccounts = uiState.accounts.filter { account -> account.isArs },
-        )
+    internal fun replaceAccounts(accounts: List<Account>) {
+        uiState = uiState.copy(accounts = accounts)
+        revalidateBuy()
     }
 
-    fun onTradeAccountSelected(
-        selectedAccount: Account,
-        availableArsAccounts: List<Account>,
-    ) {
-        val normalizedArsAccounts = if (selectedAccount.isArs) {
-            (listOf(selectedAccount) + availableArsAccounts)
-                .distinctBy { account -> account.number }
-        } else {
-            availableArsAccounts
-        }.filter { account -> account.isArs }
+    fun onTradeMonetaryAccountSelected(selectedAccount: Account) {
         uiState = uiState.copy(
-            accountContext = uiState.accountContext.copy(
-                selectedAccount = selectedAccount,
-                availableArsAccounts = normalizedArsAccounts,
-                selectedFeeAccount = defaultFeeAccountFor(
-                    selectedAccount = selectedAccount,
-                    availableArsAccounts = normalizedArsAccounts,
-                ),
-            ),
+            selectedAccount = selectedAccount,
         )
         revalidateBuy()
     }
@@ -321,12 +325,12 @@ class TradeViewModel @Inject constructor(
         revalidateBuy()
     }
 
-    fun onFeeAccountSelected(account: Account) {
-        val feeAccount = uiState.accountContext.availableArsAccounts
+    fun onFeeCommissionAccountSelected(account: Account) {
+        val feeAccount = uiState.availableFeeCommissionAccounts
             .firstOrNull { availableAccount -> availableAccount.number == account.number }
             ?: return
         uiState = uiState.copy(
-            accountContext = uiState.accountContext.copy(selectedFeeAccount = feeAccount),
+            selectedFeeCommissionAccount = feeAccount,
         )
         revalidateConfirmation()
     }
@@ -380,13 +384,11 @@ class TradeViewModel @Inject constructor(
     }
 
     private fun revalidateConfirmation() {
-        val mockFees = buildMockConfirmationFees(uiState.validation.tradeAmount)
+        val mockFeeQuote = buildMockFeeQuote(uiState)
         val confirmation = validator.validateConfirmation(
             state = uiState,
             validation = uiState.validation,
-            fee = mockFees.fee,
-            marketFee = mockFees.marketFee,
-            vat = mockFees.vat,
+            feeQuote = mockFeeQuote,
         )
         uiState = uiState.copy(confirmation = confirmation)
     }
@@ -444,7 +446,7 @@ class TradeViewModel @Inject constructor(
         state: TradeViewModelState,
         validation: TradeValidationResult,
     ): TradeInputHelper {
-        if (state.accountContext.selectedAccount == null) return TradeInputHelper.None
+        if (state.selectedAccount == null) return TradeInputHelper.None
 
         return when (state.tradeType) {
             TradeType.Sell -> buildSellInputHelper(state, validation)
@@ -472,7 +474,7 @@ class TradeViewModel @Inject constructor(
             return TradeInputHelper.None
         }
 
-        val selectedBalance = state.accountContext.selectedBalanceFor(
+        val selectedBalance = state.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
@@ -581,21 +583,6 @@ private fun defaultTradeAccounts(): List<Account> =
         ),
     )
 
-private fun Account?.matchingAccountIn(accounts: List<Account>): Account? =
-    this?.let { selected ->
-        accounts.firstOrNull { account -> account.number == selected.number }
-    }
-
-private fun defaultFeeAccountFor(
-    selectedAccount: Account?,
-    availableArsAccounts: List<Account>,
-): Account? =
-    when {
-        selectedAccount?.isArs == true -> selectedAccount
-        availableArsAccounts.size == 1 -> availableArsAccounts.first()
-        else -> null
-    }
-
 private fun calculateMockFee(tradeAmount: BigDecimal): BigDecimal =
     if (tradeAmount <= BigDecimal.ZERO) {
         BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
@@ -603,13 +590,44 @@ private fun calculateMockFee(tradeAmount: BigDecimal): BigDecimal =
         tradeAmount.multiply(MOCK_FEE_RATE).setScale(2, RoundingMode.HALF_UP)
     }
 
-private fun buildMockConfirmationFees(tradeAmount: BigDecimal): TradeConfirmationState =
-    TradeConfirmationState(
-        fee = calculateMockFee(tradeAmount),
-        marketFee = MOCK_MARKET_FEE,
-        vat = MOCK_VAT,
-    )
+private fun buildMockFeeQuote(state: TradeViewModelState): TradeFeeQuote {
+    val tradeAmount = state.validation.tradeAmount
+    val operationFee = calculateMockFee(tradeAmount)
+    val totalDeductions = operationFee
+        .add(MOCK_MARKET_FEE)
+        .add(MOCK_TAXES)
+        .toMoneyAmount()
+    val estimatedAmount = when {
+        state.tradeType == TradeType.Buy && state.tradeCurrency == MOCK_ARS_CURRENCY ->
+            tradeAmount.add(totalDeductions).toMoneyAmount()
 
+        state.tradeType == TradeType.Sell && state.tradeCurrency == MOCK_ARS_CURRENCY ->
+            tradeAmount.subtract(totalDeductions).coerceAtLeast(BigDecimal.ZERO).toMoneyAmount()
+
+        else -> tradeAmount.toMoneyAmount()
+    }
+
+    return TradeFeeQuote(
+        subTotal = tradeAmount.toMoneyAmount(),
+        taxes = MOCK_TAXES,
+        marketFee = MOCK_MARKET_FEE,
+        operationFee = operationFee,
+        bonusDiscount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+        nominals = state.validation.tradeNominals,
+        estimatedAmount = estimatedAmount,
+        totalDeductions = totalDeductions,
+        finalFee = operationFee,
+        feePercent = MOCK_FEE_PERCENT,
+        finalFeePercent = MOCK_FINAL_FEE_PERCENT,
+    )
+}
+
+private fun BigDecimal.toMoneyAmount(): BigDecimal =
+    setScale(2, RoundingMode.HALF_UP)
+
+private const val MOCK_ARS_CURRENCY = "ARS"
 private val MOCK_FEE_RATE: BigDecimal = BigDecimal("0.00702")
 private val MOCK_MARKET_FEE: BigDecimal = BigDecimal("5.00")
-private val MOCK_VAT: BigDecimal = BigDecimal("300.00")
+private val MOCK_TAXES: BigDecimal = BigDecimal("300.00")
+private val MOCK_FEE_PERCENT: BigDecimal = BigDecimal("0.702")
+private val MOCK_FINAL_FEE_PERCENT: BigDecimal = BigDecimal("0.702")

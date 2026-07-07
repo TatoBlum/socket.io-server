@@ -908,9 +908,10 @@ class TradeValidationRulesMatrixTest {
         val confirmationValidation = validator.validateConfirmation(
             state = state,
             validation = buyValidation,
-            fee = BigDecimal("7.02"),
-            marketFee = BigDecimal("5.00"),
-            vat = BigDecimal("300.00"),
+            feeQuote = feeQuote(
+                subTotal = BigDecimal("1000.00"),
+                estimatedAmount = BigDecimal("1312.02"),
+            ),
         )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
@@ -946,9 +947,10 @@ class TradeValidationRulesMatrixTest {
         val confirmationValidation = validator.validateConfirmation(
             state = state,
             validation = buyValidation,
-            fee = BigDecimal("7.02"),
-            marketFee = BigDecimal("5.00"),
-            vat = BigDecimal("300.00"),
+            feeQuote = feeQuote(
+                subTotal = BigDecimal("1000.00"),
+                estimatedAmount = BigDecimal("1000.00"),
+            ),
         )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
@@ -978,9 +980,10 @@ class TradeValidationRulesMatrixTest {
         val confirmationValidation = validator.validateConfirmation(
             state = state,
             validation = buyValidation,
-            fee = BigDecimal("7.02"),
-            marketFee = BigDecimal("5.00"),
-            vat = BigDecimal("300.00"),
+            feeQuote = feeQuote(
+                subTotal = BigDecimal("1000.00"),
+                estimatedAmount = BigDecimal("1000.00"),
+            ),
         )
 
         assertTrue(buyValidation.canContinue)
@@ -1013,9 +1016,10 @@ class TradeValidationRulesMatrixTest {
         val confirmationValidation = validator.validateConfirmation(
             state = state,
             validation = buyValidation,
-            fee = BigDecimal("7.02"),
-            marketFee = BigDecimal("5.00"),
-            vat = BigDecimal("300.00"),
+            feeQuote = feeQuote(
+                subTotal = BigDecimal("1000.00"),
+                estimatedAmount = BigDecimal("1000.00"),
+            ),
         )
 
         assertTrue(buyValidation.canContinue)
@@ -1114,4 +1118,30 @@ class TradeValidationRulesMatrixTest {
             marketNow = balance,
             market24 = balance,
         )
+
+    private fun feeQuote(
+        subTotal: BigDecimal,
+        estimatedAmount: BigDecimal,
+        operationFee: BigDecimal = BigDecimal("7.02"),
+        marketFee: BigDecimal = BigDecimal("5.00"),
+        taxes: BigDecimal = BigDecimal("300.00"),
+    ): TradeFeeQuote {
+        val totalDeductions = operationFee
+            .add(marketFee)
+            .add(taxes)
+            .setScale(2)
+
+        return TradeFeeQuote(
+            subTotal = subTotal,
+            taxes = taxes,
+            marketFee = marketFee,
+            operationFee = operationFee,
+            bonusDiscount = BigDecimal.ZERO.setScale(2),
+            estimatedAmount = estimatedAmount,
+            totalDeductions = totalDeductions,
+            finalFee = operationFee,
+            feePercent = BigDecimal("0.702"),
+            finalFeePercent = BigDecimal("0.702"),
+        )
+    }
 }

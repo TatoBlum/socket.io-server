@@ -167,42 +167,50 @@ class TradeValidator @Inject constructor() {
     fun validateConfirmation(
         state: TradeViewModelState,
         validation: TradeValidationResult,
-        fee: BigDecimal,
-        marketFee: BigDecimal,
-        vat: BigDecimal,
+        feeQuote: TradeFeeQuote,
     ): TradeConfirmationState {
         if (!validation.canContinue) return TradeConfirmationState()
 
-        val confirmationFee = fee.toMoneyAmount()
-        val confirmationMarketFee = marketFee.toMoneyAmount()
-        val confirmationVat = vat.toMoneyAmount()
-        val totalFees = confirmationFee
-            .add(confirmationMarketFee)
-            .add(confirmationVat)
-            .toMoneyAmount()
-        val amountWithFee = if (state.tradeCurrency == ARS_CURRENCY) {
-            validation.tradeAmount.add(totalFees).toMoneyAmount()
+        val subTotal = feeQuote.subTotal.toMoneyAmount()
+        val taxes = feeQuote.taxes.toMoneyAmount()
+        val marketFee = feeQuote.marketFee.toMoneyAmount()
+        val operationFee = feeQuote.operationFee.toMoneyAmount()
+        val bonusDiscount = feeQuote.bonusDiscount.toMoneyAmount()
+        val estimatedAmount = feeQuote.estimatedAmount.toMoneyAmount()
+        val totalDeductions = feeQuote.totalDeductions.toMoneyAmount()
+        val finalFee = feeQuote.finalFee.toMoneyAmount()
+        val amountWithFee = if (state.tradeType == TradeType.Buy && state.tradeCurrency == ARS_CURRENCY) {
+            estimatedAmount
         } else {
-            validation.tradeAmount.toMoneyAmount()
-        }
-        val estimatedAmount = when {
-            state.tradeType == TradeType.Sell && state.tradeCurrency == ARS_CURRENCY ->
-                validation.tradeAmount.subtract(totalFees).coerceAtLeast(BigDecimal.ZERO).toMoneyAmount()
-
-            else -> amountWithFee
+            subTotal
         }
         val errors = validateConfirmationBalances(
             state = state,
-            totalFees = totalFees,
-            amountWithFee = amountWithFee,
+            feeQuote = feeQuote.copy(
+                subTotal = subTotal,
+                taxes = taxes,
+                marketFee = marketFee,
+                operationFee = operationFee,
+                bonusDiscount = bonusDiscount,
+                estimatedAmount = estimatedAmount,
+                totalDeductions = totalDeductions,
+                finalFee = finalFee,
+            ),
         )
 
         return TradeConfirmationState(
-            fee = confirmationFee,
-            marketFee = confirmationMarketFee,
-            vat = confirmationVat,
+            subTotal = subTotal,
+            taxes = taxes,
+            marketFee = marketFee,
+            operationFee = operationFee,
+            bonusDiscount = bonusDiscount,
+            nominals = feeQuote.nominals,
             amountWithFee = amountWithFee,
             estimatedAmount = estimatedAmount,
+            totalDeductions = totalDeductions,
+            finalFee = finalFee,
+            feePercent = feeQuote.feePercent,
+            finalFeePercent = feeQuote.finalFeePercent,
             errors = errors,
         )
     }
@@ -429,8 +437,7 @@ class TradeValidator @Inject constructor() {
 
     private fun validateConfirmationBalances(
         state: TradeViewModelState,
-        totalFees: BigDecimal,
-        amountWithFee: BigDecimal,
+        feeQuote: TradeFeeQuote,
     ): List<TradeValidationError> {
         val feeBalance = state.feeBalanceFor(
             orderType = state.orderType,
@@ -445,7 +452,7 @@ class TradeValidator @Inject constructor() {
         if (
             state.tradeType == TradeType.Buy &&
             state.tradeCurrency == ARS_CURRENCY &&
-            selectedTradeBalance < amountWithFee
+            selectedTradeBalance < feeQuote.estimatedAmount
         ) {
             errors += TradeValidationError.InsufficientArsForFee
         }
@@ -458,8 +465,15 @@ class TradeValidator @Inject constructor() {
                 feeBalance == null ->
                     errors += TradeValidationError.FeeAccountNotSelected
 
-                feeBalance < totalFees ->
+                feeBalance < feeQuote.totalDeductions ->
                     errors += TradeValidationError.InsufficientArsForFee
+            }
+
+            if (
+                state.tradeType == TradeType.Buy &&
+                selectedTradeBalance < feeQuote.subTotal
+            ) {
+                errors += TradeValidationError.InsufficientUsd(state.inputMode)
             }
         }
 
