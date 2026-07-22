@@ -15,10 +15,9 @@ class TradeValidator @Inject constructor() {
         val hasActiveInput = state.activeInput?.let { it > BigDecimal.ZERO } ?: false
 
         if (state.orderType == TradeOrderType.Limit) {
-            if (hasInvalidLimitPrice && hasActiveInput) {
-               errors += TradeValidationError.InvalidLimitPrice
-            }  else if (limitPrice != null) { // not nice y redundante, pero para evitar error de compilador
-                if (!instrument.requiresLimitOrderFor(state.tradeType, state.settlementTerm)) {
+            when {
+                hasInvalidLimitPrice && hasActiveInput -> errors += TradeValidationError.InvalidLimitPrice
+                limitPrice != null && !state.isLimitPriceOnly -> {
                     errors += validateLimitPriceBand(
                         tradeType = state.tradeType,
                         limitPrice = limitPrice,

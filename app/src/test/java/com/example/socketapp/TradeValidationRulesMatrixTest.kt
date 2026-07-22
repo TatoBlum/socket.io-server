@@ -1084,6 +1084,7 @@ class TradeValidationRulesMatrixTest {
         limitPriceInput: String = "100",
         amountInputText: String = "",
         quantityInputText: String = "",
+        isLimitPriceOnly: Boolean = instrument.isLimitPriceOnlyFor(tradeType),
     ): TradeViewModelState =
         TradeViewModelState(
             instrument = instrument,
@@ -1097,6 +1098,7 @@ class TradeValidationRulesMatrixTest {
             limitPriceInput = limitPriceInput,
             amountInputText = amountInputText,
             quantityInputText = quantityInputText,
+            isLimitPriceOnly = isLimitPriceOnly,
         )
 
     private fun instrument(

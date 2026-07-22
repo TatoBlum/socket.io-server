@@ -79,11 +79,6 @@ data class Security(
     val hasRequiredTradingConfiguration: Boolean
         get() = minInstrumentNominals > 0 && lotInstrumentSize > 0
 
-    val requiresLimitOrder: Boolean
-        get() = percentageMovement > BigDecimal.ZERO &&
-            (askPrice00 <= BigDecimal.ZERO || askPrice24 <= BigDecimal.ZERO ||
-                bidPrice00 <= BigDecimal.ZERO || bidPrice24 <= BigDecimal.ZERO)
-
     val currencySymbol: String
         get() = if (currency.normalizedCurrency() == "USD") "USD " else "\$"
 
@@ -108,12 +103,12 @@ data class Security(
             TradeType.Sell -> bidPriceFor(settlementTerm)
         }
 
-    fun requiresLimitOrderFor(
-        tradeType: TradeType,
-        settlementTerm: SettlementType,
-    ): Boolean =
-        percentageMovement > BigDecimal.ZERO &&
-            marketPriceFor(tradeType, settlementTerm) <= BigDecimal.ZERO
+    fun isLimitPriceOnlyFor(tradeType: TradeType): Boolean =
+        percentageMovement.abs() > BigDecimal.ZERO &&
+            when (tradeType) {
+                TradeType.Buy -> askPrice00 <= BigDecimal.ZERO || askPrice24 <= BigDecimal.ZERO
+                TradeType.Sell -> bidPrice00 <= BigDecimal.ZERO || bidPrice24 <= BigDecimal.ZERO
+            }
 }
 
 data class TradingBalanceSet(
@@ -242,6 +237,7 @@ data class TradeViewModelState(
     val limitPriceError: TradeValidationError? = null,
     val limitPriceHelper: TradeInputLimitPriceHelper = TradeInputLimitPriceHelper.None,
     val confirmation: TradeConfirmationState = TradeConfirmationState(),
+    val isLimitPriceOnly: Boolean = false,
 ) {
     val availableTradeAccounts: List<Account>
         get() {
@@ -259,11 +255,8 @@ data class TradeViewModelState(
         get() = validation.canContinue &&
             selectedAccount != null
 
-    val requiresLimitOrder: Boolean
-        get() = instrument?.requiresLimitOrderFor(tradeType, settlementTerm) == true
-
     val availableOrderTypes: List<TradeOrderType>
-        get() = if (requiresLimitOrder) {
+        get() = if (isLimitPriceOnly) {
             listOf(TradeOrderType.Limit)
         } else {
             TradeOrderType.entries
@@ -319,15 +312,13 @@ class TradeViewModel @Inject constructor(
                         security.codeType == codeType && security.codeValue == codeValue
                     }
                 ?: return@launch
-            uiState = uiState.copy(instrument = instrument)
-                .withAvailableOrderType()
+            uiState = uiState.withInstrument(instrument)
             revalidateBuy()
         }
     }
 
     internal fun replaceInstrument(instrument: Security) {
-        uiState = uiState.copy(instrument = instrument)
-            .withAvailableOrderType()
+        uiState = uiState.withInstrument(instrument)
         revalidateBuy()
     }
 
@@ -360,21 +351,20 @@ class TradeViewModel @Inject constructor(
 
     fun onTradeTypeChange(tradeType: TradeType) {
         uiState = uiState.copy(tradeType = tradeType)
-            .withAvailableOrderType()
             .clearLimitPrice()
         revalidateBuy()
     }
 
     fun onOrderTypeChange(orderType: TradeOrderType) {
+        if (orderType !in uiState.availableOrderTypes || orderType == uiState.orderType) return
+
         uiState = uiState.copy(orderType = orderType)
-            .withAvailableOrderType()
             .clearLimitPrice()
         revalidateBuy()
     }
 
     fun onSettlementTermChange(settlementTerm: SettlementType) {
         uiState = uiState.copy(settlementTerm = settlementTerm)
-            .withAvailableOrderType()
         revalidateBuy()
     }
 
@@ -465,12 +455,20 @@ class TradeViewModel @Inject constructor(
             this
         }
 
-    private fun TradeViewModelState.withAvailableOrderType(): TradeViewModelState =
-        if (requiresLimitOrder && orderType == TradeOrderType.Market) {
-            copy(orderType = TradeOrderType.Limit)
-        } else {
-            this
-        }
+    private fun TradeViewModelState.withInstrument(instrument: Security): TradeViewModelState {
+        val isLimitPriceOnly = instrument.isLimitPriceOnlyFor(tradeType)
+        return copy(
+            instrument = instrument,
+            isLimitPriceOnly = isLimitPriceOnly,
+            orderType = if (isLimitPriceOnly) {
+                TradeOrderType.Limit
+            } else {
+                TradeOrderType.Market
+            },
+            limitPriceInput = "",
+            isLimitPriceInputTouched = false,
+        )
+    }
 
     private fun TradeViewModelState.shouldSkipBuyValidation(): Boolean =
         orderType == TradeOrderType.Limit &&
@@ -531,7 +529,7 @@ class TradeViewModel @Inject constructor(
     private fun buildLimitPriceHelper(state: TradeViewModelState): TradeInputLimitPriceHelper {
         val instrument = state.instrument ?: return TradeInputLimitPriceHelper.None
         if (state.orderType != TradeOrderType.Limit) return TradeInputLimitPriceHelper.None
-        if (instrument.requiresLimitOrderFor(state.tradeType, state.settlementTerm)) {
+        if (state.isLimitPriceOnly) {
             return TradeInputLimitPriceHelper.None
         }
 
