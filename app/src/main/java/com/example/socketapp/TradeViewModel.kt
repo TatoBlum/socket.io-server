@@ -74,7 +74,7 @@ data class Security(
     val bidPrice00: BigDecimal = BigDecimal.ZERO,
     val bidPrice24: BigDecimal = BigDecimal.ZERO,
     val percentageMovement: BigDecimal = BigDecimal.ZERO,
-    val minBuyArsAmount: BigDecimal = BigDecimal.ZERO,
+    val minTradeAmount: BigDecimal = BigDecimal.ZERO,
 ) {
     val hasRequiredTradingConfiguration: Boolean
         get() = minInstrumentNominals > 0 && lotInstrumentSize > 0

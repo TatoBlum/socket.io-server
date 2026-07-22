@@ -64,9 +64,8 @@ class TradeValidator @Inject constructor() {
             lotSize = lotSize,
             tradePrice = tradePrice,
         )
-        val minimumChannelAmount = minimumChannelAmount(
+        val minimumTradeAmount = minimumTradeAmount(
             tradeType = state.tradeType,
-            currency = state.tradeCurrency,
             instrument = instrument,
         )
         errors += validateSelectedAccountCurrency(state)
@@ -81,9 +80,9 @@ class TradeValidator @Inject constructor() {
 
         if (
             state.inputMode == BuyInputMode.Amount &&
-            activeInput < minimumChannelAmount
+            activeInput < minimumTradeAmount
         ) {
-            errors += TradeValidationError.OperationAmountBelowMin(minimumChannelAmount)
+            errors += TradeValidationError.OperationAmountBelowMin(minimumTradeAmount)
             return TradeValidationResult(
                 tradePrice = tradePrice,
                 tradeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
@@ -142,8 +141,8 @@ class TradeValidator @Inject constructor() {
         )
 
         val maxOperationAmount = maxNominals.multiply(tradePrice).toMoneyAmount()
-        val minimumNominalsForChannelAmount = computeMinimumNominalsForAmount(
-            minAmount = minimumChannelAmount,
+        val minimumNominalsForTradeAmount = computeMinimumNominalsForAmount(
+            minAmount = minimumTradeAmount,
             tradePrice = tradePrice,
             lotSize = lotSize,
         )
@@ -151,8 +150,8 @@ class TradeValidator @Inject constructor() {
             tradeType = state.tradeType,
             inputMode = state.inputMode,
             operationAmount = tradeAmount,
-            minOperationAmount = minimumChannelAmount,
-            minOperationNominals = minimumNominalsForChannelAmount,
+            minOperationAmount = minimumTradeAmount,
+            minOperationNominals = minimumNominalsForTradeAmount,
             maxOperationAmount = maxOperationAmount,
         )
 
@@ -514,13 +513,12 @@ class TradeValidator @Inject constructor() {
         return errors
     }
 
-    private fun minimumChannelAmount(
+    private fun minimumTradeAmount(
         tradeType: TradeType,
-        currency: String,
         instrument: Security,
     ): BigDecimal =
-        if (tradeType == TradeType.Buy && currency == ARS_CURRENCY) {
-            instrument.minBuyArsAmount.toMoneyAmount()
+        if (tradeType == TradeType.Buy) {
+            instrument.minTradeAmount.toMoneyAmount()
         } else {
             BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
         }

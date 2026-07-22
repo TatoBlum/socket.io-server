@@ -71,13 +71,33 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `03b buy ars minimum amount uses instrument server value`() {
+    fun `03b buy ars minimum trade amount uses instrument server value`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
                     askPrice00 = BigDecimal("10.00"),
-                    minBuyArsAmount = BigDecimal("250.00"),
+                    minTradeAmount = BigDecimal("250.00"),
                 ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "200",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("250.00", error.minAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `03c buy usd minimum trade amount uses instrument server value`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("10.00"),
+                    currency = "USD",
+                    minTradeAmount = BigDecimal("250.00"),
+                ),
+                selectedAccount = account(selectedCurrency = "USD"),
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "200",
             ),
@@ -194,6 +214,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 5,
                     currency = "USD",
+                    minTradeAmount = BigDecimal.ZERO,
                 ),
                 selectedAccount = account(selectedCurrency = "USD"),
                 inputMode = BuyInputMode.Amount,
@@ -208,7 +229,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09b buy ars amount below channel minimum rejects with channel minimum`() {
+    fun `09b buy amount below trade minimum rejects with trade minimum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -227,7 +248,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c buy ars amount below first nominal and channel minimum reports channel minimum`() {
+    fun `09c buy amount below first nominal and trade minimum reports trade minimum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -246,7 +267,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c2 buy ars exact channel minimum can operate when it buys first nominal`() {
+    fun `09c2 buy exact trade minimum can operate when it buys first nominal`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -266,7 +287,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c3 buy ars amount one cent below channel minimum fails by channel rule`() {
+    fun `09c3 buy amount one cent below trade minimum fails by trade minimum rule`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -285,7 +306,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c3b buy ars amount input above channel minimum does not fail when rounded operation amount is below channel minimum`() {
+    fun `09c3b buy amount input above trade minimum does not fail when rounded operation amount is below trade minimum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -305,7 +326,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c4 buy ars amount equal channel minimum reports instrument minimum when higher`() {
+    fun `09c4 buy amount equal trade minimum reports instrument minimum when higher`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -326,14 +347,14 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c4b buy ars amount equal channel minimum below first nominal reports first nominal amount`() {
+    fun `09c4b buy amount equal trade minimum below first nominal reports first nominal amount`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
                     askPrice00 = BigDecimal("6054.97"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
-                    minBuyArsAmount = BigDecimal("100.00"),
+                    minTradeAmount = BigDecimal("100.00"),
                 ),
                 inputMode = BuyInputMode.Amount,
                 amountInputText = "100",
@@ -348,7 +369,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `09c5 buy ars amount above channel minimum reports instrument operation minimum when higher`() {
+    fun `09c5 buy amount above trade minimum reports instrument operation minimum when higher`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -480,7 +501,7 @@ class TradeValidationRulesMatrixTest {
                     type = "Acciones",
                     askPrice00 = BigDecimal.ZERO,
                     percentageMovement = BigDecimal("0.10"),
-                    minBuyArsAmount = BigDecimal("100.00"),
+                    minTradeAmount = BigDecimal("100.00"),
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "102,42",
@@ -502,7 +523,7 @@ class TradeValidationRulesMatrixTest {
                 instrument = instrument(
                     askPrice00 = BigDecimal.ZERO,
                     percentageMovement = BigDecimal("0.10"),
-                    minBuyArsAmount = BigDecimal("100.00"),
+                    minTradeAmount = BigDecimal("100.00"),
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "30",
@@ -1112,7 +1133,7 @@ class TradeValidationRulesMatrixTest {
         bidPrice00: BigDecimal = BigDecimal("99.00"),
         percentageMovement: BigDecimal = BigDecimal("0.10"),
         currency: String = "ARS",
-        minBuyArsAmount: BigDecimal = BigDecimal("100.00"),
+        minTradeAmount: BigDecimal = BigDecimal("100.00"),
     ): Security =
         Security(
             id = 1,
@@ -1129,7 +1150,7 @@ class TradeValidationRulesMatrixTest {
             bidPrice00 = bidPrice00,
             bidPrice24 = bidPrice00,
             percentageMovement = percentageMovement,
-            minBuyArsAmount = minBuyArsAmount,
+            minTradeAmount = minTradeAmount,
         )
 
     private fun account(
