@@ -18,18 +18,20 @@ class TradeValidator @Inject constructor() {
             if (hasInvalidLimitPrice && hasActiveInput) {
                errors += TradeValidationError.InvalidLimitPrice
             }  else if (limitPrice != null) { // not nice y redundante, pero para evitar error de compilador
-                errors += validateLimitPriceBand(
-                    tradeType = state.tradeType,
-                    limitPrice = limitPrice,
-                    askPrice = instrument.askPriceFor(state.settlementTerm),
-                    bidPrice = instrument.bidPriceFor(state.settlementTerm),
-                    percentageMovement = instrument.percentageMovement,
-                )
-                errors += validateLimitPriceMultiple(
-                    instrumentSubType = instrument.type,
-                    isLiderMerval = instrument.liderMerval,
-                    limitPrice = limitPrice,
-                )
+                if (!instrument.requiresLimitOrderFor(state.tradeType, state.settlementTerm)) {
+                    errors += validateLimitPriceBand(
+                        tradeType = state.tradeType,
+                        limitPrice = limitPrice,
+                        askPrice = instrument.askPriceFor(state.settlementTerm),
+                        bidPrice = instrument.bidPriceFor(state.settlementTerm),
+                        percentageMovement = instrument.percentageMovement,
+                    )
+                    errors += validateLimitPriceMultiple(
+                        instrumentSubType = instrument.type,
+                        isLiderMerval = instrument.liderMerval,
+                        limitPrice = limitPrice,
+                    )
+                }
             }
         }
 
@@ -179,11 +181,6 @@ class TradeValidator @Inject constructor() {
         val estimatedAmount = feeQuote.estimatedAmount.toMoneyAmount()
         val totalDeductions = feeQuote.totalDeductions.toMoneyAmount()
         val finalFee = feeQuote.finalFee.toMoneyAmount()
-        val amountWithFee = if (state.tradeType == TradeType.Buy && state.tradeCurrency == ARS_CURRENCY) {
-            estimatedAmount
-        } else {
-            subTotal
-        }
         val errors = validateConfirmationBalances(
             state = state,
             feeQuote = feeQuote.copy(
@@ -205,7 +202,6 @@ class TradeValidator @Inject constructor() {
             operationFee = operationFee,
             bonusDiscount = bonusDiscount,
             nominals = feeQuote.nominals,
-            amountWithFee = amountWithFee,
             estimatedAmount = estimatedAmount,
             totalDeductions = totalDeductions,
             finalFee = finalFee,
@@ -224,10 +220,7 @@ class TradeValidator @Inject constructor() {
     ): BigDecimal? {
         val price = when (orderType) {
             TradeOrderType.Limit -> limitPrice
-            TradeOrderType.Market -> when (tradeType) {
-                TradeType.Buy -> instrument.askPriceFor(settlementTerm)
-                TradeType.Sell -> instrument.bidPriceFor(settlementTerm)
-            }
+            TradeOrderType.Market -> instrument.marketPriceFor(tradeType, settlementTerm)
         }
         return price?.takeIf { it > BigDecimal.ZERO }
     }

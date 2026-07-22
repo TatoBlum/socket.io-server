@@ -187,7 +187,10 @@ fun TradeScreen(
                 )
             } }
 
-            if (uiState.orderType == TradeOrderType.Limit && TradeOption.ADVANCE == uiState.tradeOption) {
+            if (
+                uiState.orderType == TradeOrderType.Limit &&
+                (TradeOption.ADVANCE == uiState.tradeOption || uiState.requiresLimitOrder)
+            ) {
                 Spacer(modifier = Modifier.height(14.dp))
                 LimitPriceInput(
                     value = uiState.limitPriceInput,
@@ -252,6 +255,7 @@ fun TradeScreen(
                 limitPriceInput = uiState.limitPriceInput,
                 limitPriceError = uiState.limitPriceError,
                 limitPriceHelper = uiState.limitPriceHelper,
+                availableOrderTypes = uiState.availableOrderTypes,
                 currencyPrefix = currencyPrefix,
                 onDismiss = { activeSheet = null },
                 onSelect = { orderType ->
@@ -675,6 +679,7 @@ private fun OrderTypeSheet(
     limitPriceInput: String,
     limitPriceError: TradeValidationError?,
     limitPriceHelper: TradeInputLimitPriceHelper,
+    availableOrderTypes: List<TradeOrderType>,
     currencyPrefix: String,
     onDismiss: () -> Unit,
     onSelect: (TradeOrderType) -> Unit,
@@ -711,7 +716,7 @@ private fun OrderTypeSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        TradeOrderType.entries.forEachIndexed { index, orderType ->
+        availableOrderTypes.forEachIndexed { index, orderType ->
             SheetOptionRow(
                 selected = orderType == selected,
                 title = orderType.label,
@@ -731,7 +736,7 @@ private fun OrderTypeSheet(
                 )
             }
 
-            if (index != TradeOrderType.entries.lastIndex) {
+            if (index != availableOrderTypes.lastIndex) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     modifier = Modifier.padding(start = 48.dp, top = 12.dp, bottom = 12.dp),

@@ -79,6 +79,11 @@ data class Security(
     val hasRequiredTradingConfiguration: Boolean
         get() = minInstrumentNominals > 0 && lotInstrumentSize > 0
 
+    val requiresLimitOrder: Boolean
+        get() = percentageMovement > BigDecimal.ZERO &&
+            (askPrice00 <= BigDecimal.ZERO || askPrice24 <= BigDecimal.ZERO ||
+                bidPrice00 <= BigDecimal.ZERO || bidPrice24 <= BigDecimal.ZERO)
+
     val currencySymbol: String
         get() = if (currency.normalizedCurrency() == "USD") "USD " else "\$"
 
@@ -93,6 +98,22 @@ data class Security(
             SettlementType.TODAY -> bidPrice00
             SettlementType.TWENTY_FOUR_HOURS -> bidPrice24
         }
+
+    fun marketPriceFor(
+        tradeType: TradeType,
+        settlementTerm: SettlementType,
+    ): BigDecimal =
+        when (tradeType) {
+            TradeType.Buy -> askPriceFor(settlementTerm)
+            TradeType.Sell -> bidPriceFor(settlementTerm)
+        }
+
+    fun requiresLimitOrderFor(
+        tradeType: TradeType,
+        settlementTerm: SettlementType,
+    ): Boolean =
+        percentageMovement > BigDecimal.ZERO &&
+            marketPriceFor(tradeType, settlementTerm) <= BigDecimal.ZERO
 }
 
 data class TradingBalanceSet(
@@ -182,7 +203,6 @@ data class TradeConfirmationState(
     val operationFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val bonusDiscount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val nominals: BigDecimal = BigDecimal.ZERO,
-    val amountWithFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val estimatedAmount: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val totalDeductions: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val finalFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
@@ -190,15 +210,6 @@ data class TradeConfirmationState(
     val finalFeePercent: BigDecimal = BigDecimal.ZERO,
     val errors: List<TradeValidationError> = emptyList(),
 ) {
-    val fee: BigDecimal
-        get() = finalFee
-
-    val vat: BigDecimal
-        get() = taxes
-
-    val totalFees: BigDecimal
-        get() = totalDeductions
-
     val canConfirm: Boolean
         get() = errors.isEmpty() && estimatedAmount > BigDecimal.ZERO
 }
@@ -247,6 +258,16 @@ data class TradeViewModelState(
     val canContinue: Boolean
         get() = validation.canContinue &&
             selectedAccount != null
+
+    val requiresLimitOrder: Boolean
+        get() = instrument?.requiresLimitOrderFor(tradeType, settlementTerm) == true
+
+    val availableOrderTypes: List<TradeOrderType>
+        get() = if (requiresLimitOrder) {
+            listOf(TradeOrderType.Limit)
+        } else {
+            TradeOrderType.entries
+        }
 
     val activeInputText: String
         get() = when (inputMode) {
@@ -299,12 +320,14 @@ class TradeViewModel @Inject constructor(
                     }
                 ?: return@launch
             uiState = uiState.copy(instrument = instrument)
+                .withAvailableOrderType()
             revalidateBuy()
         }
     }
 
     internal fun replaceInstrument(instrument: Security) {
         uiState = uiState.copy(instrument = instrument)
+            .withAvailableOrderType()
         revalidateBuy()
     }
 
@@ -336,17 +359,22 @@ class TradeViewModel @Inject constructor(
     }
 
     fun onTradeTypeChange(tradeType: TradeType) {
-        uiState = uiState.copy(tradeType = tradeType).clearLimitPrice()
+        uiState = uiState.copy(tradeType = tradeType)
+            .withAvailableOrderType()
+            .clearLimitPrice()
         revalidateBuy()
     }
 
     fun onOrderTypeChange(orderType: TradeOrderType) {
-        uiState = uiState.copy(orderType = orderType).clearLimitPrice()
+        uiState = uiState.copy(orderType = orderType)
+            .withAvailableOrderType()
+            .clearLimitPrice()
         revalidateBuy()
     }
 
     fun onSettlementTermChange(settlementTerm: SettlementType) {
         uiState = uiState.copy(settlementTerm = settlementTerm)
+            .withAvailableOrderType()
         revalidateBuy()
     }
 
@@ -437,6 +465,13 @@ class TradeViewModel @Inject constructor(
             this
         }
 
+    private fun TradeViewModelState.withAvailableOrderType(): TradeViewModelState =
+        if (requiresLimitOrder && orderType == TradeOrderType.Market) {
+            copy(orderType = TradeOrderType.Limit)
+        } else {
+            this
+        }
+
     private fun TradeViewModelState.shouldSkipBuyValidation(): Boolean =
         orderType == TradeOrderType.Limit &&
             limitPriceInput.isBlank() &&
@@ -496,6 +531,9 @@ class TradeViewModel @Inject constructor(
     private fun buildLimitPriceHelper(state: TradeViewModelState): TradeInputLimitPriceHelper {
         val instrument = state.instrument ?: return TradeInputLimitPriceHelper.None
         if (state.orderType != TradeOrderType.Limit) return TradeInputLimitPriceHelper.None
+        if (instrument.requiresLimitOrderFor(state.tradeType, state.settlementTerm)) {
+            return TradeInputLimitPriceHelper.None
+        }
 
         return when (state.tradeType) {
             TradeType.Buy -> TradeInputLimitPriceHelper.MaxAllowed(

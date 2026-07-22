@@ -473,6 +473,51 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `13c buy limit only instrument accepts limit price without market price band`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    type = "Acciones",
+                    askPrice00 = BigDecimal.ZERO,
+                    percentageMovement = BigDecimal("0.10"),
+                    minBuyArsAmount = BigDecimal("100.00"),
+                ),
+                orderType = TradeOrderType.Limit,
+                limitPriceInput = "102,42",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertFalse(result.errors.any { error -> error.isLimitPriceError() })
+        assertEquals("102.42", result.tradePrice.toPlainString())
+        assertEquals("102.42", result.tradeAmount.toPlainString())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `13d buy limit only instrument validates minimum operation amount`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal.ZERO,
+                    percentageMovement = BigDecimal("0.10"),
+                    minBuyArsAmount = BigDecimal("100.00"),
+                ),
+                orderType = TradeOrderType.Limit,
+                limitPriceInput = "30",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("30.00", result.tradeAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `14 sell market by amount accepts exact max sellable amount`() {
         val result = validator.validate(
             state(
@@ -915,11 +960,11 @@ class TradeValidationRulesMatrixTest {
         )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
-        assertEquals("7.02", confirmationValidation.fee.toPlainString())
+        assertEquals("7.02", confirmationValidation.operationFee.toPlainString())
         assertEquals("5.00", confirmationValidation.marketFee.toPlainString())
-        assertEquals("300.00", confirmationValidation.vat.toPlainString())
-        assertEquals("312.02", confirmationValidation.totalFees.toPlainString())
-        assertEquals("1312.02", confirmationValidation.amountWithFee.toPlainString())
+        assertEquals("300.00", confirmationValidation.taxes.toPlainString())
+        assertEquals("312.02", confirmationValidation.totalDeductions.toPlainString())
+        assertEquals("1312.02", confirmationValidation.estimatedAmount.toPlainString())
         assertTrue(buyValidation.canContinue)
         assertTrue(confirmationValidation.canConfirm)
     }
@@ -954,7 +999,7 @@ class TradeValidationRulesMatrixTest {
         )
 
         assertEquals("1000.00", buyValidation.tradeAmount.toPlainString())
-        assertEquals("1000.00", confirmationValidation.amountWithFee.toPlainString())
+        assertEquals("1000.00", confirmationValidation.subTotal.toPlainString())
         assertTrue(buyValidation.canContinue)
         assertTrue(confirmationValidation.errors.contains(TradeValidationError.InsufficientArsForFee))
         assertFalse(confirmationValidation.canConfirm)
