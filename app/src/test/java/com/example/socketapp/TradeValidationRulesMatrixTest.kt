@@ -504,16 +504,38 @@ class TradeValidationRulesMatrixTest {
                     minTradeAmount = BigDecimal("100.00"),
                 ),
                 orderType = TradeOrderType.Limit,
-                limitPriceInput = "102,42",
+                limitPriceInput = "102,50",
                 inputMode = BuyInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
 
         assertFalse(result.errors.any { error -> error.isLimitPriceError() })
-        assertEquals("102.42", result.tradePrice.toPlainString())
-        assertEquals("102.42", result.tradeAmount.toPlainString())
+        assertEquals("102.50", result.tradePrice.toPlainString())
+        assertEquals("102.50", result.tradeAmount.toPlainString())
         assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `13c2 buy limit only instrument validates limit price multiple`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    type = "Acciones",
+                    askPrice00 = BigDecimal.ZERO,
+                    percentageMovement = BigDecimal("0.10"),
+                    minTradeAmount = BigDecimal("100.00"),
+                ),
+                orderType = TradeOrderType.Limit,
+                limitPriceInput = "102,42",
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.LimitPriceNotMultiple
+        assertEquals("0.50", error.step.toPlainString())
+        assertFalse(result.canContinue)
     }
 
     @Test

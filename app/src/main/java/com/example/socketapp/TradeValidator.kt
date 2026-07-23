@@ -25,12 +25,14 @@ class TradeValidator @Inject constructor() {
                         bidPrice = instrument.bidPriceFor(state.settlementTerm),
                         percentageMovement = instrument.percentageMovement,
                     )
-                    errors += validateLimitPriceMultiple(
-                        instrumentSubType = instrument.type,
-                        isLiderMerval = instrument.liderMerval,
-                        limitPrice = limitPrice,
-                    )
                 }
+            }
+            if (limitPrice != null) {
+                errors += validateLimitPriceMultiple(
+                    instrumentSubType = instrument.type,
+                    isLiderMerval = instrument.liderMerval,
+                    limitPrice = limitPrice,
+                )
             }
         }
 
