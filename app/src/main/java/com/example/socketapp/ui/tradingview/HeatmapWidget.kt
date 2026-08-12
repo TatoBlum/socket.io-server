@@ -11,7 +11,7 @@ data class HeatmapConfig(
     val dataSource: String,
     val exchanges: List<String> = emptyList(),
     val locale: String = "en",
-    val grouping: String = "sector",
+    val grouping: String = "no_group",
     val blockSize: String = "market_cap_basic",
     val blockColor: String = "change",
     val colorTheme: String = "light",
@@ -41,18 +41,19 @@ data class HeatmapConfig(
 }
 
 enum class Market(val displayName: String, val config: HeatmapConfig) {
-    MERVAL(
-        displayName = "Merval",
+    BYMA(
+        displayName = "BYMA",
         config = HeatmapConfig(
-            dataSource = "BCBAIMV",
+            dataSource = "AllAR",
             exchanges = listOf("BCBA"),
             locale = "es",
         ),
     ),
-    SPY(
-        displayName = "SPY",
+    SP_MERVAL(
+        displayName = "S&P Merval",
         config = HeatmapConfig(
-            dataSource = "SPX500",
+            dataSource = "BCBAIMV",
+            exchanges = listOf("BCBA"),
             locale = "es",
         ),
     ),
@@ -60,7 +61,6 @@ enum class Market(val displayName: String, val config: HeatmapConfig) {
 
 @Composable
 fun TradingViewHeatmapWebView(
-    markets: List<Market>,
     selected: Market,
     reloadKey: Int,
     onLoadingChange: (Boolean) -> Unit,
@@ -68,10 +68,10 @@ fun TradingViewHeatmapWebView(
     modifier: Modifier = Modifier,
 ) {
     TradingViewTabbedWidgetWebView(
-        items = markets,
+        items = Market.entries,
         selected = selected,
         scriptSrc = SCRIPT_HEATMAP,
-        configJsonFor = { it.config.toJson() },
+        configJsonFor = { market -> market.config.toJson() },
         reloadKey = reloadKey,
         onLoadingChange = onLoadingChange,
         onError = onError,

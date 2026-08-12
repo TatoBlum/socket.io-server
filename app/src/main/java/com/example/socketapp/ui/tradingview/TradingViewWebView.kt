@@ -27,7 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -228,26 +227,29 @@ internal fun TradingViewWidgetWebView(
     val templateHtml = remember {
         context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
     }
-    val lastConfigJson = remember { mutableStateOf<String?>(null) }
-    val lastReloadKey = remember { mutableIntStateOf(-1) }
     val timeoutHolder = remember { TimeoutHolder() }
     val backgroundColor = MaterialTheme.colorScheme.surface.toArgb()
 
-    AndroidView(
-        factory = { ctx -> createTradingViewWebView(ctx, onLoadingChange, onError, timeoutHolder, backgroundColor) },
-        update = { webView ->
-            if (lastConfigJson.value != configJson || lastReloadKey.intValue != reloadKey) {
-                lastConfigJson.value = configJson
-                lastReloadKey.intValue = reloadKey
-                loadTradingViewWidget(webView, templateHtml, scriptSrc, configJson)
-            }
-        },
-        onRelease = { webView ->
-            timeoutHolder.cancel()
-            webView.destroy()
-        },
-        modifier = modifier,
-    )
+    key(configJson, reloadKey) {
+        AndroidView(
+            factory = { ctx ->
+                createTradingViewWebView(
+                    ctx = ctx,
+                    onLoadingChange = onLoadingChange,
+                    onError = onError,
+                    timeoutHolder = timeoutHolder,
+                    backgroundColor = backgroundColor,
+                ).apply {
+                    loadTradingViewWidget(this, templateHtml, scriptSrc, configJson)
+                }
+            },
+            onRelease = { webView ->
+                timeoutHolder.cancel()
+                webView.destroy()
+            },
+            modifier = modifier,
+        )
+    }
 }
 
 @Composable

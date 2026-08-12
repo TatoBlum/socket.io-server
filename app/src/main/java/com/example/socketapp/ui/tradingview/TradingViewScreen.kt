@@ -61,7 +61,7 @@ fun TradingViewScreen(
 ) {
     val markets = Market.entries
     val exchanges = Exchange.entries
-    var selectedMarket by rememberSaveable { mutableStateOf(Market.MERVAL) }
+    var selectedMarket by rememberSaveable { mutableStateOf(Market.BYMA) }
     var selectedExchange by rememberSaveable { mutableStateOf(Exchange.BCBA) }
 
     var isHeatmapLoading by remember { mutableStateOf(false) }
@@ -116,7 +116,6 @@ fun TradingViewScreen(
                 },
             ) {
                 TradingViewHeatmapWebView(
-                    markets = markets,
                     selected = selectedMarket,
                     reloadKey = heatmapReloadTrigger,
                     onLoadingChange = { isHeatmapLoading = it },
