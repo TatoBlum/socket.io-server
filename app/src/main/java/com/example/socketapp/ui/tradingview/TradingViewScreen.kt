@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -27,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,12 +64,10 @@ fun TradingViewScreen(
     val markets = Market.entries
     var selectedMarket by rememberSaveable { mutableStateOf(Market.SP_MERVAL) }
 
-    var isHeatmapLoading by remember { mutableStateOf(false) }
-    var heatmapError by remember { mutableStateOf<String?>(null) }
+    var heatmapState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
     var heatmapReloadTrigger by remember { mutableIntStateOf(0) }
 
-    var isHotlistsLoading by remember { mutableStateOf(false) }
-    var hotlistsError by remember { mutableStateOf<String?>(null) }
+    var hotlistsState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
     var hotlistsReloadTrigger by remember { mutableIntStateOf(0) }
 
     val isConnected by networkConnection.observeAsState(initial = true)
@@ -106,18 +106,13 @@ fun TradingViewScreen(
             WidgetBox(
                 height = HEATMAP_CARD_HEIGHT,
                 isConnected = isConnected,
-                isLoading = isHeatmapLoading,
-                errorMessage = heatmapError,
-                onRetry = {
-                    heatmapError = null
-                    heatmapReloadTrigger++
-                },
+                state = heatmapState,
+                onRetry = { heatmapReloadTrigger++ },
             ) {
                 TradingViewHeatmapWebView(
                     selected = selectedMarket,
                     reloadKey = heatmapReloadTrigger,
-                    onLoadingChange = { isHeatmapLoading = it },
-                    onError = { heatmapError = it },
+                    onStateChange = { heatmapState = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -131,19 +126,14 @@ fun TradingViewScreen(
             WidgetBox(
                 height = HOTLISTS_CARD_HEIGHT,
                 isConnected = isConnected,
-                isLoading = isHotlistsLoading,
-                errorMessage = hotlistsError,
-                onRetry = {
-                    hotlistsError = null
-                    hotlistsReloadTrigger++
-                },
+                state = hotlistsState,
+                onRetry = { hotlistsReloadTrigger++ },
             ) {
                 TradingViewHotlistsWebView(
                     exchanges = Exchange.entries,
                     selected = selectedMarket.hotlistsExchange,
                     reloadKey = hotlistsReloadTrigger,
-                    onLoadingChange = { isHotlistsLoading = it },
-                    onError = { hotlistsError = it },
+                    onStateChange = { hotlistsState = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -204,8 +194,7 @@ private fun WidgetCard(
 private fun WidgetBox(
     height: Dp,
     isConnected: Boolean,
-    isLoading: Boolean,
-    errorMessage: String?,
+    state: TradingViewWidgetState,
     onRetry: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -215,26 +204,12 @@ private fun WidgetBox(
             .height(height)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        if (!isConnected) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(text = "📵", fontSize = 48.sp)
-                Text(
-                    text = "Sin conexión",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-        } else {
-            content()
+        content()
 
-            if (isLoading && errorMessage == null) {
+        val displayState = tradingViewDisplayState(state, isConnected)
+
+        when (displayState) {
+            TradingViewWidgetState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -243,24 +218,86 @@ private fun WidgetBox(
                 )
             }
 
-            if (errorMessage != null) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "Error al cargar: $errorMessage",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
-                    Button(onClick = onRetry) {
-                        Text("Reintentar")
-                    }
-                }
+            TradingViewWidgetState.Refreshing -> WidgetStatusBanner(
+                message = "Actualizando datos…",
+                showProgress = true,
+            )
+
+            is TradingViewWidgetState.Stale -> WidgetStatusBanner(
+                message = "${displayState.message}. Mostrando los últimos datos cargados.",
+                onRetry = onRetry,
+            )
+
+            is TradingViewWidgetState.Error -> WidgetBlockingMessage(
+                message = displayState.message,
+                onRetry = onRetry,
+            )
+
+            TradingViewWidgetState.Ready -> Unit
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.WidgetStatusBanner(
+    message: String,
+    showProgress: Boolean = false,
+    onRetry: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(8.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showProgress) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Text(
+            text = message,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (onRetry != null) {
+            TextButton(onClick = onRetry) {
+                Text("Reintentar")
+            }
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.WidgetBlockingMessage(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(text = "⚠️", fontSize = 48.sp)
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+        )
+        if (onRetry != null) {
+            Button(onClick = onRetry) {
+                Text("Reintentar")
             }
         }
     }

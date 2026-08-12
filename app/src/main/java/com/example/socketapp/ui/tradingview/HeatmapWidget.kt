@@ -68,8 +68,7 @@ enum class Market(
 fun TradingViewHeatmapWebView(
     selected: Market,
     reloadKey: Int,
-    onLoadingChange: (Boolean) -> Unit,
-    onError: (String?) -> Unit,
+    onStateChange: (TradingViewWidgetState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     TradingViewTabbedWidgetWebView(
@@ -78,8 +77,7 @@ fun TradingViewHeatmapWebView(
         scriptSrc = SCRIPT_HEATMAP,
         configJsonFor = { market -> market.config.toJson() },
         reloadKey = reloadKey,
-        onLoadingChange = onLoadingChange,
-        onError = onError,
+        onStateChange = onStateChange,
         modifier = modifier,
     )
 }

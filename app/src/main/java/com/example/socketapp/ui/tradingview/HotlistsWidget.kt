@@ -60,8 +60,7 @@ fun TradingViewHotlistsWebView(
     exchanges: List<Exchange>,
     selected: Exchange,
     reloadKey: Int,
-    onLoadingChange: (Boolean) -> Unit,
-    onError: (String?) -> Unit,
+    onStateChange: (TradingViewWidgetState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     TradingViewTabbedWidgetWebView(
@@ -70,8 +69,7 @@ fun TradingViewHotlistsWebView(
         scriptSrc = SCRIPT_HOTLISTS,
         configJsonFor = { it.config.toJson() },
         reloadKey = reloadKey,
-        onLoadingChange = onLoadingChange,
-        onError = onError,
+        onStateChange = onStateChange,
         modifier = modifier,
     )
 }
