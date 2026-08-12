@@ -40,15 +40,11 @@ data class HeatmapConfig(
     }.toString()
 }
 
-enum class Market(val displayName: String, val config: HeatmapConfig) {
-    BYMA(
-        displayName = "BYMA",
-        config = HeatmapConfig(
-            dataSource = "AllAR",
-            exchanges = listOf("BCBA"),
-            locale = "es",
-        ),
-    ),
+enum class Market(
+    val displayName: String,
+    val config: HeatmapConfig,
+    val hotlistsExchange: Exchange,
+) {
     SP_MERVAL(
         displayName = "S&P Merval",
         config = HeatmapConfig(
@@ -56,6 +52,15 @@ enum class Market(val displayName: String, val config: HeatmapConfig) {
             exchanges = listOf("BCBA"),
             locale = "es",
         ),
+        hotlistsExchange = Exchange.BCBA,
+    ),
+    SP_500(
+        displayName = "S&P 500",
+        config = HeatmapConfig(
+            dataSource = "SPX500",
+            locale = "es",
+        ),
+        hotlistsExchange = Exchange.US,
     ),
 }
 

@@ -60,9 +60,7 @@ fun TradingViewScreen(
     onOpenTitles: () -> Unit,
 ) {
     val markets = Market.entries
-    val exchanges = Exchange.entries
-    var selectedMarket by rememberSaveable { mutableStateOf(Market.BYMA) }
-    var selectedExchange by rememberSaveable { mutableStateOf(Exchange.BCBA) }
+    var selectedMarket by rememberSaveable { mutableStateOf(Market.SP_MERVAL) }
 
     var isHeatmapLoading by remember { mutableStateOf(false) }
     var heatmapError by remember { mutableStateOf<String?>(null) }
@@ -128,15 +126,8 @@ fun TradingViewScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         WidgetCard(
-            title = null,
+            title = "Movimientos · ${selectedMarket.displayName}",
         ) {
-            TabSelector(
-                items = exchanges,
-                selected = selectedExchange,
-                displayName = { it.displayName },
-                onSelected = { selectedExchange = it },
-            )
-
             WidgetBox(
                 height = HOTLISTS_CARD_HEIGHT,
                 isConnected = isConnected,
@@ -148,8 +139,8 @@ fun TradingViewScreen(
                 },
             ) {
                 TradingViewHotlistsWebView(
-                    exchanges = exchanges,
-                    selected = selectedExchange,
+                    exchanges = Exchange.entries,
+                    selected = selectedMarket.hotlistsExchange,
                     reloadKey = hotlistsReloadTrigger,
                     onLoadingChange = { isHotlistsLoading = it },
                     onError = { hotlistsError = it },

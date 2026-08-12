@@ -89,40 +89,40 @@ class HotlistsConfigTest {
     }
 
     @Test
-    fun `Exchange NASDAQ config exchange matches displayName`() {
-        val entry = Exchange.NASDAQ
-        assertEquals(entry.displayName, entry.config.exchange)
+    fun `Exchange US uses aggregate US market`() {
+        val entry = Exchange.US
+        assertEquals("US", entry.config.exchange)
+        assertEquals("Estados Unidos", entry.displayName)
     }
 
     @Test
-    fun `Exchange NYSE config exchange matches displayName`() {
-        val entry = Exchange.NYSE
-        assertEquals(entry.displayName, entry.config.exchange)
+    fun `Exchange enum has exactly two entries`() {
+        assertEquals(2, Exchange.entries.size)
     }
 
     @Test
-    fun `Exchange enum has exactly three entries`() {
-        assertEquals(3, Exchange.entries.size)
-    }
-
-    @Test
-    fun `Exchange entries are BCBA NASDAQ NYSE`() {
+    fun `Exchange entries are BCBA and US`() {
         val names = Exchange.entries.map { it.name }
-        assertEquals(listOf("BCBA", "NASDAQ", "NYSE"), names)
+        assertEquals(listOf("BCBA", "US"), names)
     }
 
     @Test
-    fun `Exchange NASDAQ locale is es`() {
-        assertEquals("es", Exchange.NASDAQ.config.locale)
-    }
-
-    @Test
-    fun `Exchange NYSE locale is es`() {
-        assertEquals("es", Exchange.NYSE.config.locale)
+    fun `Exchange US locale is es`() {
+        assertEquals("es", Exchange.US.config.locale)
     }
 
     @Test
     fun `Exchange BCBA locale is es`() {
         assertEquals("es", Exchange.BCBA.config.locale)
+    }
+
+    @Test
+    fun `Merval market links to BCBA hotlists`() {
+        assertEquals(Exchange.BCBA, Market.SP_MERVAL.hotlistsExchange)
+    }
+
+    @Test
+    fun `SP 500 market links to US hotlists`() {
+        assertEquals(Exchange.US, Market.SP_500.hotlistsExchange)
     }
 }

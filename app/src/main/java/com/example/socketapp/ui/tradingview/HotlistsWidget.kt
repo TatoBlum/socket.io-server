@@ -52,8 +52,7 @@ data class HotlistsConfig(
 
 enum class Exchange(val displayName: String, val config: HotlistsConfig) {
     BCBA("BCBA", HotlistsConfig(exchange = "BCBA")),
-    NASDAQ("NASDAQ", HotlistsConfig(exchange = "NASDAQ")),
-    NYSE("NYSE", HotlistsConfig(exchange = "NYSE")),
+    US("Estados Unidos", HotlistsConfig(exchange = "US")),
 }
 
 @Composable
