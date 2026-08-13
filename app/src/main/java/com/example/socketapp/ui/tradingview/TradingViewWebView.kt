@@ -1,7 +1,6 @@
 package com.example.socketapp.ui.tradingview
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
@@ -49,7 +48,7 @@ internal const val TEMPLATE_ASSET = "tradingview/tradingview_widget_template.htm
 private const val WIDGET_TIMEOUT_MS = 15_000L
 private const val WIDGET_POLL_INTERVAL_MS = 250L
 private const val WIDGET_IFRAME_CHECK =
-    "document.querySelector('.tradingview-widget-container__widget iframe') !== null"
+    "document.querySelector('.tradingview-widget-container iframe') !== null"
 
 sealed interface TradingViewWidgetState {
     data object Loading : TradingViewWidgetState
@@ -69,20 +68,6 @@ internal fun tradingViewFailureState(
     TradingViewWidgetState.Stale(message)
 } else {
     TradingViewWidgetState.Error(message)
-}
-
-internal fun tradingViewDisplayState(
-    state: TradingViewWidgetState,
-    isConnected: Boolean,
-): TradingViewWidgetState {
-    if (isConnected) return state
-    val hasCachedContent = state == TradingViewWidgetState.Ready ||
-        state == TradingViewWidgetState.Refreshing ||
-        state is TradingViewWidgetState.Stale
-    return tradingViewFailureState(
-        hasCachedContent = hasCachedContent,
-        message = "No se pudo cargar TradingView",
-    )
 }
 
 internal class TimeoutHolder {
@@ -194,10 +179,6 @@ internal fun createTradingViewWebView(
         setBackgroundColor(backgroundColor)
 
         webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                startLoading()
-            }
-
             override fun onPageFinished(view: WebView?, url: String?) {
                 if (view != null) {
                     pollForWidget(view)
@@ -319,6 +300,8 @@ internal fun createTradingViewWebView(
                 return true
             }
         }
+
+        startLoading()
     }
 }
 
@@ -411,11 +394,24 @@ private fun TradingViewWebViewInstance(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val templateHtml = remember {
-        context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+    val templateResult = remember {
+        runCatching {
+            context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+        }
     }
     val timeoutHolder = remember { TimeoutHolder() }
     val backgroundColor = MaterialTheme.colorScheme.surface.toArgb()
+    val templateHtml = templateResult.getOrNull()
+
+    if (templateHtml == null) {
+        LaunchedEffect(Unit) {
+            if (BuildConfig.DEBUG) {
+                Log.e("TVWebView", "Missing asset: $TEMPLATE_ASSET", templateResult.exceptionOrNull())
+            }
+            onFailure("No se pudo inicializar TradingView")
+        }
+        return
+    }
 
     AndroidView(
         factory = { ctx ->

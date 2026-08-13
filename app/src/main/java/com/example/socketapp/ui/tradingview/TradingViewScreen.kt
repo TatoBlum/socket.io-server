@@ -23,10 +23,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,30 +38,123 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.CheckNetworkConnection
+import com.example.socketapp.TradeType
 import com.example.socketapp.model.StockTicker
-import com.example.socketapp.ui.ExpandingDotStepperDemo
-import com.example.socketapp.ui.stocks.StockTickerItem
-import com.example.socketapp.ui.theme.CardSurface
-import com.example.socketapp.ui.theme.SegmentedTrack
 
 private val HEATMAP_CARD_HEIGHT = 609.dp
 private val HOTLISTS_CARD_HEIGHT = 570.dp
+
+private data class MockHoldingTitle(
+    val codeType: String,
+    val codeValue: String,
+    val ticker: String,
+    val name: String,
+    val holdingQuantity: Int,
+)
+
+private val mockHoldingTitles = listOf(
+    MockHoldingTitle(
+        codeType = "MOCK_SECURITY_ID",
+        codeValue = "PAMP-0",
+        ticker = "PAMP",
+        name = "Pampa Energia",
+        holdingQuantity = 125,
+    ),
+    MockHoldingTitle(
+        codeType = "MOCK_SECURITY_ID",
+        codeValue = "YPFD-0",
+        ticker = "YPFD",
+        name = "YPF",
+        holdingQuantity = 80,
+    ),
+    MockHoldingTitle(
+        codeType = "MOCK_SECURITY_ID",
+        codeValue = "ALUA-0",
+        ticker = "ALUA",
+        name = "Aluar",
+        holdingQuantity = 250,
+    ),
+)
+
+@Composable
+private fun FavoriteTickerRow(ticker: StockTicker) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(
+                text = ticker.symbol,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = ticker.displayName,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = ticker.price,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@Composable
+private fun SimpleStepperDemo(
+    totalSteps: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(totalSteps) { index ->
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 3.dp)
+                    .height(8.dp)
+                    .fillMaxWidth(if (index == 0) 0.08f else 0.02f)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        if (index == 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                        },
+                    ),
+            )
+        }
+    }
+}
 
 @Composable
 fun TradingViewScreen(
     networkConnection: CheckNetworkConnection,
     favorites: List<StockTicker>,
-    onOpenTitles: () -> Unit,
+    onTradeAction: (codeType: String, codeValue: String, tradeType: TradeType) -> Unit,
 ) {
     val markets = Market.entries
     var selectedMarket by rememberSaveable { mutableStateOf(Market.SP_MERVAL) }
@@ -69,8 +164,6 @@ fun TradingViewScreen(
 
     var hotlistsState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
     var hotlistsReloadTrigger by remember { mutableIntStateOf(0) }
-
-    val isConnected by networkConnection.observeAsState(initial = true)
 
     Column(
         modifier = Modifier
@@ -83,7 +176,7 @@ fun TradingViewScreen(
             WidgetCard(title = "Favoritos") {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     favorites.forEachIndexed { index, ticker ->
-                        StockTickerItem(ticker = ticker)
+                        FavoriteTickerRow(ticker = ticker)
                         if (index < favorites.lastIndex) {
                             Spacer(modifier = Modifier.height(4.dp))
                         }
@@ -105,7 +198,6 @@ fun TradingViewScreen(
 
             WidgetBox(
                 height = HEATMAP_CARD_HEIGHT,
-                isConnected = isConnected,
                 state = heatmapState,
                 onRetry = { heatmapReloadTrigger++ },
             ) {
@@ -125,7 +217,6 @@ fun TradingViewScreen(
         ) {
             WidgetBox(
                 height = HOTLISTS_CARD_HEIGHT,
-                isConnected = isConnected,
                 state = hotlistsState,
                 onRetry = { hotlistsReloadTrigger++ },
             ) {
@@ -142,15 +233,104 @@ fun TradingViewScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         WidgetCard(title = "Stepper (demo)") {
-            ExpandingDotStepperDemo(totalSteps = 5)
-            Button(
-                onClick = onOpenTitles,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
+            SimpleStepperDemo(totalSteps = 5)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        MockHoldingTitlesSection(onTradeAction = onTradeAction)
+    }
+}
+
+@Composable
+private fun MockHoldingTitlesSection(
+    onTradeAction: (codeType: String, codeValue: String, tradeType: TradeType) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "Mis titulos",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 2.dp),
+        )
+
+        mockHoldingTitles.forEach { title ->
+            MockHoldingTitleCard(
+                title = title,
+                onBuy = { onTradeAction(title.codeType, title.codeValue, TradeType.Buy) },
+                onSell = { onTradeAction(title.codeType, title.codeValue, TradeType.Sell) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MockHoldingTitleCard(
+    title: MockHoldingTitle,
+    onBuy: () -> Unit,
+    onSell: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "${title.ticker} (${title.name})",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "Nominales: ${title.holdingQuantity}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("Ver títulos")
+                OutlinedButton(
+                    onClick = onSell,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = "Venta",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Button(
+                    onClick = onBuy,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Text(
+                        text = "Compra",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }
@@ -166,13 +346,13 @@ private fun WidgetCard(
             .fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardSurface),
+                .background(MaterialTheme.colorScheme.surface),
         ) {
             if (title != null) {
                 Text(
@@ -193,7 +373,6 @@ private fun WidgetCard(
 @Composable
 private fun WidgetBox(
     height: Dp,
-    isConnected: Boolean,
     state: TradingViewWidgetState,
     onRetry: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
@@ -206,9 +385,7 @@ private fun WidgetBox(
     ) {
         content()
 
-        val displayState = tradingViewDisplayState(state, isConnected)
-
-        when (displayState) {
+        when (state) {
             TradingViewWidgetState.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier
@@ -224,12 +401,12 @@ private fun WidgetBox(
             )
 
             is TradingViewWidgetState.Stale -> WidgetStatusBanner(
-                message = "${displayState.message}. Mostrando los últimos datos cargados.",
+                message = "${state.message}. Mostrando los últimos datos cargados.",
                 onRetry = onRetry,
             )
 
             is TradingViewWidgetState.Error -> WidgetBlockingMessage(
-                message = displayState.message,
+                message = state.message,
                 onRetry = onRetry,
             )
 
@@ -324,7 +501,7 @@ private fun <T> TabSelector(
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .height(30.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(SegmentedTrack),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Box(
             modifier = Modifier
