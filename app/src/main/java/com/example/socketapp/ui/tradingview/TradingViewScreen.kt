@@ -1,13 +1,9 @@
 package com.example.socketapp.ui.tradingview
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -15,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,10 +31,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +45,7 @@ import com.example.socketapp.TradeType
 import com.example.socketapp.model.StockTicker
 
 private val HEATMAP_CARD_HEIGHT = 609.dp
-private val HOTLISTS_CARD_HEIGHT = 570.dp
+private val MARKET_OVERVIEW_CARD_HEIGHT = 570.dp
 
 private data class MockHoldingTitle(
     val codeType: String,
@@ -156,14 +149,13 @@ fun TradingViewScreen(
     favorites: List<StockTicker>,
     onTradeAction: (codeType: String, codeValue: String, tradeType: TradeType) -> Unit,
 ) {
-    val markets = Market.entries
-    var selectedMarket by rememberSaveable { mutableStateOf(Market.SP_MERVAL) }
-
     var heatmapState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
     var heatmapReloadTrigger by remember { mutableIntStateOf(0) }
 
-    var hotlistsState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
-    var hotlistsReloadTrigger by remember { mutableIntStateOf(0) }
+    var marketOverviewState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var marketOverviewReloadTrigger by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
@@ -189,20 +181,12 @@ fun TradingViewScreen(
         WidgetCard(
             title = "Mapa de calor",
         ) {
-            TabSelector(
-                items = markets,
-                selected = selectedMarket,
-                displayName = { it.displayName },
-                onSelected = { selectedMarket = it },
-            )
-
             WidgetBox(
                 height = HEATMAP_CARD_HEIGHT,
                 state = heatmapState,
                 onRetry = { heatmapReloadTrigger++ },
             ) {
                 TradingViewHeatmapWebView(
-                    selected = selectedMarket,
                     reloadKey = heatmapReloadTrigger,
                     onStateChange = { heatmapState = it },
                     modifier = Modifier.fillMaxSize(),
@@ -213,18 +197,16 @@ fun TradingViewScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         WidgetCard(
-            title = "Movimientos · ${selectedMarket.displayName}",
+            title = "Movimientos · S&P Merval",
         ) {
             WidgetBox(
-                height = HOTLISTS_CARD_HEIGHT,
-                state = hotlistsState,
-                onRetry = { hotlistsReloadTrigger++ },
+                height = MARKET_OVERVIEW_CARD_HEIGHT,
+                state = marketOverviewState,
+                onRetry = { marketOverviewReloadTrigger++ },
             ) {
-                TradingViewHotlistsWebView(
-                    exchanges = Exchange.entries,
-                    selected = selectedMarket.hotlistsExchange,
-                    reloadKey = hotlistsReloadTrigger,
-                    onStateChange = { hotlistsState = it },
+                TradingViewMarketOverviewWebView(
+                    reloadKey = marketOverviewReloadTrigger,
+                    onStateChange = { marketOverviewState = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -475,63 +457,6 @@ private fun BoxScope.WidgetBlockingMessage(
         if (onRetry != null) {
             Button(onClick = onRetry) {
                 Text("Reintentar")
-            }
-        }
-    }
-}
-
-@Composable
-private fun <T> TabSelector(
-    items: List<T>,
-    selected: T,
-    displayName: (T) -> String,
-    onSelected: (T) -> Unit,
-) {
-    val selectedIdx = items.indexOf(selected).coerceAtLeast(0)
-    val targetBias = if (items.size <= 1) 0f else (2f * selectedIdx / (items.size - 1)) - 1f
-    val animatedBias by animateFloatAsState(
-        targetValue = targetBias,
-        animationSpec = tween(durationMillis = 220),
-        label = "tabIndicator",
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .height(30.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Box(
-            modifier = Modifier
-                .align(BiasAlignment(animatedBias, 0f))
-                .fillMaxWidth(1f / items.size)
-                .fillMaxHeight()
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
-        )
-
-        Row(modifier = Modifier.fillMaxSize()) {
-            items.forEach { item ->
-                val isSelected = selected == item
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onSelected(item) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = displayName(item),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                }
             }
         }
     }

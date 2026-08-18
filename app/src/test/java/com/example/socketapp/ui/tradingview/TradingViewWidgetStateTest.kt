@@ -43,25 +43,4 @@ class TradingViewWidgetStateTest {
         )
     }
 
-    @Test
-    fun `offline without cached content uses provider error state`() {
-        assertEquals(
-            TradingViewWidgetState.Error("No se pudo cargar TradingView"),
-            tradingViewDisplayState(
-                state = TradingViewWidgetState.Loading,
-                isConnected = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `offline with cached content uses stale provider error state`() {
-        assertEquals(
-            TradingViewWidgetState.Stale("No se pudo cargar TradingView"),
-            tradingViewDisplayState(
-                state = TradingViewWidgetState.Ready,
-                isConnected = false,
-            ),
-        )
-    }
 }

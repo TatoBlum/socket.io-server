@@ -13,12 +13,12 @@ data class HeatmapConfig(
     val locale: String = "en",
     val grouping: String = "no_group",
     val blockSize: String = "market_cap_basic",
-    val blockColor: String = "change",
+    val blockColor: String = "change|60",
     val colorTheme: String = "light",
     val hasTopBar: Boolean = false,
     val isDataSetEnabled: Boolean = false,
     val isZoomEnabled: Boolean = false,
-    val hasSymbolTooltip: Boolean = true,
+    val hasSymbolTooltip: Boolean = false,
     val isMonoSize: Boolean = false,
 ) {
     fun toJson(): String = JSONObject().apply {
@@ -40,42 +40,20 @@ data class HeatmapConfig(
     }.toString()
 }
 
-enum class Market(
-    val displayName: String,
-    val config: HeatmapConfig,
-    val hotlistsExchange: Exchange,
-) {
-    SP_MERVAL(
-        displayName = "S&P Merval",
-        config = HeatmapConfig(
-            dataSource = "BCBAIMV",
-            exchanges = listOf("BCBA"),
-            locale = "es",
-        ),
-        hotlistsExchange = Exchange.BCBA,
-    ),
-    SP_500(
-        displayName = "S&P 500",
-        config = HeatmapConfig(
-            dataSource = "SPX500",
-            locale = "es",
-        ),
-        hotlistsExchange = Exchange.US,
-    ),
-}
+internal val SP_MERVAL_HEATMAP_CONFIG = HeatmapConfig(
+    dataSource = "BCBAIMV",
+    locale = "es",
+)
 
 @Composable
 fun TradingViewHeatmapWebView(
-    selected: Market,
     reloadKey: Int,
     onStateChange: (TradingViewWidgetState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    TradingViewTabbedWidgetWebView(
-        items = Market.entries,
-        selected = selected,
+    TradingViewWidgetWebView(
         scriptSrc = SCRIPT_HEATMAP,
-        configJsonFor = { market -> market.config.toJson() },
+        configJson = SP_MERVAL_HEATMAP_CONFIG.toJson(),
         reloadKey = reloadKey,
         onStateChange = onStateChange,
         modifier = modifier,

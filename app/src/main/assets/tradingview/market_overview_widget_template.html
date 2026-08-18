@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src https://*.tradingview.com https://*.tradingview-widget.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.tradingview.com https://*.tradingview-widget.com; img-src 'self' data: https://*.tradingview.com https://*.tradingview-widget.com; connect-src https://*.tradingview.com https://*.tradingview-widget.com wss://*.tradingview.com wss://*.tradingview-widget.com; frame-src https://*.tradingview.com https://*.tradingview-widget.com; font-src data: https://*.tradingview.com https://*.tradingview-widget.com;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>
+    html, body {
+      display: block;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    tv-market-overview {
+      display: block;
+      width: 100%;
+      height: 100vh;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <script type="module" src="{{SCRIPT_SRC}}"></script>
+  <tv-market-overview {{CONFIG}}></tv-market-overview>
+  <script>
+    (function () {
+      const syncWidgetSize = function () {
+        const widget = document.querySelector("tv-market-overview");
+        const height = window.innerHeight + "px";
+        document.documentElement.style.height = height;
+        document.body.style.height = height;
+        widget.style.height = height;
+        widget.style.minHeight = height;
+      };
+      syncWidgetSize();
+      window.addEventListener("resize", syncWidgetSize);
+    })();
+  </script>
+</body>
+</html>

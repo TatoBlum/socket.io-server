@@ -1,6 +1,7 @@
 package com.example.socketapp.ui.tradingview
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
@@ -114,6 +115,7 @@ internal fun loadTradingViewWidget(
 internal fun createTradingViewWebView(
     ctx: Context,
     scriptSrc: String,
+    widgetReadyCheck: String,
     onLoading: () -> Unit,
     onReady: () -> Unit,
     onFailure: (String) -> Unit,
@@ -149,7 +151,7 @@ internal fun createTradingViewWebView(
 
     fun pollForWidget(view: WebView) {
         if (settled) return
-        view.evaluateJavascript(WIDGET_IFRAME_CHECK) { result ->
+        view.evaluateJavascript(widgetReadyCheck) { result ->
             if (settled) return@evaluateJavascript
             if (result == "true") {
                 finishReady()
@@ -179,7 +181,27 @@ internal fun createTradingViewWebView(
         setBackgroundColor(backgroundColor)
 
         webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?,
+            ): WebResourceResponse? = super.shouldInterceptRequest(view, request)
+
+            override fun doUpdateVisitedHistory(
+                view: WebView?,
+                url: String?,
+                isReload: Boolean,
+            ) {
+                super.doUpdateVisitedHistory(view, url, isReload)
+            }
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (BuildConfig.DEBUG) Log.d("TVWebView", "Page started loading: $url")
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (BuildConfig.DEBUG) Log.d("TVWebView", "Page finished loading: $url")
                 if (view != null) {
                     pollForWidget(view)
                 }
@@ -191,6 +213,7 @@ internal fun createTradingViewWebView(
                 request: WebResourceRequest?,
                 error: WebResourceError?,
             ) {
+                super.onReceivedError(view, request, error)
                 if (BuildConfig.DEBUG) {
                     Log.e(
                         "TVWebView",
@@ -211,6 +234,7 @@ internal fun createTradingViewWebView(
                 request: WebResourceRequest?,
                 errorResponse: WebResourceResponse?,
             ) {
+                super.onReceivedHttpError(view, request, errorResponse)
                 if (BuildConfig.DEBUG) {
                     Log.e(
                         "TVWebView",
@@ -231,9 +255,7 @@ internal fun createTradingViewWebView(
                 handler: SslErrorHandler?,
                 error: SslError?,
             ) {
-                if (BuildConfig.DEBUG) Log.e("TVWebView", "onReceivedSslError: $error")
-                handler?.cancel()
-                finishFailure("No se pudo establecer una conexión segura con TradingView")
+                handleTradingViewSslError(handler, error, ::finishFailure)
             }
 
             @Deprecated("Deprecated in Java")
@@ -311,6 +333,21 @@ private fun Uri?.isTradingViewUrl(): Boolean {
         host == "tradingview-widget.com" || host.endsWith(".tradingview-widget.com")
 }
 
+private fun handleTradingViewSslError(
+    handler: SslErrorHandler?,
+    error: SslError?,
+    onFailure: (String) -> Unit,
+) {
+    if (BuildConfig.DEBUG) {
+        Log.e(
+            "TVWebView",
+            "SSL validation failed: url=${error?.url} primaryError=${error?.primaryError}",
+        )
+    }
+    handler?.cancel()
+    onFailure("No se pudo establecer una conexión segura con TradingView")
+}
+
 private fun Int?.isFatalNetworkError(): Boolean = this in setOf(
     WebViewClient.ERROR_HOST_LOOKUP,
     WebViewClient.ERROR_CONNECT,
@@ -326,6 +363,8 @@ internal fun TradingViewWidgetWebView(
     reloadKey: Int,
     onStateChange: (TradingViewWidgetState) -> Unit,
     modifier: Modifier = Modifier,
+    templateAsset: String = TEMPLATE_ASSET,
+    widgetReadyCheck: String = WIDGET_IFRAME_CHECK,
 ) {
     val currentOnStateChange by rememberUpdatedState(onStateChange)
     var activeGeneration by remember(configJson) { mutableIntStateOf(-1) }
@@ -357,6 +396,8 @@ internal fun TradingViewWidgetWebView(
                 TradingViewWebViewInstance(
                     scriptSrc = scriptSrc,
                     configJson = configJson,
+                    templateAsset = templateAsset,
+                    widgetReadyCheck = widgetReadyCheck,
                     onLoading = {
                         currentOnStateChange(tradingViewLoadingState(activeGeneration >= 0))
                     },
@@ -388,15 +429,17 @@ internal fun TradingViewWidgetWebView(
 private fun TradingViewWebViewInstance(
     scriptSrc: String,
     configJson: String,
+    templateAsset: String,
+    widgetReadyCheck: String,
     onLoading: () -> Unit,
     onReady: () -> Unit,
     onFailure: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val templateResult = remember {
+    val templateResult = remember(templateAsset) {
         runCatching {
-            context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
+            context.assets.open(templateAsset).bufferedReader().use { it.readText() }
         }
     }
     val timeoutHolder = remember { TimeoutHolder() }
@@ -406,7 +449,7 @@ private fun TradingViewWebViewInstance(
     if (templateHtml == null) {
         LaunchedEffect(Unit) {
             if (BuildConfig.DEBUG) {
-                Log.e("TVWebView", "Missing asset: $TEMPLATE_ASSET", templateResult.exceptionOrNull())
+                Log.e("TVWebView", "Missing asset: $templateAsset", templateResult.exceptionOrNull())
             }
             onFailure("No se pudo inicializar TradingView")
         }
@@ -418,6 +461,7 @@ private fun TradingViewWebViewInstance(
             createTradingViewWebView(
                 ctx = ctx,
                 scriptSrc = scriptSrc,
+                widgetReadyCheck = widgetReadyCheck,
                 onLoading = onLoading,
                 onReady = onReady,
                 onFailure = onFailure,
