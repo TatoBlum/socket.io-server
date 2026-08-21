@@ -43,6 +43,8 @@ data class HeatmapConfig(
 internal val SP_MERVAL_HEATMAP_CONFIG = HeatmapConfig(
     dataSource = "BCBAIMV",
     locale = "es",
+    grouping = "sector",
+    blockSize = "Value.Traded",
 )
 
 @Composable

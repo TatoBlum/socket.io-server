@@ -16,7 +16,7 @@
       background: transparent;
     }
 
-    tv-market-overview {
+    tv-technical-analysis {
       display: block;
       width: 100%;
       height: 100vh;
@@ -41,11 +41,11 @@
     })();
   </script>
   <script type="module" src="{{SCRIPT_SRC}}"></script>
-  <tv-market-overview {{CONFIG}}></tv-market-overview>
+  <tv-technical-analysis {{CONFIG}}></tv-technical-analysis>
   <script>
     (function () {
       const syncWidgetSize = function () {
-        const widget = document.querySelector("tv-market-overview");
+        const widget = document.querySelector("tv-technical-analysis");
         const height = window.innerHeight + "px";
         document.documentElement.style.height = height;
         document.body.style.height = height;

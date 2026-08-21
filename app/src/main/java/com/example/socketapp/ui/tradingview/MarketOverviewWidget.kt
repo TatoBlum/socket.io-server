@@ -9,8 +9,33 @@ private const val SCRIPT_MARKET_OVERVIEW =
     "https://widgets.tradingview-widget.com/w/es/tv-market-overview.js"
 private const val MARKET_OVERVIEW_TEMPLATE_ASSET =
     "tradingview/market_overview_widget_template.html"
-private const val MARKET_OVERVIEW_READY_CHECK =
-    "customElements.get('tv-market-overview') !== undefined"
+internal const val MARKET_OVERVIEW_READY_CHECK = """
+    (function() {
+      if (!customElements.get('tv-market-overview')) return false;
+      var visibleTextElementCount = 0;
+      var hasRenderedChart = false;
+      (window.__tradingViewShadowRoots || []).forEach(function(root) {
+        Array.from(root.querySelectorAll('svg')).forEach(function(svg) {
+          var bounds = svg.getBoundingClientRect();
+          if (bounds.width > 0 && bounds.height > 0 &&
+              svg.querySelector('path[d], polyline[points]') !== null) {
+            hasRenderedChart = true;
+          }
+        });
+        visibleTextElementCount += Array.from(root.querySelectorAll('*')).filter(function(element) {
+          if (element.tagName === 'STYLE' || element.tagName === 'SCRIPT' ||
+              element.childElementCount > 0) {
+            return false;
+          }
+          var text = (element.textContent || '').trim();
+          if (text.length === 0) return false;
+          var bounds = element.getBoundingClientRect();
+          return bounds.width > 0 && bounds.height > 0;
+        }).length;
+      });
+      return hasRenderedChart || visibleTextElementCount >= 2;
+    })()
+"""
 
 data class MarketOverviewSection(
     val sectionName: String,

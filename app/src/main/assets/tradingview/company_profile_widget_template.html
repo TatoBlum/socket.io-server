@@ -16,7 +16,7 @@
       background: transparent;
     }
 
-    tv-market-overview {
+    tv-company-profile {
       display: block;
       width: 100%;
       height: 100vh;
@@ -41,11 +41,11 @@
     })();
   </script>
   <script type="module" src="{{SCRIPT_SRC}}"></script>
-  <tv-market-overview {{CONFIG}}></tv-market-overview>
+  <tv-company-profile {{CONFIG}}></tv-company-profile>
   <script>
     (function () {
+      const widget = document.querySelector("tv-company-profile");
       const syncWidgetSize = function () {
-        const widget = document.querySelector("tv-market-overview");
         const height = window.innerHeight + "px";
         document.documentElement.style.height = height;
         document.body.style.height = height;
@@ -54,6 +54,50 @@
       };
       syncWidgetSize();
       window.addEventListener("resize", syncWidgetSize);
+
+      const localizedSector = widget.dataset.localizedSector;
+      const localizedIndustry = widget.dataset.localizedIndustry;
+      const localizedDescription = widget.dataset.localizedDescription;
+      if (!localizedSector && !localizedIndustry && !localizedDescription) return;
+
+      const normalizeLabel = function (text) {
+        return text.trim().replace(/:$/, "").toLocaleLowerCase("es");
+      };
+
+      const replaceSummaryValue = function (labels, replacement) {
+        if (!replacement) return;
+        (window.__tradingViewShadowRoots || []).forEach(function (root) {
+          root.querySelectorAll(".row").forEach(function (row) {
+            const label = row.querySelector(".label");
+            const value = row.querySelector(".value");
+            if (label && value && labels.includes(normalizeLabel(label.textContent))) {
+              value.textContent = replacement;
+            }
+          });
+        });
+      };
+
+      const applyLocalization = function () {
+        replaceSummaryValue(["sector"], localizedSector);
+        replaceSummaryValue(["industria", "industry"], localizedIndustry);
+        if (localizedDescription) {
+          (window.__tradingViewShadowRoots || []).forEach(function (root) {
+            root.querySelectorAll(".description").forEach(function (description) {
+              if (description.textContent.trim().length > 0) {
+                description.textContent = localizedDescription;
+              }
+            });
+          });
+        }
+      };
+
+      let localizationAttempts = 0;
+      const localizeWhenReady = function () {
+        applyLocalization();
+        localizationAttempts += 1;
+        if (localizationAttempts < 150) window.setTimeout(localizeWhenReady, 100);
+      };
+      localizeWhenReady();
     })();
   </script>
 </body>

@@ -12,6 +12,21 @@
 </head>
 <body>
   <script>
+    window.__tradingViewWidgetFrameLoaded = false;
+    (function trackTradingViewFrameLoad() {
+      function trackFrame(frame) {
+        if (frame.dataset.tradingViewLoadTracked === "true") return;
+        frame.dataset.tradingViewLoadTracked = "true";
+        frame.addEventListener("load", function () {
+          window.__tradingViewWidgetFrameLoaded = true;
+        }, { once: true });
+      }
+
+      new MutationObserver(function () {
+        document.querySelectorAll(".tradingview-widget-container iframe").forEach(trackFrame);
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
+
     function syncSize() {
       var px = window.innerHeight + "px";
       document.documentElement.style.height = px;
