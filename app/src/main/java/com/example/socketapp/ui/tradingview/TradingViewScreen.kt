@@ -2,6 +2,9 @@ package com.example.socketapp.ui.tradingview
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -45,7 +48,18 @@ import com.example.socketapp.TradeType
 import com.example.socketapp.model.StockTicker
 
 private val HEATMAP_CARD_HEIGHT = 609.dp
+private val ADVANCED_CHART_CARD_HEIGHT = 610.dp
+private val TECHNICAL_ANALYSIS_CARD_HEIGHT = 340.dp
+private val FUNDAMENTAL_DATA_CARD_HEIGHT = 550.dp
+private val COMPANY_PROFILE_CARD_HEIGHT = 530.dp
 private val MARKET_OVERVIEW_CARD_HEIGHT = 570.dp
+private val HOTLISTS_CARD_HEIGHT = 520.dp
+private const val SYMBOL_DETAILS_SYMBOL = "NASDAQ:AAPL"
+private val SYMBOL_DETAILS_TICKER = SYMBOL_DETAILS_SYMBOL.substringAfter(':')
+
+private class InternalScrollGesture {
+    var isActive: Boolean = false
+}
 
 private data class MockHoldingTitle(
     val codeType: String,
@@ -149,19 +163,61 @@ fun TradingViewScreen(
     favorites: List<StockTicker>,
     onTradeAction: (codeType: String, codeValue: String, tradeType: TradeType) -> Unit,
 ) {
+    val screenScrollState = rememberScrollState()
+    val internalScrollGesture = remember { InternalScrollGesture() }
+    val outerScrollableState = rememberScrollableState { delta ->
+        if (internalScrollGesture.isActive) {
+            0f
+        } else {
+            screenScrollState.dispatchRawDelta(delta)
+        }
+    }
     var heatmapState by remember { mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading) }
     var heatmapReloadTrigger by remember { mutableIntStateOf(0) }
+
+    var advancedChartState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var advancedChartReloadTrigger by remember { mutableIntStateOf(0) }
+
+    var technicalAnalysisState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var technicalAnalysisReloadTrigger by remember { mutableIntStateOf(0) }
+
+    var fundamentalDataState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var fundamentalDataReloadTrigger by remember { mutableIntStateOf(0) }
+
+    var companyProfileState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var companyProfileReloadTrigger by remember { mutableIntStateOf(0) }
 
     var marketOverviewState by remember {
         mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
     }
     var marketOverviewReloadTrigger by remember { mutableIntStateOf(0) }
 
+    var hotlistsState by remember {
+        mutableStateOf<TradingViewWidgetState>(TradingViewWidgetState.Loading)
+    }
+    var hotlistsReloadTrigger by remember { mutableIntStateOf(0) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
+            .scrollable(
+                state = outerScrollableState,
+                orientation = Orientation.Vertical,
+                reverseDirection = true,
+            )
+            .verticalScroll(
+                state = screenScrollState,
+                enabled = false,
+            )
             .padding(16.dp),
     ) {
         if (favorites.isNotEmpty()) {
@@ -197,6 +253,95 @@ fun TradingViewScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         WidgetCard(
+            title = "Gráfico avanzado · $SYMBOL_DETAILS_TICKER",
+        ) {
+            WidgetBox(
+                height = ADVANCED_CHART_CARD_HEIGHT,
+                state = advancedChartState,
+                onRetry = { advancedChartReloadTrigger++ },
+            ) {
+                TradingViewAdvancedChartEmbedWebView(
+                    config = AdvancedChartEmbedConfig(symbol = SYMBOL_DETAILS_SYMBOL),
+                    reloadKey = advancedChartReloadTrigger,
+                    onStateChange = { advancedChartState = it },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(
+            title = "Análisis técnico · $SYMBOL_DETAILS_TICKER",
+        ) {
+            WidgetBox(
+                height = TECHNICAL_ANALYSIS_CARD_HEIGHT,
+                state = technicalAnalysisState,
+                onRetry = { technicalAnalysisReloadTrigger++ },
+            ) {
+                TradingViewTechnicalAnalysisWebView(
+                    symbol = SYMBOL_DETAILS_SYMBOL,
+                    reloadKey = technicalAnalysisReloadTrigger,
+                    onStateChange = { technicalAnalysisState = it },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(
+            title = "Datos fundamentales · $SYMBOL_DETAILS_TICKER",
+        ) {
+            WidgetBox(
+                height = FUNDAMENTAL_DATA_CARD_HEIGHT,
+                state = fundamentalDataState,
+                onRetry = { fundamentalDataReloadTrigger++ },
+            ) {
+                TradingViewFundamentalDataWebView(
+                    symbol = SYMBOL_DETAILS_SYMBOL,
+                    reloadKey = fundamentalDataReloadTrigger,
+                    onStateChange = { fundamentalDataState = it },
+                    onBoundaryScroll = { deltaY ->
+                        screenScrollState.dispatchRawDelta(-deltaY)
+                    },
+                    onScrollGestureActiveChange = { isActive ->
+                        internalScrollGesture.isActive = isActive
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(
+            title = "Perfil de empresa · $SYMBOL_DETAILS_TICKER",
+        ) {
+            WidgetBox(
+                height = COMPANY_PROFILE_CARD_HEIGHT,
+                state = companyProfileState,
+                onRetry = { companyProfileReloadTrigger++ },
+            ) {
+                TradingViewCompanyProfileWebView(
+                    symbol = SYMBOL_DETAILS_SYMBOL,
+                    reloadKey = companyProfileReloadTrigger,
+                    onStateChange = { companyProfileState = it },
+                    localization = APPLE_COMPANY_PROFILE_SPANISH,
+                    onBoundaryScroll = { deltaY ->
+                        screenScrollState.dispatchRawDelta(-deltaY)
+                    },
+                    onScrollGestureActiveChange = { isActive ->
+                        internalScrollGesture.isActive = isActive
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(
             title = "Movimientos · S&P Merval",
         ) {
             WidgetBox(
@@ -207,6 +352,24 @@ fun TradingViewScreen(
                 TradingViewMarketOverviewWebView(
                     reloadKey = marketOverviewReloadTrigger,
                     onStateChange = { marketOverviewState = it },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        WidgetCard(
+            title = "Ganadores, perdedores y más operados · BYMA",
+        ) {
+            WidgetBox(
+                height = HOTLISTS_CARD_HEIGHT,
+                state = hotlistsState,
+                onRetry = { hotlistsReloadTrigger++ },
+            ) {
+                TradingViewHotlistsWebView(
+                    reloadKey = hotlistsReloadTrigger,
+                    onStateChange = { hotlistsState = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

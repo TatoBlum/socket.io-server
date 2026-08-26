@@ -8,8 +8,10 @@ import android.webkit.WebViewClient
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -299,6 +301,50 @@ class TradingViewWebViewLifecycleTest {
         Thread.sleep(200L)
 
         assertNull(boundaryDelta.get())
+    }
+
+    @Test
+    fun internalGestureKeepsOuterScrollBlockedUntilTouchEnds() {
+        val webViewReference = AtomicReference<WebView>()
+        val gestureStates = CopyOnWriteArrayList<Boolean>()
+
+        composeRule.setContent {
+            AndroidView(
+                factory = { context ->
+                    createTradingViewWebView(
+                        ctx = context,
+                        monitoredUrl = "",
+                        widgetReadyCheck = "false",
+                        handlesInternalVerticalScroll = true,
+                        onLoading = {},
+                        onReady = {},
+                        onFailure = {},
+                        onInternalScrollBoundary = {},
+                        onInternalScrollGestureActiveChange = gestureStates::add,
+                        timeoutHolder = TimeoutHolder(),
+                        backgroundColor = Color.WHITE,
+                    ).apply {
+                        loadDataWithBaseURL(
+                            TEST_BASE_URL,
+                            EMPTY_TEST_HTML,
+                            "text/html",
+                            "UTF-8",
+                            null,
+                        )
+                        webViewReference.set(this)
+                    }
+                },
+            )
+        }
+
+        val webView = waitForWebView(webViewReference)
+        waitForBoolean(webView, "document.readyState === 'complete'")
+        dispatchGesture(webView, startX = 100f, startY = 300f, endX = 100f, endY = 150f)
+
+        composeRule.waitUntil(timeoutMillis = TEST_TIMEOUT_MS) {
+            gestureStates.lastOrNull() == false
+        }
+        assertEquals(listOf(true, false), gestureStates.toList())
     }
 
     @Test

@@ -13,8 +13,8 @@ class HeatmapConfigTest {
 
         assertEquals("BCBAIMV", json.getString("dataSource"))
         assertEquals(0, json.getJSONArray("exchanges").length())
-        assertEquals("no_group", json.getString("grouping"))
-        assertEquals("market_cap_basic", json.getString("blockSize"))
+        assertEquals("sector", json.getString("grouping"))
+        assertEquals("Value.Traded", json.getString("blockSize"))
         assertEquals("change|60", json.getString("blockColor"))
         assertEquals("es", json.getString("locale"))
         assertEquals("", json.getString("symbolUrl"))

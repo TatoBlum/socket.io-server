@@ -116,6 +116,8 @@ internal class TradingViewScrollCoordinator(
     private var boundsRevision = 0L
     private var nextPollId = 0L
     private var activePollId: Long? = null
+    private var isHandingOffToParent = false
+    private var handoffDirection = 0
 
     @SuppressLint("ClickableViewAccessibility")
     fun attach() {
@@ -174,18 +176,18 @@ internal class TradingViewScrollCoordinator(
     }
 
     private fun onTouch(view: View, event: MotionEvent): Boolean {
-        when (event.actionMasked) {
+        return when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> startGesture(view, event)
             MotionEvent.ACTION_MOVE -> moveGesture(event)
             MotionEvent.ACTION_POINTER_UP -> replaceLiftedPointer(view, event)
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL,
             -> releaseParentIntercept(view)
+            else -> isHandingOffToParent
         }
-        return false
     }
 
-    private fun startGesture(view: View, event: MotionEvent) {
+    private fun startGesture(view: View, event: MotionEvent): Boolean {
         activePointerId = event.getPointerId(0)
         downTouchRawX = event.rawX
         downTouchRawY = event.rawY
@@ -195,16 +197,29 @@ internal class TradingViewScrollCoordinator(
         onGestureActiveChange(true)
         view.parent?.requestDisallowInterceptTouchEvent(true)
         updateBounds(force = true)
+        isHandingOffToParent = false
+        return false
     }
 
-    private fun moveGesture(event: MotionEvent) {
+    private fun moveGesture(event: MotionEvent): Boolean {
         val pointerIndex = event.findPointerIndex(activePointerId)
-        if (pointerIndex < 0) return
+        if (pointerIndex < 0) return isHandingOffToParent
 
         val touchRawX = event.pointerRawX(pointerIndex)
         val touchRawY = event.pointerRawY(pointerIndex)
         val deltaY = touchRawY - lastTouchRawY
         lastTouchRawY = touchRawY
+        val deltaDirection = when {
+            deltaY > 0f -> 1
+            deltaY < 0f -> -1
+            else -> 0
+        }
+        if (isHandingOffToParent && deltaDirection != 0 && deltaDirection != handoffDirection) {
+            // A direction reversal starts a new inner-scroll phase. Keeping the
+            // handoff latched would make the WebView appear stuck after an edge.
+            isHandingOffToParent = false
+            handoffDirection = 0
+        }
         webView.recordVerticalTouchDelta(deltaY)
 
         if (isVerticalGesture == null) {
@@ -214,7 +229,7 @@ internal class TradingViewScrollCoordinator(
                 touchSlop = touchSlop,
             )
         }
-        if (isVerticalGesture != true) return
+        if (isVerticalGesture != true) return isHandingOffToParent
 
         updateBounds()
         if (
@@ -226,18 +241,30 @@ internal class TradingViewScrollCoordinator(
                 nativeClampedInDirection = webView.isClampedInDirection(deltaY),
             )
         ) {
+            // The WebView must not process this same move after the parent has
+            // received it; otherwise both scroll containers consume one delta.
+            if (!isHandingOffToParent) {
+                // Let the parent take ownership of the remaining drag. The
+                // current delta is dispatched explicitly below because the
+                // parent cannot retroactively intercept this MotionEvent.
+                webView.parent?.requestDisallowInterceptTouchEvent(false)
+                onGestureActiveChange(false)
+            }
+            isHandingOffToParent = true
+            handoffDirection = deltaDirection
             onBoundaryScroll(deltaY)
         }
+        return isHandingOffToParent
     }
 
-    private fun replaceLiftedPointer(view: View, event: MotionEvent) {
+    private fun replaceLiftedPointer(view: View, event: MotionEvent): Boolean {
         val liftedPointerIndex = event.actionIndex
-        if (event.getPointerId(liftedPointerIndex) != activePointerId) return
+        if (event.getPointerId(liftedPointerIndex) != activePointerId) return isHandingOffToParent
 
         val replacementIndex = (0 until event.pointerCount).firstOrNull { it != liftedPointerIndex }
         if (replacementIndex == null) {
             releaseParentIntercept(view)
-            return
+            return false
         }
 
         activePointerId = event.getPointerId(replacementIndex)
@@ -245,14 +272,18 @@ internal class TradingViewScrollCoordinator(
         downTouchRawY = event.pointerRawY(replacementIndex)
         lastTouchRawY = downTouchRawY
         isVerticalGesture = null
+        return isHandingOffToParent
     }
 
-    private fun releaseParentIntercept(view: View) {
+    private fun releaseParentIntercept(view: View): Boolean {
         activePointerId = MotionEvent.INVALID_POINTER_ID
         isVerticalGesture = null
         webView.endVerticalGesture()
         onGestureActiveChange(false)
         view.parent?.requestDisallowInterceptTouchEvent(false)
+        isHandingOffToParent = false
+        handoffDirection = 0
+        return false
     }
 
     private fun MotionEvent.pointerRawX(pointerIndex: Int): Float =
