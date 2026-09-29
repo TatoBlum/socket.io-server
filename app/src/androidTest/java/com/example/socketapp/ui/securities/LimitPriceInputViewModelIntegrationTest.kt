@@ -16,7 +16,7 @@ import androidx.compose.ui.text.TextRange
 import com.example.socketapp.Security
 import com.example.socketapp.TradeValidator
 import com.example.socketapp.TradeViewModel
-import com.example.socketapp.data.SecuritiesRepository
+import com.example.socketapp.data.MockSecuritiesRepository
 import org.junit.Rule
 import org.junit.Test
 
@@ -100,14 +100,17 @@ class LimitPriceInputViewModelIntegrationTest {
     ): androidx.compose.ui.test.SemanticsNodeInteraction =
         assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, selection))
 
-    private class EmptySecuritiesRepository : SecuritiesRepository {
+    private class EmptySecuritiesRepository : MockSecuritiesRepository() {
         override fun getCachedSecurities(): List<Security>? = null
 
         override suspend fun refreshSecurities(): List<Security> = emptyList()
 
         override suspend fun getBuyableInstruments(): List<Security> = emptyList()
 
-        override suspend fun getBuyableInstrument(id: String): Security? = null
+        override suspend fun getBuyableInstrument(
+            codeType: String,
+            codeValue: String,
+        ): Security? = null
     }
 
     private companion object {

@@ -168,28 +168,29 @@ fun TradeScreen(
             Spacer(modifier = Modifier.height(26.dp))
 
             if (uiState.tradeOption == TradeOption.ADVANCE) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SelectorButton(
-                    label = "Plazo: ${uiState.settlementTerm.label}",
-                    selected = true,
-                    onClick = { activeSheet = TradeSheet.Settlement },
-                    modifier = Modifier.weight(1f),
-                )
-                SelectorButton(
-                    label = "Orden: ${uiState.orderType.label}",
-                    selected = false,
-                    onClick = { activeSheet = TradeSheet.OrderType },
-                    modifier = Modifier.weight(1f),
-                )
-            } }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SelectorButton(
+                        label = "Plazo: ${uiState.settlementTerm.label}",
+                        selected = true,
+                        onClick = { activeSheet = TradeSheet.Settlement },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SelectorButton(
+                        label = "Orden: ${uiState.orderType.label}",
+                        selected = false,
+                        onClick = { activeSheet = TradeSheet.OrderType },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
 
             if (
                 uiState.orderType == TradeOrderType.Limit &&
-                (TradeOption.ADVANCE == uiState.tradeOption || uiState.requiresLimitOrder)
+                (TradeOption.ADVANCE == uiState.tradeOption || uiState.isLimitPriceOnly)
             ) {
                 Spacer(modifier = Modifier.height(14.dp))
                 LimitPriceInput(

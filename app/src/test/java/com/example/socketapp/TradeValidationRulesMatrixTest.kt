@@ -510,7 +510,7 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        assertFalse(result.errors.any { error -> error.isLimitPriceError() })
+        assertFalse(result.errors.any { error -> error.isLimitPriceValidationError() })
         assertEquals("102.50", result.tradePrice.toPlainString())
         assertEquals("102.50", result.tradeAmount.toPlainString())
         assertTrue(result.canContinue)
@@ -1234,4 +1234,15 @@ class TradeValidationRulesMatrixTest {
             finalFeePercent = BigDecimal("0.702"),
         )
     }
+
+    private fun TradeValidationError.isLimitPriceValidationError(): Boolean =
+        when (this) {
+            TradeValidationError.InvalidLimitPrice,
+            is TradeValidationError.LimitPriceOutOfBandBuy,
+            is TradeValidationError.LimitPriceOutOfBandSell,
+            is TradeValidationError.LimitPriceNotMultiple,
+            -> true
+
+            else -> false
+        }
 }

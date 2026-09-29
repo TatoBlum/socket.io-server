@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -44,35 +43,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socketapp.Account
-import com.example.socketapp.BuyOrderType
-import com.example.socketapp.BuySecurityUiState
+import com.example.socketapp.TradeOrderType
+import com.example.socketapp.TradeViewModelState
+import com.example.socketapp.R
 import com.example.socketapp.TradeValidationError
 import com.example.socketapp.TradeType
 import com.example.socketapp.ui.theme.AppPrimary
 import java.math.BigDecimal
-import java.math.RoundingMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TradeConfirmationScreen(
-    uiState: BuySecurityUiState,
+    uiState: TradeViewModelState,
     onBack: () -> Unit,
-    onFeeAccountSelected: (Account) -> Unit,
+    onFeeCommissionAccountSelected: (Account) -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val instrument = uiState.instrument
     val validation = uiState.validation
     val confirmation = uiState.confirmation
-    val accountValue = uiState.accountContext.selectedAccount.number
-    val feeAccounts = uiState.accountContext.availableArsAccounts
-    val feeAccount = uiState.accountContext.effectiveFeeAccount
+    val accountValue = uiState.selectedAccount?.number.orEmpty()
+    val feeAccounts = uiState.availableFeeCommissionAccounts
+    val feeAccount = uiState.selectedFeeCommissionAccount
     val needsFeeAccount = uiState.tradeCurrency == "USD"
     var showFeeAccountSheet by remember { mutableStateOf(false) }
     val isSell = uiState.tradeType == TradeType.Sell
@@ -164,7 +164,7 @@ fun TradeConfirmationScreen(
             )
             ConfirmationRow(
                 label = "Cuenta inversora",
-                value = uiState.accountContext.investmentAccount,
+                value = uiState.investmentAccount,
             )
             if (needsFeeAccount) {
                 FeeAccountRow(
@@ -181,8 +181,8 @@ fun TradeConfirmationScreen(
             ConfirmationRow(
                 label = "Orden",
                 value = when (uiState.orderType) {
-                    BuyOrderType.Limit -> "Precio limite"
-                    BuyOrderType.Market -> "Mercado"
+                    TradeOrderType.Limit -> "Precio limite"
+                    TradeOrderType.Market -> "Mercado"
                 },
             )
             ConfirmationRow(
@@ -195,11 +195,19 @@ fun TradeConfirmationScreen(
             )
             ConfirmationRow(
                 label = "Monto de la operacion",
-                value = validation.tradeAmount.formatCurrency(),
+                value = confirmation.subTotal.formatCurrency(),
             )
             ConfirmationRow(
-                label = "Fee",
-                value = confirmation.fee.formatCurrency(),
+                label = "Comisión",
+                value = confirmation.operationFee.formatCurrency(),
+            )
+            ConfirmationRow(
+                label = "Derechos de mercado",
+                value = confirmation.marketFee.formatCurrency(),
+            )
+            ConfirmationRow(
+                label = "Impuestos",
+                value = confirmation.taxes.formatCurrency(),
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -255,7 +263,7 @@ fun TradeConfirmationScreen(
                 selected = feeAccount,
                 onDismiss = { showFeeAccountSheet = false },
                 onSelect = { account ->
-                    onFeeAccountSelected(account)
+                    onFeeCommissionAccountSelected(account)
                     showFeeAccountSheet = false
                 },
             )
@@ -331,7 +339,7 @@ private fun FeeAccountRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Cuenta para fee",
+            text = "Cuenta para comisiones",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
@@ -378,7 +386,7 @@ private fun FeeAccountSelectionSheet(
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "Cuenta para fee",
+                text = "Cuenta para comisiones",
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 22.sp,
@@ -399,71 +407,26 @@ private fun FeeAccountSelectionSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        accounts.forEachIndexed { index, account ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { onSelect(account) },
-                    ),
-                verticalAlignment = Alignment.Top,
-            ) {
-                RadioButton(
-                    selected = account == selected,
-                    onClick = { onSelect(account) },
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Column(modifier = Modifier.padding(top = 10.dp)) {
-                    Text(
-                        text = account.number,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 16.sp,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = account.description.ifBlank { account.currency },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        lineHeight = 17.sp,
-                    )
-                }
-            }
-            if (index != accounts.lastIndex) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.padding(start = 48.dp, top = 12.dp, bottom = 12.dp),
-                )
-            }
-        }
+        AccountSelectionList(
+            accounts = accounts,
+            selected = selected,
+            onSelect = onSelect,
+        )
     }
 }
 
 private fun BigDecimal.toPlainQuantityString(): String =
     stripTrailingZeros().toPlainString()
 
+@Composable
 private fun TradeValidationError.toConfirmationErrorMessage(): String =
     when (this) {
-        TradeValidationError.InsufficientArsForFee -> "Saldo insuficiente en pesos para fee"
-        TradeValidationError.MissingArsFeeAccount -> "No hay cuenta en pesos para debitar el fee"
-        TradeValidationError.FeeAccountNotSelected -> "Selecciona una cuenta en pesos para debitar el fee"
-        is TradeValidationError.InsufficientArs -> "Supera tu saldo disponible"
-        is TradeValidationError.InsufficientUsd -> "Supera tu saldo disponible"
-        TradeValidationError.SelectedAccountCurrencyMismatch -> "Selecciona una cuenta de la moneda del instrumento"
-        else -> "No se puede confirmar la operacion"
+        TradeValidationError.InsufficientArsForFee -> stringResource(R.string.trade_error_insufficient_ars_for_fee)
+        TradeValidationError.MissingArsFeeAccount -> stringResource(R.string.trade_error_missing_ars_fee_account)
+        TradeValidationError.FeeAccountNotSelected -> stringResource(R.string.trade_error_fee_account_not_selected)
+        is TradeValidationError.InsufficientArs -> stringResource(R.string.trade_error_insufficient_balance)
+        is TradeValidationError.InsufficientUsd -> stringResource(R.string.trade_error_insufficient_balance)
+        TradeValidationError.SelectedAccountCurrencyMismatch ->
+            stringResource(R.string.trade_error_selected_account_currency_mismatch)
+        else -> stringResource(R.string.trade_error_confirmation_generic)
     }
-
-private fun BigDecimal.formatCurrency(): String {
-    val plainValue = setScale(2, RoundingMode.HALF_UP).toPlainString()
-    val integerPart = plainValue.substringBefore(".")
-    val decimalPart = plainValue.substringAfter(".")
-    val groupedInteger = integerPart
-        .reversed()
-        .chunked(3)
-        .joinToString(".")
-        .reversed()
-
-    return "$$groupedInteger,$decimalPart"
-}

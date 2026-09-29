@@ -64,6 +64,12 @@ class SecuritiesViewModel @Inject constructor(
         applyFilters()
     }
 
+    fun clearRepositoryCache() {
+        repository.clearCache()
+        allSecurities = emptyList()
+        favoriteStateOverrides.clear()
+    }
+
     fun onFavouriteClick(ticker: String) {
         val selectedSecurity = allSecurities.firstOrNull { security -> security.ticker == ticker } ?: return
         val newFavourite = !selectedSecurity.isFavorite

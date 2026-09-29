@@ -159,11 +159,24 @@ data class Account(
             market24 = balanceMarket24.toMoneyBigDecimal(),
     )
 
+    val isFima: Boolean
+        get() = type.equals("FIMA", ignoreCase = true)
+
     val isArs: Boolean
         get() = currency.normalizedCurrency() == "ARS"
 
     val isUsd: Boolean
         get() = currency.normalizedCurrency() == "USD"
+
+    fun availableBalanceFor(
+        orderType: TradeOrderType,
+        settlementTerm: SettlementType,
+    ): BigDecimal =
+        if (isArs && isFima) {
+            balance
+        } else {
+            tradingBalances.balanceFor(orderType, settlementTerm)
+        }
 }
 
 data class TradeValidationResult(
@@ -285,8 +298,7 @@ data class TradeViewModelState(
         settlementTerm: SettlementType,
     ): BigDecimal =
         selectedAccount
-            ?.tradingBalances
-            ?.balanceFor(orderType, settlementTerm)
+            ?.availableBalanceFor(orderType, settlementTerm)
             ?: BigDecimal.ZERO
 }
 
@@ -536,14 +548,14 @@ class TradeViewModel @Inject constructor(
         return when (state.tradeType) {
             TradeType.Buy -> TradeInputLimitPriceHelper.MaxAllowed(
                 amount = instrument.askPriceFor(state.settlementTerm)
-                    .multiply(BigDecimal.ONE.add(instrument.percentageMovement.toPriceBandMovement()))
+                    .multiply(BigDecimal.ONE.add(instrument.percentageMovement.toViewModelPriceBandMovement()))
                     .setScale(2, RoundingMode.HALF_UP),
                 currencySymbol = instrument.currencySymbol,
             )
 
             TradeType.Sell -> TradeInputLimitPriceHelper.MinAllowed(
                 amount = instrument.bidPriceFor(state.settlementTerm)
-                    .multiply(BigDecimal.ONE.subtract(instrument.percentageMovement.toPriceBandMovement()))
+                    .multiply(BigDecimal.ONE.subtract(instrument.percentageMovement.toViewModelPriceBandMovement()))
                     .setScale(2, RoundingMode.HALF_UP),
                 currencySymbol = instrument.currencySymbol,
             )
@@ -553,7 +565,7 @@ class TradeViewModel @Inject constructor(
 }
 
 private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode): TradeValidationError? {
-    val inputErrors = filter { error -> !error.isLimitPriceError() }
+    val inputErrors = filter { error -> !error.isLimitPriceValidationError() }
     return when (inputMode) {
         BuyInputMode.Amount -> inputErrors.firstOrNull { error -> error is TradeValidationError.OperationAmountAboveMax }
             ?: inputErrors.firstOrNull { error -> error is TradeValidationError.AmountNotEnoughForMin }
@@ -566,11 +578,31 @@ private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode
 private fun TradeValidationResult.visibleLimitPriceError(
     state: TradeViewModelState,
 ): TradeValidationError? {
-    val limitPriceError = errors.firstOrNull { error -> error.isLimitPriceError() }
+    val limitPriceError = errors.firstOrNull { error -> error.isLimitPriceValidationError() }
         ?: return null
     val userInteractedWithLimitPrice = state.isLimitPriceInputTouched || state.limitPriceInput.isNotBlank()
 
     return if (userInteractedWithLimitPrice) limitPriceError else null
+}
+
+private fun TradeValidationError.isLimitPriceValidationError(): Boolean =
+    when (this) {
+        TradeValidationError.InvalidLimitPrice,
+        is TradeValidationError.LimitPriceOutOfBandBuy,
+        is TradeValidationError.LimitPriceOutOfBandSell,
+        is TradeValidationError.LimitPriceNotMultiple,
+        -> true
+
+        else -> false
+    }
+
+private fun BigDecimal.toViewModelPriceBandMovement(): BigDecimal {
+    val positiveMovement = abs()
+    return if (positiveMovement > BigDecimal.ONE) {
+        positiveMovement.divide(BigDecimal("100"), 8, RoundingMode.HALF_UP)
+    } else {
+        positiveMovement
+    }
 }
 
 internal fun String.toMoneyBigDecimal(): BigDecimal {

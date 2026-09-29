@@ -34,10 +34,10 @@ Security:
   entre refreshes. Para backend deberia ser inmutable y unico.
 
 - symbol: String
-  Ticker visible. Ejemplos actuales: GGAL, YPFD, AAPL.
+  Ticker visible. Ejemplos actuales: MOLI, YPFD, AAPL.
 
 - name: String
-  Nombre largo visible. Ejemplos: Grupo Financiero Galicia, YPF, Apple.
+  Nombre largo visible. Ejemplos: Molinos Rio de la Plata, YPF, Apple.
 
 - price: BigDecimal
   Precio actual. En UI se muestra con 2 decimales.
@@ -260,9 +260,9 @@ hacer optimistic update al tocar la estrella y reconciliar si backend falla.
 Contrato JSON sugerido para /securities
 [
   {
-    "id": "GGAL-BCBA",
-    "symbol": "GGAL",
-    "name": "Grupo Financiero Galicia",
+    "id": "MOLI-BCBA",
+    "symbol": "MOLI",
+    "name": "Molinos Rio de la Plata",
     "price": "1234.56",
     "priceChange": "12.34",
     "percentageChange": "1.01",

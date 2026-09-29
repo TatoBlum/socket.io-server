@@ -30,6 +30,19 @@ data class ServerListData<T>(
 
 typealias SecuritiesListResponse = ServerResponse<ServerListData<SecurityResponse>>
 typealias SecurityCategoriesResponse = ServerResponse<ServerListData<String>>
+typealias FavoritesResponse = ServerResponse<FavoritesDataResponse>
+
+@Serializable
+data class FavoritesRequest(
+    @SerialName("Favs")
+    val favs: List<String> = emptyList(),
+)
+
+@Serializable
+data class FavoritesDataResponse(
+    @SerialName("ErrorDetail")
+    val errorDetail: ErrorDetailResponse? = null,
+)
 
 @Serializable
 data class ErrorDetailResponse(
@@ -92,8 +105,9 @@ data class SecurityResponse(
     val bidPrice24: BigDecimal = BigDecimal.ZERO,
     @Serializable(with = BigDecimalSerializer::class)
     val percentageMovement: BigDecimal = BigDecimal.ZERO,
+    @SerialName("MinTradeAmount")
     @Serializable(with = BigDecimalSerializer::class)
-    val minBuyArsAmount: BigDecimal = BigDecimal.ZERO,
+    val minTradeAmount: BigDecimal = BigDecimal.ZERO,
 )
 
 fun SecurityResponse.toDomain(): Security =
@@ -122,7 +136,7 @@ fun SecurityResponse.toDomain(): Security =
         bidPrice00 = bidPrice00,
         bidPrice24 = bidPrice24,
         percentageMovement = percentageMovement,
-        minBuyArsAmount = minBuyArsAmount,
+        minTradeAmount = minTradeAmount,
     )
 
 object BigDecimalSerializer : KSerializer<BigDecimal> {

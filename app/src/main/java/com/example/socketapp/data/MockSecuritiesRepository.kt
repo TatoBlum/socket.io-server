@@ -4,13 +4,19 @@ import com.example.socketapp.Security
 import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 
+@Singleton
 open class MockSecuritiesRepository @Inject constructor() {
     private var cachedSecurities: List<Security>? = null
 
     open fun getCachedSecurities(): List<Security>? = cachedSecurities
+
+    open fun clearCache() {
+        cachedSecurities = null
+    }
 
     open suspend fun refreshSecurities(): List<Security> {
         delay(350)
@@ -33,7 +39,7 @@ open class MockSecuritiesRepository @Inject constructor() {
                 askPrice24 = ask,
                 bidPrice00 = bid,
                 bidPrice24 = bid,
-                minBuyArsAmount = BigDecimal(MOCK_MIN_BUY_ARS_AMOUNT),
+                minTradeAmount = BigDecimal(MOCK_MIN_TRADE_AMOUNT),
             )
         }
         cachedSecurities = refreshedSecurities
@@ -46,6 +52,10 @@ open class MockSecuritiesRepository @Inject constructor() {
     open suspend fun refreshSecuritySectors(): List<String> {
         delay(150)
         return MOCK_SECURITY_SECTORS
+    }
+
+    open suspend fun toggleFavorite(ticker: String) {
+        toggleFavorites(listOf(ticker))
     }
 
     open suspend fun toggleFavorites(tickers: List<String>) {
@@ -131,7 +141,7 @@ open class MockSecuritiesRepository @Inject constructor() {
             bidPrice00 = bid,
             bidPrice24 = bid,
             percentageMovement = BigDecimal("0.015"),
-            minBuyArsAmount = BigDecimal("100.00"),
+            minTradeAmount = BigDecimal("100.00"),
         )
     }
 
@@ -210,7 +220,7 @@ open class MockSecuritiesRepository @Inject constructor() {
                 bidPrice24 = bid,
                 percentageMovement = BigDecimal("0.015"),
                 holdingQuantity = mockHoldingQuantity(symbol, suffix),
-                minBuyArsAmount = BigDecimal(MOCK_MIN_BUY_ARS_AMOUNT),
+                minTradeAmount = BigDecimal(MOCK_MIN_TRADE_AMOUNT),
             )
         }
     }
@@ -245,7 +255,7 @@ open class MockSecuritiesRepository @Inject constructor() {
         const val DEFAULT_CODE_VALUE = "MOCK-0"
         const val DEFAULT_TICKER = "MOCK"
         const val DEFAULT_HOLDING_QUANTITY = 100
-        const val MOCK_MIN_BUY_ARS_AMOUNT = "100.00"
+        const val MOCK_MIN_TRADE_AMOUNT = "100.00"
         val MOCK_SECURITY_SECTORS = listOf("CER", "Dolar Linked")
     }
 }

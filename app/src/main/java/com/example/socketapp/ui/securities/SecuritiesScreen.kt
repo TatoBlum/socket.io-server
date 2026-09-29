@@ -33,13 +33,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -62,11 +65,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.socketapp.SecuritiesUiState
 import com.example.socketapp.SecuritiesViewModel
+import com.example.socketapp.Security
 import com.example.socketapp.SecurityFilters
 import com.example.socketapp.SecuritySortOption
-import com.example.socketapp.model.Security
 import com.example.socketapp.ui.theme.AvatarInitial
-import com.example.socketapp.ui.theme.GaliciaAvatarPalette
+import com.example.socketapp.ui.theme.AvatarPalette
 import com.example.socketapp.ui.theme.PriceDown
 import com.example.socketapp.ui.theme.PricePctTextStyle
 import com.example.socketapp.ui.theme.PriceTextStyle
@@ -143,32 +146,37 @@ fun SecuritiesScreen(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        if (uiState.items.isEmpty()) {
-            val message = when {
-                uiState.searchQuery.isNotBlank() -> "Sin resultados"
-                uiState.isLoading -> "Cargando acciones..."
-                else -> "No hay acciones disponibles"
-            }
+        if (uiState.errorState.first) {
             Text(
-                text = message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge,
+                text = uiState.errorState.second.orEmpty(),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
-                    .padding(32.dp)
-                    .align(Alignment.CenterHorizontally),
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             )
+        }
+
+        if (uiState.isLoading && uiState.items.isEmpty()) {
+            SecuritiesLoadingState()
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
         ) {
+            if (!uiState.isLoading && uiState.items.isEmpty()) {
+                item(key = "empty-state") {
+                    SecuritiesEmptyState(uiState = uiState)
+                }
+            }
+
             items(
                 items = uiState.items,
-                key = { item -> item.id },
+                key = { item -> item.codeValue },
             ) { item ->
                 SecurityItem(
                     item = item,
-                    onFavouriteClick = { onFavouriteClick(item.id) },
+                    onFavouriteClick = { onFavouriteClick(item.ticker) },
                     onClick = { onSecurityClick(item) },
                 )
                 HorizontalDivider(
@@ -188,7 +196,9 @@ fun SecuritiesScreen(
         ) {
             SecuritiesFilterSheet(
                 filters = draftFilters,
+                sectorOptions = uiState.sectorOptions,
                 onFiltersChange = { draftFilters = it },
+                onDismiss = { showFilters = false },
                 onClearFilters = {
                     draftFilters = SecurityFilters()
                     onClearFilters()
@@ -199,6 +209,45 @@ fun SecuritiesScreen(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun SecuritiesLoadingState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Cargando acciones...",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@Composable
+private fun SecuritiesEmptyState(uiState: SecuritiesUiState) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        val message = if (uiState.searchQuery.isNotBlank()) {
+            "Sin resultados"
+        } else {
+            "No hay acciones disponibles"
+        }
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
 
@@ -230,11 +279,11 @@ private fun SecurityItem(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(avatarColor(item.symbol)),
+                    .background(avatarColor(item.ticker)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = item.symbol.take(2),
+                    text = item.ticker.take(2),
                     color = AvatarInitial,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium,
@@ -243,13 +292,13 @@ private fun SecurityItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = item.symbol,
+                    text = item.ticker,
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = item.name,
+                    text = item.description,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -262,7 +311,7 @@ private fun SecurityItem(
             if (showFavouriteIcon) {
                 Spacer(modifier = Modifier.width(8.dp))
                 FavouriteIconButton(
-                    isFavourite = item.isFavourite,
+                    isFavourite = item.isFavorite,
                     onClick = onFavouriteClick,
                 )
             }
@@ -347,7 +396,9 @@ private fun FavouriteIconButton(
 @Composable
 private fun SecuritiesFilterSheet(
     filters: SecurityFilters,
+    sectorOptions: List<String>,
     onFiltersChange: (SecurityFilters) -> Unit,
+    onDismiss: () -> Unit,
     onClearFilters: () -> Unit,
     onApply: () -> Unit,
 ) {
@@ -357,12 +408,24 @@ private fun SecuritiesFilterSheet(
             .navigationBarsPadding()
             .padding(horizontal = 24.dp),
     ) {
-        Text(
-            text = "Filtrar",
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Filtrar",
+                modifier = Modifier.align(Alignment.Center),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Cerrar",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
@@ -396,7 +459,11 @@ private fun SecuritiesFilterSheet(
             SecurityCurrencyFilters.forEach { currency ->
                 FilterChip(
                     selected = currency in filters.currencies,
-                    onClick = { onFiltersChange(filters.copy(currencies = setOf(currency))) },
+                    onClick = {
+                        onFiltersChange(
+                            filters.copy(currencies = filters.currencies.toggleSingleSelection(currency)),
+                        )
+                    },
                     label = { Text(currency) },
                 )
             }
@@ -406,17 +473,25 @@ private fun SecuritiesFilterSheet(
             SecurityPanelFilters.forEach { panel ->
                 FilterChip(
                     selected = panel in filters.panels,
-                    onClick = { onFiltersChange(filters.copy(panels = setOf(panel))) },
+                    onClick = {
+                        onFiltersChange(
+                            filters.copy(panels = filters.panels.toggleSingleSelection(panel)),
+                        )
+                    },
                     label = { Text(panel) },
                 )
             }
         }
 
         FilterSection(title = "Sector") {
-            SecuritySectorFilters.forEach { sector ->
+            sectorOptions.forEach { sector ->
                 FilterChip(
                     selected = sector in filters.sectors,
-                    onClick = { onFiltersChange(filters.copy(sectors = setOf(sector))) },
+                    onClick = {
+                        onFiltersChange(
+                            filters.copy(sectors = filters.sectors.toggleSingleSelection(sector)),
+                        )
+                    },
                     label = { Text(sector) },
                 )
             }
@@ -444,16 +519,15 @@ private fun SecuritiesFilterSheet(
     }
 }
 
-private val SecurityCurrencyFilters = listOf("Pesos", "Dolares")
+private val SecurityCurrencyFilters = listOf("ARS", "USD")
 private val SecurityPanelFilters = listOf("S&P Merval", "General")
-private val SecuritySectorFilters = listOf(
-    "Energia",
-    "Tecnologia",
-    "IA",
-    "Industriales",
-    "Transporte",
-    "Finanzas",
-)
+
+private fun Set<String>.toggleSingleSelection(value: String): Set<String> =
+    if (value in this) {
+        emptySet()
+    } else {
+        setOf(value)
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -479,7 +553,7 @@ private fun FilterSection(
 }
 
 private fun avatarColor(symbol: String): Color =
-    GaliciaAvatarPalette[(symbol.hashCode() and 0x7FFFFFFF) % GaliciaAvatarPalette.size]
+    AvatarPalette[(symbol.hashCode() and 0x7FFFFFFF) % AvatarPalette.size]
 
 private enum class PriceVariationDirection {
     Up,
@@ -499,7 +573,7 @@ private fun Security.formattedPrice(): String =
 
 private fun Security.formattedVariation(): String {
     val roundedPriceChange = priceChange.abs().setScale(2, RoundingMode.HALF_UP)
-    val roundedPercentageChange = percentageChange.abs().setScale(2, RoundingMode.HALF_UP)
+    val roundedPercentageChange = dailyVariationPercent.abs().setScale(2, RoundingMode.HALF_UP)
 
     return "$roundedPriceChange ($roundedPercentageChange%)"
 }

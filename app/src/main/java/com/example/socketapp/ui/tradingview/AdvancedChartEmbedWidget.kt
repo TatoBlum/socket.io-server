@@ -58,5 +58,9 @@ fun TradingViewAdvancedChartEmbedWebView(
         reloadKey = reloadKey,
         onStateChange = onStateChange,
         modifier = modifier,
+        // The chart opens scrollable panels (for example, Indicators) inside
+        // its iframe. Keep the gesture in the WebView so those panels receive
+        // the touch instead of the screen-level scroll container.
+        handlesInternalVerticalScroll = true,
     )
 }
