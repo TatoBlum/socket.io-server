@@ -11,6 +11,7 @@ class AdvancedChartEmbedConfigTest {
     fun `default config matches advanced chart builder`() {
         val json = JSONObject(AdvancedChartEmbedConfig().toJson())
 
+        assertEquals("galiciaar", json.getString("Customer"))
         assertEquals("NASDAQ:AAPL", json.getString("symbol"))
         assertEquals("1", json.getString("interval"))
         assertEquals("America/Argentina/Buenos_Aires", json.getString("timezone"))

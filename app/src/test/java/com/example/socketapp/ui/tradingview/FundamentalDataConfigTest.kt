@@ -10,6 +10,7 @@ class FundamentalDataConfigTest {
     fun `config matches the fundamental data builder settings`() {
         val json = JSONObject(FundamentalDataConfig(symbol = "NASDAQ:AAPL").toJson())
 
+        assertEquals("galiciaar", json.getString("Customer"))
         assertEquals("NASDAQ:AAPL", json.getString("symbol"))
         assertEquals("light", json.getString("colorTheme"))
         assertEquals("regular", json.getString("displayMode"))

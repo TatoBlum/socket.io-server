@@ -14,6 +14,7 @@ data class FundamentalDataConfig(
     val locale: String = "es",
 ) {
     fun toJson(): String = JSONObject().apply {
+        put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("symbol", symbol)
         put("colorTheme", colorTheme)
         put("displayMode", displayMode)

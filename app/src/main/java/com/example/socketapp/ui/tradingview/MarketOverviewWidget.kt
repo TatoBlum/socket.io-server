@@ -48,6 +48,7 @@ data class MarketOverviewConfig(
     val hideMarketStatus: Boolean = true,
 ) {
     fun toJson(): String = JSONObject().apply {
+        put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("symbolSectors", symbolSectorsJson())
         put("timeFrame", timeFrame)
         put("hideMarketStatus", hideMarketStatus)

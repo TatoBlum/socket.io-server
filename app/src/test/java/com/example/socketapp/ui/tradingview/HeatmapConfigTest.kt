@@ -11,6 +11,7 @@ class HeatmapConfigTest {
     fun `Merval config matches TradingView widget builder`() {
         val json = JSONObject(SP_MERVAL_HEATMAP_CONFIG.toJson())
 
+        assertEquals("galiciaar", json.getString("Customer"))
         assertEquals("BCBAIMV", json.getString("dataSource"))
         assertEquals(0, json.getJSONArray("exchanges").length())
         assertEquals("sector", json.getString("grouping"))

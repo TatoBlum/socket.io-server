@@ -14,6 +14,7 @@ class MarketOverviewConfigTest {
         val sections = json.getJSONArray("symbolSectors")
         val section = sections.getJSONObject(0)
 
+        assertEquals("galiciaar", json.getString("Customer"))
         assertEquals(1, sections.length())
         assertEquals("S&P Merval", section.getString("sectionName"))
         assertEquals(1, section.getJSONArray("symbols").length())

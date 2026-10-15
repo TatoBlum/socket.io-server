@@ -22,6 +22,7 @@ data class AdvancedChartEmbedConfig(
     val saveImage: Boolean = true,
 ) {
     fun toJson(): String = JSONObject().apply {
+        put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("autosize", true)
         put("symbol", symbol)
         put("interval", interval)

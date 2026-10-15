@@ -18,6 +18,7 @@ data class HotlistsConfig(
     val showFloatingTooltip: Boolean = false,
 ) {
     fun toJson(): String = JSONObject().apply {
+        put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("exchange", exchange)
         put("colorTheme", colorTheme)
         put("dateRange", dateRange)

@@ -12,6 +12,7 @@ class HotlistsConfigTest {
     fun `BCBA hotlists show daily movers in Spanish without chart`() {
         val json = JSONObject(BCBA_HOTLISTS_CONFIG.toJson())
 
+        assertEquals("galiciaar", json.getString("Customer"))
         assertEquals("BCBA", json.getString("exchange"))
         assertEquals("1D", json.getString("dateRange"))
         assertEquals("es", json.getString("locale"))

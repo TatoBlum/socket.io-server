@@ -22,6 +22,7 @@ data class HeatmapConfig(
     val isMonoSize: Boolean = false,
 ) {
     fun toJson(): String = JSONObject().apply {
+        put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("dataSource", dataSource)
         put("exchanges", JSONArray(exchanges))
         put("locale", locale)
