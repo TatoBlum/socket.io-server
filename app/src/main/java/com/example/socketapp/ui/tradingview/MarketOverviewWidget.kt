@@ -44,13 +44,15 @@ data class MarketOverviewSection(
 
 data class MarketOverviewConfig(
     val symbolSectors: List<MarketOverviewSection>,
-    val timeFrame: String = "1D",
+    val timeFrame: String = "1m",
+    val mode: String = "market-movers",
     val hideMarketStatus: Boolean = true,
 ) {
     fun toJson(): String = JSONObject().apply {
         put(TRADING_VIEW_CUSTOMER_KEY, TRADING_VIEW_CUSTOMER)
         put("symbolSectors", symbolSectorsJson())
         put("timeFrame", timeFrame)
+        put("mode", mode)
         put("hideMarketStatus", hideMarketStatus)
     }.toString()
 
@@ -59,6 +61,8 @@ data class MarketOverviewConfig(
         append(symbolSectorsJson().toString().escapeHtmlAttribute())
         append("' time-frame=\"")
         append(timeFrame.escapeHtmlAttribute())
+        append("\" mode=\"")
+        append(mode.escapeHtmlAttribute())
         append('"')
         if (hideMarketStatus) append(" hide-market-status")
     }
