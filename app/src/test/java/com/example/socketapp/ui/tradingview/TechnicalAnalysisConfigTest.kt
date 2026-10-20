@@ -12,8 +12,8 @@ class TechnicalAnalysisConfigTest {
 
         assertTrue(attributes.contains("symbol=\"NASDAQ:AAPL\""))
         assertTrue(attributes.contains("interval=\"1D\""))
-        assertTrue(attributes.contains("ratings-mode=\"single\""))
-        assertTrue(attributes.contains("ratings-display-mode=\"gauge\""))
+        assertTrue(attributes.contains("ratings-mode=\"multiple\""))
+        assertTrue(attributes.contains("ratings-display-mode=\"gauge-and-stats\""))
     }
 
     @Test

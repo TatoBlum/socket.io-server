@@ -31,8 +31,8 @@ internal const val TECHNICAL_ANALYSIS_READY_CHECK = """
 data class TechnicalAnalysisConfig(
     val symbol: String,
     val interval: String = "1D",
-    val ratingsMode: String = "single",
-    val ratingsDisplayMode: String = "gauge",
+    val ratingsMode: String = "multiple",
+    val ratingsDisplayMode: String = "gauge-and-stats",
 ) {
     fun toHtmlAttributes(): String = buildString {
         append("symbol=\"")
@@ -60,6 +60,8 @@ fun TradingViewTechnicalAnalysisWebView(
     reloadKey: Int,
     onStateChange: (TradingViewWidgetState) -> Unit,
     modifier: Modifier = Modifier,
+    onBoundaryScroll: (Float) -> Unit = {},
+    onScrollGestureActiveChange: (Boolean) -> Unit = {},
 ) {
     val config = TechnicalAnalysisConfig(symbol = symbol)
 
@@ -71,5 +73,8 @@ fun TradingViewTechnicalAnalysisWebView(
         modifier = modifier,
         templateAsset = TECHNICAL_ANALYSIS_TEMPLATE_ASSET,
         widgetReadyCheck = TECHNICAL_ANALYSIS_READY_CHECK,
+        handlesInternalVerticalScroll = true,
+        onInternalScrollBoundary = onBoundaryScroll,
+        onInternalScrollGestureActiveChange = onScrollGestureActiveChange,
     )
 }
