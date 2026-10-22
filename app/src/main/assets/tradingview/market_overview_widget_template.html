@@ -36,6 +36,12 @@
       Element.prototype.attachShadow = function (options) {
         const root = originalAttachShadow.call(this, options);
         window.__tradingViewShadowRoots.push(root);
+        if (this.tagName === "TV-TICKER-ITEM") {
+          const hiddenStatusStyle = document.createElement("style");
+          hiddenStatusStyle.setAttribute("data-market-overview-hide-status", "");
+          hiddenStatusStyle.textContent = "tv-symbol-status { display: none !important; }";
+          root.appendChild(hiddenStatusStyle);
+        }
         return root;
       };
     })();
