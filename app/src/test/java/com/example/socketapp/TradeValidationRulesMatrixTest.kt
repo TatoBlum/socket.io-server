@@ -18,7 +18,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 2,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "250",
             ),
         )
@@ -39,7 +39,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "3",
             ),
         )
@@ -59,7 +59,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 2,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "199",
             ),
         )
@@ -78,7 +78,7 @@ class TradeValidationRulesMatrixTest {
                     askPrice00 = BigDecimal("10.00"),
                     minTradeAmount = BigDecimal("250.00"),
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -99,7 +99,7 @@ class TradeValidationRulesMatrixTest {
                     minTradeAmount = BigDecimal("250.00"),
                 ),
                 selectedAccount = account(selectedCurrency = "USD"),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -119,7 +119,7 @@ class TradeValidationRulesMatrixTest {
                     bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "1001",
             ),
         )
@@ -142,7 +142,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "901",
             ),
         )
@@ -219,7 +219,7 @@ class TradeValidationRulesMatrixTest {
                     minTradeAmount = BigDecimal.ZERO,
                 ),
                 selectedAccount = account(selectedCurrency = "USD"),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "49",
             ),
         )
@@ -239,7 +239,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "30",
             ),
         )
@@ -259,7 +259,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "20",
             ),
         )
@@ -279,7 +279,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "100",
             ),
         )
@@ -299,7 +299,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "99,99",
             ),
         )
@@ -307,6 +307,28 @@ class TradeValidationRulesMatrixTest {
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
         assertEquals("199.98", error.minAmount.toPlainString())
         assertEquals("2", error.minNominals?.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c3a buy amount below trade minimum preserves calculable estimate`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("79.19"),
+                    minInstrumentNominals = 1,
+                    lotInstrumentSize = 1,
+                ),
+                inputMode = TradeInputMode.Amount,
+                amountInputText = "99,99",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("158.38", error.minAmount.toPlainString())
+        assertEquals("2", error.minNominals?.toPlainString())
+        assertEquals("1", result.tradeNominals.toPlainString())
+        assertEquals("79.19", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -319,7 +341,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "101",
             ),
         )
@@ -342,7 +364,7 @@ class TradeValidationRulesMatrixTest {
                     lotInstrumentSize = 1,
                     minTradeAmount = BigDecimal("100.00"),
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "50",
             ),
         )
@@ -365,14 +387,14 @@ class TradeValidationRulesMatrixTest {
         val amountResult = validator.validate(
             state(
                 instrument = instrument,
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "100",
             ),
         )
         val quantityResult = validator.validate(
             state(
                 instrument = instrument,
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "3",
             ),
         )
@@ -394,7 +416,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "100",
             ),
         )
@@ -416,7 +438,7 @@ class TradeValidationRulesMatrixTest {
                     lotInstrumentSize = 1,
                     minTradeAmount = BigDecimal("100.00"),
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "100",
             ),
         )
@@ -437,7 +459,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 2,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "101",
             ),
         )
@@ -458,7 +480,7 @@ class TradeValidationRulesMatrixTest {
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -478,7 +500,7 @@ class TradeValidationRulesMatrixTest {
                 selectedAccount = account(
                     arsBalance = BigDecimal("1000.00"),
                 ),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "11",
             ),
         )
@@ -494,7 +516,7 @@ class TradeValidationRulesMatrixTest {
         val result = validator.validate(
             state(
                 instrument = instrument(askPrice00 = BigDecimal.ZERO),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -510,7 +532,7 @@ class TradeValidationRulesMatrixTest {
             state(
                 tradeType = TradeType.Sell,
                 instrument = instrument(bidPrice00 = BigDecimal.ZERO),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -526,7 +548,7 @@ class TradeValidationRulesMatrixTest {
             state(
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "0",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "10",
             ),
         )
@@ -544,7 +566,7 @@ class TradeValidationRulesMatrixTest {
             state(
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "10",
             ),
         )
@@ -566,7 +588,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "102,50",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -589,7 +611,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "102,42",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -610,7 +632,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "30",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -631,7 +653,7 @@ class TradeValidationRulesMatrixTest {
                     bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "1000",
             ),
         )
@@ -654,7 +676,7 @@ class TradeValidationRulesMatrixTest {
                 selectedAccount = account(
                     arsBalance = BigDecimal("1.00"),
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "500",
             ),
         )
@@ -670,13 +692,13 @@ class TradeValidationRulesMatrixTest {
             state(
                 instrument = instrument(askPrice00 = BigDecimal("100.00")),
                 selectedAccount = account(arsBalance = BigDecimal("500.00")),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "1000",
             ),
         )
 
         val error = result.errors.filterIsInstance<TradeValidationError.InsufficientArs>().single()
-        assertEquals(BuyInputMode.Amount, error.operationMode)
+        assertEquals(TradeInputMode.Amount, error.operationMode)
         assertEquals("1000.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
@@ -693,7 +715,7 @@ class TradeValidationRulesMatrixTest {
                     usdBalance = BigDecimal("500.00"),
                     selectedCurrency = "USD",
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "1000",
             ),
         )
@@ -715,7 +737,7 @@ class TradeValidationRulesMatrixTest {
                     arsBalance = BigDecimal("1000.00"),
                     selectedCurrency = "ARS",
                 ),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -739,7 +761,7 @@ class TradeValidationRulesMatrixTest {
                     arsBalance = BigDecimal("1000.00"),
                     selectedCurrency = "ARS",
                 ),
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -771,7 +793,7 @@ class TradeValidationRulesMatrixTest {
                     currency = "usd",
                     balances = tradingBalances(BigDecimal("500.00")),
                 ),
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "1000",
             ),
         )
@@ -790,7 +812,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "110",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -812,7 +834,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -850,7 +872,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,90",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -870,7 +892,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,89",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -892,7 +914,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "140,90",
-                inputMode = BuyInputMode.Quantity,
+                inputMode = TradeInputMode.Quantity,
                 quantityInputText = "1",
             ),
         )
@@ -981,7 +1003,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Market,
                 settlementTerm = SettlementType.TODAY,
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -999,7 +1021,7 @@ class TradeValidationRulesMatrixTest {
                 ),
                 orderType = TradeOrderType.Market,
                 settlementTerm = SettlementType.TWENTY_FOUR_HOURS,
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -1018,7 +1040,7 @@ class TradeValidationRulesMatrixTest {
                 orderType = TradeOrderType.Limit,
                 settlementTerm = SettlementType.TODAY,
                 limitPriceInput = "100",
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -1037,7 +1059,7 @@ class TradeValidationRulesMatrixTest {
                 orderType = TradeOrderType.Limit,
                 settlementTerm = SettlementType.TWENTY_FOUR_HOURS,
                 limitPriceInput = "100",
-                inputMode = BuyInputMode.Amount,
+                inputMode = TradeInputMode.Amount,
                 amountInputText = "200",
             ),
         )
@@ -1050,7 +1072,7 @@ class TradeValidationRulesMatrixTest {
     fun `25 buy validation excludes fee and confirmation validation includes fee`() {
         val state = state(
             instrument = instrument(askPrice00 = BigDecimal("100.00")),
-            inputMode = BuyInputMode.Quantity,
+            inputMode = TradeInputMode.Quantity,
             quantityInputText = "10",
         )
 
@@ -1089,7 +1111,7 @@ class TradeValidationRulesMatrixTest {
                 usdAccount,
                 arsFeeAccount,
             ),
-            inputMode = BuyInputMode.Quantity,
+            inputMode = TradeInputMode.Quantity,
             quantityInputText = "10",
         )
 
@@ -1122,7 +1144,7 @@ class TradeValidationRulesMatrixTest {
                 selectedCurrency = "USD",
                 arsBalances = null,
             ),
-            inputMode = BuyInputMode.Quantity,
+            inputMode = TradeInputMode.Quantity,
             quantityInputText = "10",
         )
 
@@ -1158,7 +1180,7 @@ class TradeValidationRulesMatrixTest {
                 anotherArsAccount,
             ),
             selectedAccount = accountWithBalances("USD", tradingBalances(BigDecimal("1000.00"))),
-            inputMode = BuyInputMode.Quantity,
+            inputMode = TradeInputMode.Quantity,
             quantityInputText = "10",
         )
 
@@ -1181,7 +1203,7 @@ class TradeValidationRulesMatrixTest {
         tradeType: TradeType = TradeType.Buy,
         orderType: TradeOrderType = TradeOrderType.Market,
         settlementTerm: SettlementType = SettlementType.TODAY,
-        inputMode: BuyInputMode = BuyInputMode.Amount,
+        inputMode: TradeInputMode = TradeInputMode.Amount,
         instrument: Security = instrument(),
         selectedAccount: Account? = account(),
         selectedFeeCommissionAccount: Account? = null,

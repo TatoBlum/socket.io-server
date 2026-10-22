@@ -91,8 +91,15 @@ class TradeValidator @Inject constructor() {
             )
         }
 
+        val (tradeNominals, tradeAmount) = computeTrade(
+            inputMode = state.inputMode,
+            activeInput = activeInput,
+            tradePrice = tradePrice,
+            lotSize = lotSize,
+        )
+
         if (
-            state.inputMode == BuyInputMode.Amount &&
+            state.inputMode == TradeInputMode.Amount &&
             activeInput < minimumTradeAmount
         ) {
             errors += TradeValidationError.OperationAmountBelowMin(
@@ -101,20 +108,14 @@ class TradeValidator @Inject constructor() {
             )
             return TradeValidationResult(
                 tradePrice = tradePrice,
-                tradeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+                tradeNominals = tradeNominals,
+                tradeAmount = tradeAmount,
                 maxNominals = maxNominals,
                 errors = errors,
             )
         }
 
-        val (tradeNominals, tradeAmount) = computeTrade(
-            inputMode = state.inputMode,
-            activeInput = activeInput,
-            tradePrice = tradePrice,
-            lotSize = lotSize,
-        )
-
-        if (state.inputMode == BuyInputMode.Amount && tradeNominals < minNominals.roundUpToMultipleOf(lotSize)) {
+        if (state.inputMode == TradeInputMode.Amount && tradeNominals < minNominals.roundUpToMultipleOf(lotSize)) {
             errors += TradeValidationError.AmountNotEnoughForMin(minimumAmountForOperation)
             return TradeValidationResult(
                 tradePrice = tradePrice,
@@ -127,7 +128,7 @@ class TradeValidator @Inject constructor() {
 
         if (
             state.tradeType == TradeType.Buy &&
-            state.inputMode == BuyInputMode.Amount &&
+            state.inputMode == TradeInputMode.Amount &&
             tradeAmount < minimumTradeAmount
         ) {
             errors += TradeValidationError.OperationAmountBelowMin(
@@ -146,7 +147,7 @@ class TradeValidator @Inject constructor() {
             holdingQuantity = instrument.holdingQuantity.toBigDecimal(),
         )
 
-        if (state.tradeType == TradeType.Sell && state.inputMode == BuyInputMode.Amount) {
+        if (state.tradeType == TradeType.Sell && state.inputMode == TradeInputMode.Amount) {
             errors += validateSellByAmountMax(
                 orderType = state.orderType,
                 tradeAmount = activeInput,
@@ -247,14 +248,14 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun computeTrade(
-        inputMode: BuyInputMode,
+        inputMode: TradeInputMode,
         activeInput: BigDecimal,
         tradePrice: BigDecimal,
         lotSize: BigDecimal,
     ): Pair<BigDecimal, BigDecimal> {
         val tradeNominals = when (inputMode) {
-            BuyInputMode.Quantity -> activeInput
-            BuyInputMode.Amount -> computeNominalsFromAmount(activeInput, tradePrice, lotSize)
+            TradeInputMode.Quantity -> activeInput
+            TradeInputMode.Amount -> computeNominalsFromAmount(activeInput, tradePrice, lotSize)
         }
         return tradeNominals to tradeNominals.multiply(tradePrice).toMoneyAmount()
     }
@@ -430,7 +431,7 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun validateNominals(
-        inputMode: BuyInputMode,
+        inputMode: TradeInputMode,
         tradeType: TradeType,
         tradeNominals: BigDecimal,
         minNominals: BigDecimal,
@@ -450,7 +451,7 @@ class TradeValidator @Inject constructor() {
         if (tradeType == TradeType.Sell && tradeNominals > holdingQuantity) {
             errors += TradeValidationError.NotEnoughNominals(holdingQuantity)
         }
-        if (tradeType == TradeType.Buy && inputMode == BuyInputMode.Quantity && tradeNominals > maxAffordableNominals) {
+        if (tradeType == TradeType.Buy && inputMode == TradeInputMode.Quantity && tradeNominals > maxAffordableNominals) {
             errors += TradeValidationError.NominalsOverAvailableBalance(maxAffordableNominals)
         }
         return errors
@@ -529,7 +530,7 @@ class TradeValidator @Inject constructor() {
     private fun validateBalances(
         tradeType: TradeType,
         currency: String,
-        operationMode: BuyInputMode,
+        operationMode: TradeInputMode,
         tradeAmount: BigDecimal,
         balance: BigDecimal,
     ): List<TradeValidationError> {
@@ -555,7 +556,7 @@ class TradeValidator @Inject constructor() {
 
     private fun validateOperationAmountLimits(
         tradeType: TradeType,
-        inputMode: BuyInputMode,
+        inputMode: TradeInputMode,
         operationAmount: BigDecimal,
         minOperationAmount: BigDecimal,
         minEffectiveAmount: BigDecimal,
@@ -565,7 +566,7 @@ class TradeValidator @Inject constructor() {
         val errors = mutableListOf<TradeValidationError>()
         if (
             tradeType == TradeType.Buy &&
-            inputMode == BuyInputMode.Quantity &&
+            inputMode == TradeInputMode.Quantity &&
             operationAmount < minOperationAmount
         ) {
             errors += TradeValidationError.OperationAmountBelowMin(
