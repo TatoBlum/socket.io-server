@@ -85,6 +85,7 @@ class TradeValidationRulesMatrixTest {
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
         assertEquals("250.00", error.minAmount.toPlainString())
+        assertEquals("25", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -105,6 +106,7 @@ class TradeValidationRulesMatrixTest {
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
         assertEquals("250.00", error.minAmount.toPlainString())
+        assertEquals("25", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -243,7 +245,8 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("120.00", error.minAmount.toPlainString())
+        assertEquals("4", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -262,7 +265,8 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("120.00", error.minAmount.toPlainString())
+        assertEquals("4", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
     }
 
@@ -301,16 +305,17 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("199.98", error.minAmount.toPlainString())
+        assertEquals("2", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
     }
 
     @Test
-    fun `09c3b buy amount input above trade minimum does not fail when rounded operation amount is below trade minimum`() {
+    fun `09c3b buy amount input above trade minimum fails when rounded operation amount is below trade minimum`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
-                    askPrice00 = BigDecimal("79.17"),
+                    askPrice00 = BigDecimal("79.19"),
                     minInstrumentNominals = 1,
                     lotInstrumentSize = 1,
                 ),
@@ -319,10 +324,65 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
-        assertEquals(emptyList<TradeValidationError>(), result.errors)
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("158.38", error.minAmount.toPlainString())
+        assertEquals("2", error.minNominals?.toPlainString())
         assertEquals("1", result.tradeNominals.toPlainString())
-        assertEquals("79.17", result.tradeAmount.toPlainString())
-        assertTrue(result.canContinue)
+        assertEquals("79.19", result.tradeAmount.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c3c minimum message includes higher instrument nominal requirement`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("20.00"),
+                    minInstrumentNominals = 10,
+                    lotInstrumentSize = 1,
+                    minTradeAmount = BigDecimal("100.00"),
+                ),
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "50",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("200.00", error.minAmount.toPlainString())
+        assertEquals("10", error.minNominals?.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `09c3d rounded minimum is consistent between amount and quantity modes`() {
+        val instrument = instrument(
+            askPrice00 = BigDecimal("33.333"),
+            minInstrumentNominals = 1,
+            lotInstrumentSize = 1,
+            minTradeAmount = BigDecimal("100.00"),
+        )
+
+        val amountResult = validator.validate(
+            state(
+                instrument = instrument,
+                inputMode = BuyInputMode.Amount,
+                amountInputText = "100",
+            ),
+        )
+        val quantityResult = validator.validate(
+            state(
+                instrument = instrument,
+                inputMode = BuyInputMode.Quantity,
+                quantityInputText = "3",
+            ),
+        )
+
+        assertEquals("3", amountResult.tradeNominals.toPlainString())
+        assertEquals("100.00", amountResult.tradeAmount.toPlainString())
+        assertTrue(amountResult.canContinue)
+        assertEquals("3", quantityResult.tradeNominals.toPlainString())
+        assertEquals("100.00", quantityResult.tradeAmount.toPlainString())
+        assertTrue(quantityResult.canContinue)
     }
 
     @Test
@@ -404,7 +464,8 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("120.00", error.minAmount.toPlainString())
+        assertEquals("4", error.minNominals?.toPlainString())
         assertEquals("30.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }
@@ -555,7 +616,8 @@ class TradeValidationRulesMatrixTest {
         )
 
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
-        assertEquals("100.00", error.minAmount.toPlainString())
+        assertEquals("120.00", error.minAmount.toPlainString())
+        assertEquals("4", error.minNominals?.toPlainString())
         assertEquals("30.00", result.tradeAmount.toPlainString())
         assertFalse(result.canContinue)
     }

@@ -70,6 +70,17 @@ class TradeValidator @Inject constructor() {
             tradeType = state.tradeType,
             instrument = instrument,
         )
+        val minimumNominalsForTradeAmount = computeMinimumNominalsForAmount(
+            minAmount = minimumTradeAmount,
+            tradePrice = tradePrice,
+            lotSize = lotSize,
+        )
+        val minimumRequiredNominals = minimumNominalsForTradeAmount.max(
+            minNominals.roundUpToMultipleOf(lotSize),
+        )
+        val minimumEffectiveTradeAmount = minimumRequiredNominals
+            .multiply(tradePrice)
+            .toMoneyAmount()
         errors += validateSelectedAccountCurrency(state)
 
         if (activeInput == null) {
@@ -84,7 +95,10 @@ class TradeValidator @Inject constructor() {
             state.inputMode == BuyInputMode.Amount &&
             activeInput < minimumTradeAmount
         ) {
-            errors += TradeValidationError.OperationAmountBelowMin(minimumTradeAmount)
+            errors += TradeValidationError.OperationAmountBelowMin(
+                minAmount = minimumEffectiveTradeAmount,
+                minNominals = minimumRequiredNominals,
+            )
             return TradeValidationResult(
                 tradePrice = tradePrice,
                 tradeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
@@ -108,6 +122,17 @@ class TradeValidator @Inject constructor() {
                 tradeAmount = tradeAmount,
                 maxNominals = maxNominals,
                 errors = errors,
+            )
+        }
+
+        if (
+            state.tradeType == TradeType.Buy &&
+            state.inputMode == BuyInputMode.Amount &&
+            tradeAmount < minimumTradeAmount
+        ) {
+            errors += TradeValidationError.OperationAmountBelowMin(
+                minAmount = minimumEffectiveTradeAmount,
+                minNominals = minimumRequiredNominals,
             )
         }
 
@@ -143,17 +168,13 @@ class TradeValidator @Inject constructor() {
         )
 
         val maxOperationAmount = maxNominals.multiply(tradePrice).toMoneyAmount()
-        val minimumNominalsForTradeAmount = computeMinimumNominalsForAmount(
-            minAmount = minimumTradeAmount,
-            tradePrice = tradePrice,
-            lotSize = lotSize,
-        )
         errors += validateOperationAmountLimits(
             tradeType = state.tradeType,
             inputMode = state.inputMode,
             operationAmount = tradeAmount,
             minOperationAmount = minimumTradeAmount,
-            minOperationNominals = minimumNominalsForTradeAmount,
+            minEffectiveAmount = minimumEffectiveTradeAmount,
+            minOperationNominals = minimumRequiredNominals,
             maxOperationAmount = maxOperationAmount,
         )
 
@@ -397,8 +418,15 @@ class TradeValidator @Inject constructor() {
             return BigDecimal.ZERO
         }
 
-        val rawNominals = minAmount.divide(tradePrice, 8, RoundingMode.UP)
-        return rawNominals.roundUpToMultipleOf(lotSize)
+        val amountPerLot = tradePrice.multiply(lotSize)
+        val completeLots = minAmount.divide(amountPerLot, 0, RoundingMode.DOWN)
+        val candidate = completeLots.multiply(lotSize)
+
+        return if (candidate.multiply(tradePrice).toMoneyAmount() >= minAmount) {
+            candidate
+        } else {
+            candidate.add(lotSize)
+        }
     }
 
     private fun validateNominals(
@@ -530,13 +558,18 @@ class TradeValidator @Inject constructor() {
         inputMode: BuyInputMode,
         operationAmount: BigDecimal,
         minOperationAmount: BigDecimal,
+        minEffectiveAmount: BigDecimal,
         minOperationNominals: BigDecimal,
         maxOperationAmount: BigDecimal,
     ): List<TradeValidationError> {
         val errors = mutableListOf<TradeValidationError>()
-        if (inputMode == BuyInputMode.Quantity && operationAmount < minOperationAmount) {
+        if (
+            tradeType == TradeType.Buy &&
+            inputMode == BuyInputMode.Quantity &&
+            operationAmount < minOperationAmount
+        ) {
             errors += TradeValidationError.OperationAmountBelowMin(
-                minAmount = minOperationAmount,
+                minAmount = minEffectiveAmount,
                 minNominals = minOperationNominals,
             )
         }
