@@ -14,7 +14,42 @@ internal const val MARKET_OVERVIEW_READY_CHECK = """
       if (!customElements.get('tv-market-overview')) return false;
       var hasRenderedChart = false;
       var hasPopulatedTicker = false;
-      (window.__tradingViewShadowRoots || []).forEach(function(root) {
+      var shadowRoots = window.__tradingViewShadowRoots || [];
+      var hideTickerStatus = function(root) {
+        if (!root.host || root.host.tagName !== 'TV-TICKER-ITEM') {
+          return;
+        }
+        var hideStatuses = function() {
+          root.querySelectorAll('tv-symbol-status').forEach(function(status) {
+            status.style.setProperty('display', 'none', 'important');
+            status.setAttribute('aria-hidden', 'true');
+          });
+        };
+        if (!root.querySelector('style[data-market-overview-hide-status]')) {
+          var style = document.createElement('style');
+          style.setAttribute('data-market-overview-hide-status', '');
+          style.textContent = 'tv-symbol-status { display: none !important; }';
+          root.appendChild(style);
+        }
+        hideStatuses();
+        if (!root.__marketOverviewStatusObserver) {
+          root.__marketOverviewStatusObserver = new MutationObserver(hideStatuses);
+          root.__marketOverviewStatusObserver.observe(root, {
+            childList: true,
+            subtree: true
+          });
+        }
+      };
+      shadowRoots.forEach(hideTickerStatus);
+      if (!shadowRoots.__marketOverviewStatusFilterInstalled) {
+        var originalPush = shadowRoots.push;
+        shadowRoots.push = function() {
+          Array.prototype.forEach.call(arguments, hideTickerStatus);
+          return originalPush.apply(this, arguments);
+        };
+        shadowRoots.__marketOverviewStatusFilterInstalled = true;
+      }
+      shadowRoots.forEach(function(root) {
         Array.from(root.querySelectorAll('svg')).forEach(function(svg) {
           var bounds = svg.getBoundingClientRect();
           if (bounds.width > 0 && bounds.height > 0 &&
