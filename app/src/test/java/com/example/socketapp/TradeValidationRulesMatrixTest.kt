@@ -772,6 +772,31 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
+    fun `16a3 minimum error keeps selected account currency mismatch`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("100.00"),
+                    currency = "USD",
+                    minInstrumentNominals = 2,
+                ),
+                selectedAccount = account(selectedCurrency = "ARS"),
+                inputMode = TradeInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                TradeValidationError.NominalsBelowMin(BigDecimal("2")),
+                TradeValidationError.SelectedAccountCurrencyMismatch,
+            ),
+            result.errors,
+        )
+        assertFalse(result.canContinue)
+    }
+
+    @Test
     fun `16b currency comparisons are case insensitive`() {
         val result = validator.validate(
             state(

@@ -10,12 +10,12 @@ class TradeValidator @Inject constructor() {
             ?: return TradeValidationResult()
         val activeInput = state.activeInput?.stripTrailingZeros()
         val limitPrice = TradeInputParser.parseLimitPriceInput(state.limitPriceInput)
-        val errors = validateLimitOrder(
+        val limitErrors = validateLimitOrder(
             state = state,
             instrument = instrument,
             limitPrice = limitPrice,
             hasActiveInput = activeInput?.let { it > BigDecimal.ZERO } ?: false,
-        ).toMutableList()
+        )
 
         val tradePrice = resolveTradePrice(
             orderType = state.orderType,
@@ -25,106 +25,58 @@ class TradeValidator @Inject constructor() {
             settlementTerm = state.settlementTerm,
         )
         if (tradePrice == null) {
-            if (errors.isEmpty()) {
-                errors += TradeValidationError.MissingTradePrice
-            }
             return TradeValidationResult(
                 tradePrice = BigDecimal.ZERO,
-                errors = errors,
+                errors = limitErrors.ifEmpty { listOf(TradeValidationError.MissingTradePrice) },
             )
         }
 
         val lotSize = instrument.lotInstrumentSize.toBigDecimal()
-        val holdingQuantity = instrument.holdingQuantity.toBigDecimal()
+        val holdingNominals = instrument.holdingQuantity.toBigDecimal()
         val selectedBalance = state.selectedBalanceFor(
             orderType = state.orderType,
             settlementTerm = state.settlementTerm,
         )
-        val minimums = computeTradeMinimums(
+        val minimums = calculateTradeMinimumRequirements(
             tradeType = state.tradeType,
             instrument = instrument,
             tradePrice = tradePrice,
             lotSize = lotSize,
         )
-        val maxAffordableNominals = computeNominalsFromAmount(selectedBalance, tradePrice, lotSize)
+        val maxAffordableNominals = calculateTradableNominals(selectedBalance, tradePrice, lotSize)
         val maxNominals = when (state.tradeType) {
             TradeType.Buy -> maxAffordableNominals
-            TradeType.Sell -> holdingQuantity
+            TradeType.Sell -> holdingNominals
         }
         if (activeInput == null) {
-            errors += validateSelectedAccountCurrency(state)
             return TradeValidationResult(
                 tradePrice = tradePrice,
                 maxNominals = maxNominals,
-                errors = errors,
+                errors = limitErrors + listOfNotNull(validateSelectedAccountCurrency(state)),
             )
         }
 
-        val trade = computeTrade(
+        val trade = calculateTrade(
             inputMode = state.inputMode,
             activeInput = activeInput,
             tradePrice = tradePrice,
             lotSize = lotSize,
         )
-
-        validateInputBeforeBalance(
+        val context = TradeValidationContext(
             state = state,
+            instrument = instrument,
             activeInput = activeInput,
-            trade = trade,
+            limitPrice = limitPrice,
+            tradePrice = tradePrice,
             lotSize = lotSize,
+            holdingNominals = holdingNominals,
+            selectedBalance = selectedBalance,
             minimums = minimums,
-        )?.let { error ->
-            errors += error
-            return trade.toValidationResult(tradePrice, maxNominals, errors)
-        }
-
-        val roundedAmountMinimumError = if (
-            state.tradeType == TradeType.Buy &&
-            state.inputMode == TradeInputMode.Amount &&
-            trade.amount < minimums.configuredAmount
-        ) {
-            minimums.toOperationAmountBelowMinError()
-        } else {
-            null
-        }
-
-        errors += validateNominals(
-            inputMode = state.inputMode,
-            tradeType = state.tradeType,
-            tradeNominals = trade.nominals,
-            minimumNominals = minimums.tradableNominals,
-            lotSize = lotSize,
             maxAffordableNominals = maxAffordableNominals,
-            holdingQuantity = holdingQuantity,
+            maxNominals = maxNominals,
+            trade = trade,
         )
-
-        if (state.tradeType == TradeType.Sell && state.inputMode == TradeInputMode.Amount) {
-            errors += validateSellByAmountMax(
-                orderType = state.orderType,
-                tradeAmount = activeInput,
-                holdingQuantity = holdingQuantity,
-                bidPrice = instrument.bidPriceFor(state.settlementTerm),
-                limitPrice = limitPrice,
-            )
-        }
-
-        val maxOperationAmount = maxNominals.multiply(tradePrice).toMoneyAmount()
-        errors += validateOperationAmountMaximum(
-            tradeType = state.tradeType,
-            operationAmount = trade.amount,
-            maxOperationAmount = maxOperationAmount,
-        )
-
-        roundedAmountMinimumError?.let(errors::add)
-        errors += validateSelectedAccountCurrency(state)
-
-        errors += validateBalances(
-            tradeType = state.tradeType,
-            currency = state.tradeCurrency,
-            operationMode = state.inputMode,
-            tradeAmount = trade.amount,
-            balance = selectedBalance,
-        )
+        val errors = limitErrors + collectTradeErrors(context)
 
         return trade.toValidationResult(tradePrice, maxNominals, errors)
     }
@@ -209,24 +161,24 @@ class TradeValidator @Inject constructor() {
         return listOfNotNull(priceError, multipleError)
     }
 
-    private fun computeTradeMinimums(
+    private fun calculateTradeMinimumRequirements(
         tradeType: TradeType,
         instrument: Security,
         tradePrice: BigDecimal,
         lotSize: BigDecimal,
-    ): TradeMinimums {
+    ): TradeMinimumRequirements {
         val tradableNominals = instrument.minInstrumentNominals
             .toBigDecimal()
             .roundUpToMultipleOf(lotSize)
-        val configuredAmount = minimumTradeAmount(tradeType, instrument)
-        val amountBasedNominals = computeMinimumNominalsForAmount(
+        val configuredAmount = configuredMinimumTradeAmount(tradeType, instrument)
+        val amountBasedNominals = calculateMinimumNominalsForAmount(
             minAmount = configuredAmount,
             tradePrice = tradePrice,
             lotSize = lotSize,
         )
         val requiredNominals = maxOf(tradableNominals, amountBasedNominals)
 
-        return TradeMinimums(
+        return TradeMinimumRequirements(
             tradableNominals = tradableNominals,
             instrumentAmount = tradableNominals.multiply(tradePrice).toMoneyAmount(),
             configuredAmount = configuredAmount,
@@ -235,58 +187,98 @@ class TradeValidator @Inject constructor() {
         )
     }
 
-    private fun validateInputBeforeBalance(
-        state: TradeViewModelState,
-        activeInput: BigDecimal,
-        trade: CalculatedTrade,
-        lotSize: BigDecimal,
-        minimums: TradeMinimums,
-    ): TradeValidationError? =
-        when (state.inputMode) {
-            TradeInputMode.Amount -> validateAmountBeforeBalance(
-                activeInput = activeInput,
-                trade = trade,
-                minimums = minimums,
+    private fun collectTradeErrors(context: TradeValidationContext): List<TradeValidationError> {
+        val primaryInputError = findPrimaryInputError(context)
+        val accountCurrencyError = validateSelectedAccountCurrency(context.state)
+
+        if (primaryInputError != null && !shouldContinueAfterPrimaryInputError(context)) {
+            return listOfNotNull(primaryInputError, accountCurrencyError)
+        }
+
+        return listOfNotNull(
+            primaryInputError,
+            validateNominalAvailability(context),
+            validateSellAmountAvailability(context),
+            validateMaximumAffordableAmount(context),
+            validateMinimumAmountAfterLotRounding(context),
+            accountCurrencyError,
+            validateAvailableTradeBalance(context),
+        )
+    }
+
+    private fun findPrimaryInputError(context: TradeValidationContext): TradeValidationError? =
+        when (context.state.inputMode) {
+            TradeInputMode.Amount -> firstErrorInOrder(
+                { validateEnteredAmountMinimum(context) },
+                { validateAmountCoversMinimumNominals(context) },
             )
 
-            TradeInputMode.Quantity -> validateBuyQuantityBeforeBalance(
-                tradeType = state.tradeType,
-                trade = trade,
-                lotSize = lotSize,
-                minimums = minimums,
+            TradeInputMode.Quantity -> firstErrorInOrder(
+                { validatePositiveNominals(context) },
+                { validateMinimumNominals(context) },
+                { validateLotMultiple(context) },
+                { validateQuantityMinimumAmount(context) },
             )
         }
 
-    private fun validateAmountBeforeBalance(
-        activeInput: BigDecimal,
-        trade: CalculatedTrade,
-        minimums: TradeMinimums,
+    private fun firstErrorInOrder(
+        vararg rules: () -> TradeValidationError?,
+    ): TradeValidationError? = rules.firstNotNullOfOrNull { rule -> rule() }
+
+    private fun validateEnteredAmountMinimum(
+        context: TradeValidationContext,
+    ): TradeValidationError.OperationAmountBelowMin? =
+        minimumAmountError(context.activeInput, context.minimums)
+
+    private fun validateAmountCoversMinimumNominals(
+        context: TradeValidationContext,
+    ): TradeValidationError.AmountNotEnoughForMin? =
+        if (context.trade.nominals < context.minimums.tradableNominals) {
+            TradeValidationError.AmountNotEnoughForMin(context.minimums.instrumentAmount)
+        } else {
+            null
+        }
+
+    private fun validatePositiveNominals(
+        context: TradeValidationContext,
     ): TradeValidationError? =
-        validateMinimumAmount(activeInput, minimums)
-            ?: if (trade.nominals < minimums.tradableNominals) {
-                TradeValidationError.AmountNotEnoughForMin(minimums.instrumentAmount)
-            } else {
-                null
-            }
+        TradeValidationError.NominalsInvalid.takeIf {
+            context.trade.nominals <= BigDecimal.ZERO
+        }
 
-    private fun validateBuyQuantityBeforeBalance(
-        tradeType: TradeType,
-        trade: CalculatedTrade,
-        lotSize: BigDecimal,
-        minimums: TradeMinimums,
-    ): TradeValidationError? {
-        if (tradeType != TradeType.Buy) return null
+    private fun validateMinimumNominals(
+        context: TradeValidationContext,
+    ): TradeValidationError.NominalsBelowMin? =
+        if (context.trade.nominals < context.minimums.tradableNominals) {
+            TradeValidationError.NominalsBelowMin(context.minimums.tradableNominals)
+        } else {
+            null
+        }
 
-        return validateNominalRequirements(
-            tradeNominals = trade.nominals,
-            minimumNominals = minimums.tradableNominals,
-            lotSize = lotSize,
-        ) ?: validateMinimumAmount(trade.amount, minimums)
-    }
+    private fun validateLotMultiple(
+        context: TradeValidationContext,
+    ): TradeValidationError.NominalsNotMultiple? =
+        if (
+            context.lotSize > BigDecimal.ZERO &&
+            context.trade.nominals.remainder(context.lotSize).compareTo(BigDecimal.ZERO) != 0
+        ) {
+            TradeValidationError.NominalsNotMultiple(context.lotSize)
+        } else {
+            null
+        }
 
-    private fun validateMinimumAmount(
+    private fun validateQuantityMinimumAmount(
+        context: TradeValidationContext,
+    ): TradeValidationError.OperationAmountBelowMin? =
+        if (context.state.tradeType == TradeType.Buy) {
+            minimumAmountError(context.trade.amount, context.minimums)
+        } else {
+            null
+        }
+
+    private fun minimumAmountError(
         amount: BigDecimal,
-        minimums: TradeMinimums,
+        minimums: TradeMinimumRequirements,
     ): TradeValidationError.OperationAmountBelowMin? =
         if (amount < minimums.configuredAmount) {
             minimums.toOperationAmountBelowMinError()
@@ -294,11 +286,18 @@ class TradeValidator @Inject constructor() {
             null
         }
 
-    private fun TradeMinimums.toOperationAmountBelowMinError(): TradeValidationError.OperationAmountBelowMin =
-        TradeValidationError.OperationAmountBelowMin(
-            minAmount = effectiveAmount,
-            minNominals = requiredNominals,
-        )
+    private fun TradeMinimumRequirements.toOperationAmountBelowMinError():
+        TradeValidationError.OperationAmountBelowMin =
+            TradeValidationError.OperationAmountBelowMin(
+                minAmount = effectiveAmount,
+                minNominals = requiredNominals,
+            )
+
+    private fun shouldContinueAfterPrimaryInputError(
+        context: TradeValidationContext,
+    ): Boolean =
+        context.state.tradeType == TradeType.Sell &&
+            context.state.inputMode == TradeInputMode.Quantity
 
     private fun resolveTradePrice(
         orderType: TradeOrderType,
@@ -314,7 +313,7 @@ class TradeValidator @Inject constructor() {
         return price?.takeIf { it > BigDecimal.ZERO }
     }
 
-    private fun computeTrade(
+    private fun calculateTrade(
         inputMode: TradeInputMode,
         activeInput: BigDecimal,
         tradePrice: BigDecimal,
@@ -322,7 +321,7 @@ class TradeValidator @Inject constructor() {
     ): CalculatedTrade {
         val tradeNominals = when (inputMode) {
             TradeInputMode.Quantity -> activeInput
-            TradeInputMode.Amount -> computeNominalsFromAmount(activeInput, tradePrice, lotSize)
+            TradeInputMode.Amount -> calculateTradableNominals(activeInput, tradePrice, lotSize)
         }
         return CalculatedTrade(
             nominals = tradeNominals,
@@ -455,7 +454,7 @@ class TradeValidator @Inject constructor() {
             else -> BigDecimal("50.00")
         }
 
-    private fun computeNominalsFromAmount(
+    private fun calculateTradableNominals(
         tradeAmount: BigDecimal,
         tradePrice: BigDecimal,
         lotSize: BigDecimal,
@@ -465,7 +464,7 @@ class TradeValidator @Inject constructor() {
         return rawNominals.divide(lotSize, 0, RoundingMode.DOWN).multiply(lotSize)
     }
 
-    private fun computeMinimumNominalsForAmount(
+    private fun calculateMinimumNominalsForAmount(
         minAmount: BigDecimal,
         tradePrice: BigDecimal,
         lotSize: BigDecimal,
@@ -485,64 +484,23 @@ class TradeValidator @Inject constructor() {
         }
     }
 
-    private fun validateNominals(
-        inputMode: TradeInputMode,
-        tradeType: TradeType,
-        tradeNominals: BigDecimal,
-        minimumNominals: BigDecimal,
-        lotSize: BigDecimal,
-        maxAffordableNominals: BigDecimal,
-        holdingQuantity: BigDecimal,
-    ): List<TradeValidationError> {
-        val requirementsError = validateNominalRequirements(
-            tradeNominals = tradeNominals,
-            minimumNominals = minimumNominals,
-            lotSize = lotSize,
-        )
-        val availabilityError = validateNominalAvailability(
-            inputMode = inputMode,
-            tradeType = tradeType,
-            tradeNominals = tradeNominals,
-            maxAffordableNominals = maxAffordableNominals,
-            holdingQuantity = holdingQuantity,
-        )
-
-        return listOfNotNull(requirementsError, availabilityError)
-    }
-
-    private fun validateNominalRequirements(
-        tradeNominals: BigDecimal,
-        minimumNominals: BigDecimal,
-        lotSize: BigDecimal,
-    ): TradeValidationError? =
-        when {
-            tradeNominals <= BigDecimal.ZERO -> TradeValidationError.NominalsInvalid
-            tradeNominals < minimumNominals ->
-                TradeValidationError.NominalsBelowMin(minimumNominals)
-            lotSize > BigDecimal.ZERO &&
-                tradeNominals.remainder(lotSize).compareTo(BigDecimal.ZERO) != 0 ->
-                TradeValidationError.NominalsNotMultiple(lotSize)
-            else -> null
-        }
-
     private fun validateNominalAvailability(
-        inputMode: TradeInputMode,
-        tradeType: TradeType,
-        tradeNominals: BigDecimal,
-        maxAffordableNominals: BigDecimal,
-        holdingQuantity: BigDecimal,
+        context: TradeValidationContext,
     ): TradeValidationError? =
-        when (tradeType) {
+        when (context.state.tradeType) {
             TradeType.Sell ->
-                if (tradeNominals > holdingQuantity) {
-                    TradeValidationError.NotEnoughNominals(holdingQuantity)
+                if (context.trade.nominals > context.holdingNominals) {
+                    TradeValidationError.NotEnoughNominals(context.holdingNominals)
                 } else {
                     null
                 }
 
             TradeType.Buy ->
-                if (inputMode == TradeInputMode.Quantity && tradeNominals > maxAffordableNominals) {
-                    TradeValidationError.NominalsOverAvailableBalance(maxAffordableNominals)
+                if (
+                    context.state.inputMode == TradeInputMode.Quantity &&
+                    context.trade.nominals > context.maxAffordableNominals
+                ) {
+                    TradeValidationError.NominalsOverAvailableBalance(context.maxAffordableNominals)
                 } else {
                     null
                 }
@@ -593,49 +551,66 @@ class TradeValidator @Inject constructor() {
         return errors
     }
 
-    private fun validateSellByAmountMax(
-        orderType: TradeOrderType,
-        tradeAmount: BigDecimal,
-        holdingQuantity: BigDecimal,
-        bidPrice: BigDecimal,
-        limitPrice: BigDecimal?,
-    ): List<TradeValidationError> {
-        val price = if (orderType == TradeOrderType.Limit) limitPrice ?: BigDecimal.ZERO else bidPrice
-        val maxAmount = holdingQuantity.multiply(price).setScale(2, RoundingMode.HALF_UP)
-        return if (tradeAmount > maxAmount) {
-            listOf(TradeValidationError.NotEnoughAvailableAmount(maxAmount))
+    private fun validateSellAmountAvailability(
+        context: TradeValidationContext,
+    ): TradeValidationError.NotEnoughAvailableAmount? {
+        if (
+            context.state.tradeType != TradeType.Sell ||
+            context.state.inputMode != TradeInputMode.Amount
+        ) {
+            return null
+        }
+
+        val price = if (context.state.orderType == TradeOrderType.Limit) {
+            context.limitPrice ?: BigDecimal.ZERO
         } else {
-            emptyList()
+            context.instrument.bidPriceFor(context.state.settlementTerm)
+        }
+        val maxAmount = context.holdingNominals.multiply(price).toMoneyAmount()
+        return if (context.activeInput > maxAmount) {
+            TradeValidationError.NotEnoughAvailableAmount(maxAmount)
+        } else {
+            null
         }
     }
 
-    private fun validateSelectedAccountCurrency(state: TradeViewModelState): List<TradeValidationError> {
+    private fun validateMinimumAmountAfterLotRounding(
+        context: TradeValidationContext,
+    ): TradeValidationError.OperationAmountBelowMin? =
+        if (
+            context.state.tradeType == TradeType.Buy &&
+            context.state.inputMode == TradeInputMode.Amount
+        ) {
+            minimumAmountError(context.trade.amount, context.minimums)
+        } else {
+            null
+        }
+
+    private fun validateSelectedAccountCurrency(
+        state: TradeViewModelState,
+    ): TradeValidationError? {
         val selectedCurrency = state.selectedAccount?.currency?.normalizedCurrency()
         return if (selectedCurrency != null && selectedCurrency != state.tradeCurrency) {
-            listOf(TradeValidationError.SelectedAccountCurrencyMismatch)
+            TradeValidationError.SelectedAccountCurrencyMismatch
         } else {
-            emptyList()
+            null
         }
     }
 
-    private fun validateBalances(
-        tradeType: TradeType,
-        currency: String,
-        operationMode: TradeInputMode,
-        tradeAmount: BigDecimal,
-        balance: BigDecimal,
-    ): List<TradeValidationError> {
-        val errors = mutableListOf<TradeValidationError>()
-        if (tradeType == TradeType.Buy && currency == ARS_CURRENCY && balance < tradeAmount) {
-            errors += TradeValidationError.InsufficientArs(operationMode)
+    private fun validateAvailableTradeBalance(
+        context: TradeValidationContext,
+    ): TradeValidationError? =
+        when {
+            context.state.tradeType != TradeType.Buy -> null
+            context.selectedBalance >= context.trade.amount -> null
+            context.state.tradeCurrency == ARS_CURRENCY ->
+                TradeValidationError.InsufficientArs(context.state.inputMode)
+            context.state.tradeCurrency == USD_CURRENCY ->
+                TradeValidationError.InsufficientUsd(context.state.inputMode)
+            else -> null
         }
-        if (tradeType == TradeType.Buy && currency == USD_CURRENCY && balance < tradeAmount) {
-            errors += TradeValidationError.InsufficientUsd(operationMode)
-        }
-        return errors
-    }
 
-    private fun minimumTradeAmount(
+    private fun configuredMinimumTradeAmount(
         tradeType: TradeType,
         instrument: Security,
     ): BigDecimal =
@@ -645,23 +620,42 @@ class TradeValidator @Inject constructor() {
             BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
         }
 
-    private fun validateOperationAmountMaximum(
-        tradeType: TradeType,
-        operationAmount: BigDecimal,
-        maxOperationAmount: BigDecimal,
-    ): List<TradeValidationError> =
-        if (tradeType == TradeType.Buy && operationAmount > maxOperationAmount) {
-            listOf(TradeValidationError.OperationAmountAboveMax(maxOperationAmount))
+    private fun validateMaximumAffordableAmount(
+        context: TradeValidationContext,
+    ): TradeValidationError.OperationAmountAboveMax? {
+        if (context.state.tradeType != TradeType.Buy) return null
+
+        val maxOperationAmount = context.maxNominals
+            .multiply(context.tradePrice)
+            .toMoneyAmount()
+        return if (context.trade.amount > maxOperationAmount) {
+            TradeValidationError.OperationAmountAboveMax(maxOperationAmount)
         } else {
-            emptyList()
+            null
         }
+    }
+
+    private data class TradeValidationContext(
+        val state: TradeViewModelState,
+        val instrument: Security,
+        val activeInput: BigDecimal,
+        val limitPrice: BigDecimal?,
+        val tradePrice: BigDecimal,
+        val lotSize: BigDecimal,
+        val holdingNominals: BigDecimal,
+        val selectedBalance: BigDecimal,
+        val minimums: TradeMinimumRequirements,
+        val maxAffordableNominals: BigDecimal,
+        val maxNominals: BigDecimal,
+        val trade: CalculatedTrade,
+    )
 
     private data class CalculatedTrade(
         val nominals: BigDecimal,
         val amount: BigDecimal,
     )
 
-    private data class TradeMinimums(
+    private data class TradeMinimumRequirements(
         val tradableNominals: BigDecimal,
         val instrumentAmount: BigDecimal,
         val configuredAmount: BigDecimal,
