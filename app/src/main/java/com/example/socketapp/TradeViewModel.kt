@@ -43,7 +43,7 @@ enum class SettlementType(
     ),
 }
 
-enum class BuyInputMode(val label: String) {
+enum class TradeInputMode(val label: String) {
     Amount("Monto"),
     Quantity("Cantidad"),
 }
@@ -190,7 +190,7 @@ data class TradeValidationResult(
         get() = errors.isEmpty() && tradeAmount > BigDecimal.ZERO
 }
 
-data class TradeFeeQuote(
+data class SimulateFeeResponse(
     val subTotal: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val taxes: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
     val marketFee: BigDecimal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
@@ -237,7 +237,7 @@ data class TradeViewModelState(
     val orderType: TradeOrderType = TradeOrderType.Market,
     val settlementTerm: SettlementType = SettlementType.TODAY,
     val tradeOption: TradeOption = TradeOption.SIMPLE,
-    val inputMode: BuyInputMode = BuyInputMode.Amount,
+    val inputMode: TradeInputMode = TradeInputMode.Amount,
     val amountInputText: String = "",
     val quantityInputText: String = "",
     val amountInput: BigDecimal = BigDecimal.ZERO,
@@ -277,14 +277,14 @@ data class TradeViewModelState(
 
     val activeInputText: String
         get() = when (inputMode) {
-            BuyInputMode.Amount -> amountInputText
-            BuyInputMode.Quantity -> quantityInputText
+            TradeInputMode.Amount -> amountInputText
+            TradeInputMode.Quantity -> quantityInputText
         }
 
     val activeInput: BigDecimal?
         get() = when (inputMode) {
-            BuyInputMode.Amount -> TradeInputParser.parseAmountInput(activeInputText)
-            BuyInputMode.Quantity -> TradeInputParser.parseWholeNumberInput(activeInputText)
+            TradeInputMode.Amount -> TradeInputParser.parseAmountInput(activeInputText)
+            TradeInputMode.Quantity -> TradeInputParser.parseWholeNumberInput(activeInputText)
         }
 
     fun feeBalanceFor(
@@ -388,13 +388,13 @@ class TradeViewModel @Inject constructor(
         revalidateBuy()
     }
 
-    fun onInputModeChange(inputMode: BuyInputMode) {
+    fun onInputModeChange(inputMode: TradeInputMode) {
         uiState = when (inputMode) {
-            BuyInputMode.Amount -> uiState.copy(
+            TradeInputMode.Amount -> uiState.copy(
                 inputMode = inputMode,
                 amountInputText = "",
             )
-            BuyInputMode.Quantity -> uiState.copy(
+            TradeInputMode.Quantity -> uiState.copy(
                 inputMode = inputMode,
                 quantityInputText = "",
             )
@@ -402,7 +402,7 @@ class TradeViewModel @Inject constructor(
         revalidateBuy()
     }
 
-    fun onInputChange(inputMode: BuyInputMode, input: String) {
+    fun onInputChange(inputMode: TradeInputMode, input: String) {
         if (inputMode != uiState.inputMode) return
         val sanitizedInput = sanitizeInput(inputMode, input)
         uiState = uiState.withInputText(inputMode, sanitizedInput)
@@ -423,19 +423,19 @@ class TradeViewModel @Inject constructor(
         uiState = uiState.copy(confirmation = confirmation)
     }
 
-    private fun sanitizeInput(inputMode: BuyInputMode, input: String): String =
+    private fun sanitizeInput(inputMode: TradeInputMode, input: String): String =
         when (inputMode) {
-            BuyInputMode.Amount -> TradeInputParser.sanitizeAmountInput(input)
-            BuyInputMode.Quantity -> TradeInputParser.sanitizeWholeNumberInput(input)
+            TradeInputMode.Amount -> TradeInputParser.sanitizeAmountInput(input)
+            TradeInputMode.Quantity -> TradeInputParser.sanitizeWholeNumberInput(input)
         }
 
     private fun TradeViewModelState.withInputText(
-        inputMode: BuyInputMode,
+        inputMode: TradeInputMode,
         input: String,
     ): TradeViewModelState =
         when (inputMode) {
-            BuyInputMode.Amount -> copy(amountInputText = input)
-            BuyInputMode.Quantity -> copy(quantityInputText = input)
+            TradeInputMode.Amount -> copy(amountInputText = input)
+            TradeInputMode.Quantity -> copy(quantityInputText = input)
         }
 
     private fun revalidateBuy() {
@@ -449,7 +449,7 @@ class TradeViewModel @Inject constructor(
             amountInput = validation.tradeAmount,
             quantityInput = validation.tradeNominals,
             validation = validation,
-            inputError = validation.errors.primaryInputError(state.inputMode),
+            inputError = validation.errors.primaryInputError(),
             inputHelper = buildInputHelper(state, validation),
             limitPriceError = validation.visibleLimitPriceError(state),
             limitPriceHelper = buildLimitPriceHelper(state),
@@ -469,14 +469,27 @@ class TradeViewModel @Inject constructor(
 
     private fun TradeViewModelState.withInstrument(instrument: Security): TradeViewModelState {
         val isLimitPriceOnly = instrument.isLimitPriceOnlyFor(tradeType)
+        val currentInstrument = this.instrument
+        val didInstrumentChange = currentInstrument == null ||
+            currentInstrument.id != instrument.id ||
+            currentInstrument.codeType != instrument.codeType ||
+            currentInstrument.codeValue != instrument.codeValue ||
+            currentInstrument.currency.normalizedCurrency() != instrument.currency.normalizedCurrency()
+
         return copy(
             instrument = instrument,
+            selectedAccount = if (didInstrumentChange) null else selectedAccount,
+            selectedFeeCommissionAccount = if (didInstrumentChange) null else selectedFeeCommissionAccount,
             isLimitPriceOnly = isLimitPriceOnly,
             orderType = if (isLimitPriceOnly) {
                 TradeOrderType.Limit
             } else {
                 TradeOrderType.Market
             },
+            amountInputText = if (didInstrumentChange) "" else amountInputText,
+            quantityInputText = if (didInstrumentChange) "" else quantityInputText,
+            amountInput = if (didInstrumentChange) BigDecimal.ZERO else amountInput,
+            quantityInput = if (didInstrumentChange) BigDecimal.ZERO else quantityInput,
             limitPriceInput = "",
             isLimitPriceInputTouched = false,
         )
@@ -504,7 +517,7 @@ class TradeViewModel @Inject constructor(
         validation: TradeValidationResult,
     ): TradeInputHelper =
         when {
-            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == BuyInputMode.Quantity ->
+            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == TradeInputMode.Quantity ->
                 TradeInputHelper.EquivalentAmount(validation.tradeAmount)
 
             validation.tradeAmount > BigDecimal.ZERO -> TradeInputHelper.ApproximateCredit(validation.tradeAmount)
@@ -525,13 +538,13 @@ class TradeViewModel @Inject constructor(
         )
 
         return when {
-            validation.tradeNominals > BigDecimal.ZERO && state.inputMode == BuyInputMode.Amount ->
+            validation.tradeNominals > BigDecimal.ZERO && state.inputMode == TradeInputMode.Amount ->
                 TradeInputHelper.EquivalentNominals(
                     amount = validation.tradeAmount,
                     quantity = validation.tradeNominals,
                 )
 
-            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == BuyInputMode.Quantity ->
+            validation.tradeAmount > BigDecimal.ZERO && state.inputMode == TradeInputMode.Quantity ->
                 TradeInputHelper.ApproximateDebit(validation.tradeAmount)
 
             else -> TradeInputHelper.AvailableToBuy(selectedBalance)
@@ -564,16 +577,8 @@ class TradeViewModel @Inject constructor(
 
 }
 
-private fun List<TradeValidationError>.primaryInputError(inputMode: BuyInputMode): TradeValidationError? {
-    val inputErrors = filter { error -> !error.isLimitPriceValidationError() }
-    return when (inputMode) {
-        BuyInputMode.Amount -> inputErrors.firstOrNull { error -> error is TradeValidationError.OperationAmountAboveMax }
-            ?: inputErrors.firstOrNull { error -> error is TradeValidationError.AmountNotEnoughForMin }
-        BuyInputMode.Quantity -> inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverMax }
-            ?: inputErrors.firstOrNull { error -> error is TradeValidationError.NominalsOverAvailableBalance }
-    }
-        ?: inputErrors.firstOrNull()
-}
+private fun List<TradeValidationError>.primaryInputError(): TradeValidationError? =
+    firstOrNull { error -> !error.isLimitPriceValidationError() }
 
 private fun TradeValidationResult.visibleLimitPriceError(
     state: TradeViewModelState,
@@ -658,7 +663,7 @@ private fun calculateMockFee(tradeAmount: BigDecimal): BigDecimal =
         tradeAmount.multiply(MOCK_FEE_RATE).setScale(2, RoundingMode.HALF_UP)
     }
 
-private fun buildMockFeeQuote(state: TradeViewModelState): TradeFeeQuote {
+private fun buildMockFeeQuote(state: TradeViewModelState): SimulateFeeResponse {
     val tradeAmount = state.validation.tradeAmount
     val operationFee = calculateMockFee(tradeAmount)
     val totalDeductions = operationFee
@@ -675,7 +680,7 @@ private fun buildMockFeeQuote(state: TradeViewModelState): TradeFeeQuote {
         else -> tradeAmount.toMoneyAmount()
     }
 
-    return TradeFeeQuote(
+    return SimulateFeeResponse(
         subTotal = tradeAmount.toMoneyAmount(),
         taxes = MOCK_TAXES,
         marketFee = MOCK_MARKET_FEE,

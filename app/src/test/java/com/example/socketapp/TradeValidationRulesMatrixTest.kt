@@ -1299,13 +1299,13 @@ class TradeValidationRulesMatrixTest {
         operationFee: BigDecimal = BigDecimal("7.02"),
         marketFee: BigDecimal = BigDecimal("5.00"),
         taxes: BigDecimal = BigDecimal("300.00"),
-    ): TradeFeeQuote {
+    ): SimulateFeeResponse {
         val totalDeductions = operationFee
             .add(marketFee)
             .add(taxes)
             .setScale(2)
 
-        return TradeFeeQuote(
+        return SimulateFeeResponse(
             subTotal = subTotal,
             taxes = taxes,
             marketFee = marketFee,
