@@ -264,6 +264,12 @@ fun TradingViewScreen(
                     config = AdvancedChartEmbedConfig(symbol = SYMBOL_DETAILS_SYMBOL),
                     reloadKey = advancedChartReloadTrigger,
                     onStateChange = { advancedChartState = it },
+                    onBoundaryScroll = { deltaY ->
+                        screenScrollState.dispatchRawDelta(-deltaY)
+                    },
+                    onScrollGestureActiveChange = { isActive ->
+                        internalScrollGesture.isActive = isActive
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -283,6 +289,12 @@ fun TradingViewScreen(
                     symbol = SYMBOL_DETAILS_SYMBOL,
                     reloadKey = technicalAnalysisReloadTrigger,
                     onStateChange = { technicalAnalysisState = it },
+                    onBoundaryScroll = { deltaY ->
+                        screenScrollState.dispatchRawDelta(-deltaY)
+                    },
+                    onScrollGestureActiveChange = { isActive ->
+                        internalScrollGesture.isActive = isActive
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
