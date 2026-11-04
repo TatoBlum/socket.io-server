@@ -38,7 +38,6 @@ class TradeValidator @Inject constructor() {
             settlementTerm = state.settlementTerm,
         )
         val minimums = calculateTradeMinimumRequirements(
-            tradeType = state.tradeType,
             instrument = instrument,
             tradePrice = tradePrice,
             lotSize = lotSize,
@@ -162,7 +161,6 @@ class TradeValidator @Inject constructor() {
     }
 
     private fun calculateTradeMinimumRequirements(
-        tradeType: TradeType,
         instrument: Security,
         tradePrice: BigDecimal,
         lotSize: BigDecimal,
@@ -170,7 +168,7 @@ class TradeValidator @Inject constructor() {
         val tradableNominals = instrument.minInstrumentNominals
             .toBigDecimal()
             .roundUpToMultipleOf(lotSize)
-        val configuredAmount = configuredMinimumTradeAmount(tradeType, instrument)
+        val configuredAmount = configuredMinimumTradeAmount(instrument)
         val amountBasedNominals = calculateMinimumNominalsForAmount(
             minAmount = configuredAmount,
             tradePrice = tradePrice,
@@ -270,11 +268,7 @@ class TradeValidator @Inject constructor() {
     private fun validateQuantityMinimumAmount(
         context: TradeValidationContext,
     ): TradeValidationError.OperationAmountBelowMin? =
-        if (context.state.tradeType == TradeType.Buy) {
-            minimumAmountError(context.trade.amount, context.minimums)
-        } else {
-            null
-        }
+        minimumAmountError(context.trade.amount, context.minimums)
 
     private fun minimumAmountError(
         amount: BigDecimal,
@@ -611,10 +605,9 @@ class TradeValidator @Inject constructor() {
         }
 
     private fun configuredMinimumTradeAmount(
-        tradeType: TradeType,
         instrument: Security,
     ): BigDecimal =
-        if (tradeType == TradeType.Buy) {
+        if (instrument.currency.normalizedCurrency() == ARS_CURRENCY) {
             instrument.minTradeAmount.toMoneyAmount()
         } else {
             BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)

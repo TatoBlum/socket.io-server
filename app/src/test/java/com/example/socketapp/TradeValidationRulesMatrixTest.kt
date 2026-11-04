@@ -90,7 +90,7 @@ class TradeValidationRulesMatrixTest {
     }
 
     @Test
-    fun `03c buy usd minimum trade amount uses instrument server value`() {
+    fun `03c buy usd by amount ignores instrument minimum trade amount`() {
         val result = validator.validate(
             state(
                 instrument = instrument(
@@ -104,10 +104,96 @@ class TradeValidationRulesMatrixTest {
             ),
         )
 
+        assertEquals("20", result.tradeNominals.toPlainString())
+        assertEquals("200.00", result.tradeAmount.toPlainString())
+        assertTrue(result.errors.isEmpty())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `03c2 buy usd by quantity ignores instrument minimum trade amount`() {
+        val result = validator.validate(
+            state(
+                instrument = instrument(
+                    askPrice00 = BigDecimal("10.00"),
+                    currency = "USD",
+                    minTradeAmount = BigDecimal("250.00"),
+                ),
+                selectedAccount = account(selectedCurrency = "USD"),
+                inputMode = TradeInputMode.Quantity,
+                quantityInputText = "1",
+            ),
+        )
+
+        assertEquals("1", result.tradeNominals.toPlainString())
+        assertEquals("10.00", result.tradeAmount.toPlainString())
+        assertTrue(result.errors.isEmpty())
+        assertTrue(result.canContinue)
+    }
+
+    @Test
+    fun `03d sell ars by amount uses instrument minimum trade amount`() {
+        val result = validator.validate(
+            state(
+                tradeType = TradeType.Sell,
+                instrument = instrument(
+                    bidPrice00 = BigDecimal("10.00"),
+                    holdingQuantity = 100,
+                    minTradeAmount = BigDecimal("250.00"),
+                ),
+                inputMode = TradeInputMode.Amount,
+                amountInputText = "200",
+            ),
+        )
+
         val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
         assertEquals("250.00", error.minAmount.toPlainString())
         assertEquals("25", error.minNominals?.toPlainString())
         assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `03e sell ars by quantity uses instrument minimum trade amount`() {
+        val result = validator.validate(
+            state(
+                tradeType = TradeType.Sell,
+                instrument = instrument(
+                    bidPrice00 = BigDecimal("10.00"),
+                    holdingQuantity = 100,
+                    minTradeAmount = BigDecimal("250.00"),
+                ),
+                inputMode = TradeInputMode.Quantity,
+                quantityInputText = "20",
+            ),
+        )
+
+        val error = result.errors.single() as TradeValidationError.OperationAmountBelowMin
+        assertEquals("250.00", error.minAmount.toPlainString())
+        assertEquals("25", error.minNominals?.toPlainString())
+        assertFalse(result.canContinue)
+    }
+
+    @Test
+    fun `03f sell usd ignores instrument minimum trade amount`() {
+        val result = validator.validate(
+            state(
+                tradeType = TradeType.Sell,
+                instrument = instrument(
+                    bidPrice00 = BigDecimal("10.00"),
+                    currency = "USD",
+                    holdingQuantity = 100,
+                    minTradeAmount = BigDecimal("250.00"),
+                ),
+                selectedAccount = account(selectedCurrency = "USD"),
+                inputMode = TradeInputMode.Quantity,
+                quantityInputText = "20",
+            ),
+        )
+
+        assertEquals("20", result.tradeNominals.toPlainString())
+        assertEquals("200.00", result.tradeAmount.toPlainString())
+        assertTrue(result.errors.isEmpty())
+        assertTrue(result.canContinue)
     }
 
     @Test
@@ -856,6 +942,7 @@ class TradeValidationRulesMatrixTest {
                     bidPrice00 = BigDecimal("100.00"),
                     holdingQuantity = 10,
                     percentageMovement = BigDecimal("0.10"),
+                    minTradeAmount = BigDecimal.ZERO,
                 ),
                 orderType = TradeOrderType.Limit,
                 limitPriceInput = "90",
