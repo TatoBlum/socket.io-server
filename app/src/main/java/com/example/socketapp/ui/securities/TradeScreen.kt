@@ -64,7 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.socketapp.BuyInputMode
+import com.example.socketapp.TradeInputMode
 import com.example.socketapp.TradeOrderType
 import com.example.socketapp.TradeViewModelState
 import com.example.socketapp.R
@@ -73,6 +73,7 @@ import com.example.socketapp.SettlementType
 import com.example.socketapp.TradeInputHelper
 import com.example.socketapp.TradeInputLimitPriceHelper
 import com.example.socketapp.TradeOption
+import com.example.socketapp.TradeType
 import com.example.socketapp.TradeValidationError
 import com.example.socketapp.ui.theme.AppPrimary
 import com.example.socketapp.ui.theme.PriceUpText
@@ -87,8 +88,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 @Composable
 fun TradeScreen(
     uiState: TradeViewModelState,
-    onInputModeChange: (BuyInputMode) -> Unit,
-    onInputChange: (BuyInputMode, String) -> Unit,
+    onInputModeChange: (TradeInputMode) -> Unit,
+    onInputChange: (TradeInputMode, String) -> Unit,
     onSettlementTermChange: (SettlementType) -> Unit,
     onOrderTypeChange: (TradeOrderType) -> Unit,
     onLimitPriceChange: (String) -> Unit,
@@ -138,7 +139,18 @@ fun TradeScreen(
                 .padding(top = 20.dp, bottom = 24.dp),
         ) {
             if (uiState.instrument != null) {
-                SecurityHeader(instrument = uiState.instrument)
+                val instrument = uiState.instrument
+                if (instrument.lotInstrumentSize > 1) {
+                    InfoMessageBanner(
+                        text = stringResource(
+                            R.string.trade_lot_size_info,
+                            instrument.ticker,
+                            instrument.lotInstrumentSize,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                SecurityHeader(instrument = instrument)
             } else {
                 SecurityHeaderPlaceholder()
             }
@@ -197,6 +209,7 @@ fun TradeScreen(
                     value = uiState.limitPriceInput,
                     error = uiState.limitPriceError,
                     helper = uiState.limitPriceHelper,
+                    tradeType = uiState.tradeType,
                     currencyPrefix = currencyPrefix,
                     onValueChange = onLimitPriceChange,
                 )
@@ -208,7 +221,7 @@ fun TradeScreen(
                 mode = uiState.inputMode,
                 value = uiState.activeInputText,
                 helperMessage = uiState.inputHelper.toInputHelperMessage(currencyPrefix),
-                errorMessage = uiState.inputError?.toInputErrorMessage(currencyPrefix),
+                errorMessage = uiState.inputError?.toInputErrorMessage(currencyPrefix, uiState.tradeType),
                 onModeChange = { inputMode ->
                     focusManager.clearFocus(force = true)
                     onInputModeChange(inputMode)
@@ -257,6 +270,7 @@ fun TradeScreen(
                 limitPriceError = uiState.limitPriceError,
                 limitPriceHelper = uiState.limitPriceHelper,
                 availableOrderTypes = uiState.availableOrderTypes,
+                tradeType = uiState.tradeType,
                 currencyPrefix = currencyPrefix,
                 onDismiss = { activeSheet = null },
                 onSelect = { orderType ->
@@ -279,6 +293,7 @@ private fun LimitPriceInput(
     value: String,
     error: TradeValidationError?,
     helper: TradeInputLimitPriceHelper,
+    tradeType: TradeType,
     currencyPrefix: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -298,7 +313,7 @@ private fun LimitPriceInput(
         isError = error != null,
         supportingText = {
             Text(
-                text = error?.toInputErrorMessage(currencyPrefix)
+                text = error?.toInputErrorMessage(currencyPrefix, tradeType)
                     ?: helper.toLimitPriceHelperMessage(),
             )
         },
@@ -333,12 +348,12 @@ private fun TradeContinueButton(
 
 @Composable
 private fun TradeInputSection(
-    mode: BuyInputMode,
+    mode: TradeInputMode,
     value: String,
     helperMessage: String,
     errorMessage: String?,
-    onModeChange: (BuyInputMode) -> Unit,
-    onValueChange: (BuyInputMode, String) -> Unit,
+    onModeChange: (TradeInputMode) -> Unit,
+    onValueChange: (TradeInputMode, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -350,14 +365,14 @@ private fun TradeInputSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TradeInputModeChip(
-                text = BuyInputMode.Amount.label,
-                selected = mode == BuyInputMode.Amount,
-                onClick = { onModeChange(BuyInputMode.Amount) },
+                text = TradeInputMode.Amount.label,
+                selected = mode == TradeInputMode.Amount,
+                onClick = { onModeChange(TradeInputMode.Amount) },
             )
             TradeInputModeChip(
-                text = BuyInputMode.Quantity.label,
-                selected = mode == BuyInputMode.Quantity,
-                onClick = { onModeChange(BuyInputMode.Quantity) },
+                text = TradeInputMode.Quantity.label,
+                selected = mode == TradeInputMode.Quantity,
+                onClick = { onModeChange(TradeInputMode.Quantity) },
             )
         }
 
@@ -368,8 +383,8 @@ private fun TradeInputSection(
                 value = value,
                 onValueChange = { nextValue ->
                     val filteredValue = when (mode) {
-                        BuyInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
-                        BuyInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
+                        TradeInputMode.Amount -> nextValue.filter { it.isDigit() || it == ',' || it == '.' }
+                        TradeInputMode.Quantity -> nextValue.filter { it.isDigit() || it == '.' }
                     }
                     onValueChange(mode, filteredValue)
                 },
@@ -394,7 +409,7 @@ private fun TradeInputSection(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (mode == BuyInputMode.Amount) {
+                            if (mode == TradeInputMode.Amount) {
                                 Text(
                                     text = "$",
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -681,6 +696,7 @@ private fun OrderTypeSheet(
     limitPriceError: TradeValidationError?,
     limitPriceHelper: TradeInputLimitPriceHelper,
     availableOrderTypes: List<TradeOrderType>,
+    tradeType: TradeType,
     currencyPrefix: String,
     onDismiss: () -> Unit,
     onSelect: (TradeOrderType) -> Unit,
@@ -731,6 +747,7 @@ private fun OrderTypeSheet(
                     value = limitPriceInput,
                     error = limitPriceError,
                     helper = limitPriceHelper,
+                    tradeType = tradeType,
                     currencyPrefix = currencyPrefix,
                     onValueChange = onLimitPriceChange,
                     modifier = Modifier.padding(start = 48.dp),
@@ -836,7 +853,10 @@ private fun TradeInputLimitPriceHelper.toLimitPriceHelperMessage(): String =
     }
 
 @Composable
-private fun TradeValidationError.toInputErrorMessage(currencyPrefix: String): String =
+private fun TradeValidationError.toInputErrorMessage(
+    currencyPrefix: String,
+    tradeType: TradeType,
+): String =
     when (this) {
         TradeValidationError.InvalidLimitPrice -> stringResource(R.string.trade_error_invalid_limit_price)
         is TradeValidationError.LimitPriceOutOfBandBuy ->
@@ -847,10 +867,24 @@ private fun TradeValidationError.toInputErrorMessage(currencyPrefix: String): St
             stringResource(R.string.trade_error_limit_price_not_multiple, step.toPlainString())
         TradeValidationError.MissingTradePrice -> stringResource(R.string.trade_error_missing_trade_price)
         is TradeValidationError.AmountNotEnoughForMin ->
-            stringResource(R.string.trade_error_operation_min_amount, minAmount.formatCurrency(currencyPrefix))
+            stringResource(
+                if (tradeType == TradeType.Sell) {
+                    R.string.trade_error_operation_min_amount_sell
+                } else {
+                    R.string.trade_error_operation_min_amount
+                },
+                minAmount.formatCurrency(currencyPrefix),
+            )
         TradeValidationError.NominalsInvalid -> stringResource(R.string.trade_error_nominals_invalid)
         is TradeValidationError.NominalsBelowMin ->
-            stringResource(R.string.trade_error_nominals_below_min, minNominals.toPlainString())
+            stringResource(
+                if (tradeType == TradeType.Sell) {
+                    R.string.trade_error_nominals_below_min_sell
+                } else {
+                    R.string.trade_error_nominals_below_min
+                },
+                minNominals.toPlainString(),
+            )
         is TradeValidationError.NominalsNotMultiple ->
             stringResource(R.string.trade_error_nominals_not_multiple, lotSize.toPlainString())
         is TradeValidationError.NominalsOverMax ->
@@ -868,8 +902,23 @@ private fun TradeValidationError.toInputErrorMessage(currencyPrefix: String): St
             stringResource(R.string.trade_error_selected_account_currency_mismatch)
         is TradeValidationError.OperationAmountBelowMin ->
             minNominals?.let { nominalAmount ->
-                stringResource(R.string.trade_error_nominals_below_min, nominalAmount.toPlainString())
-            } ?: stringResource(R.string.trade_error_amount_not_enough_for_min, minAmount.formatCurrency(currencyPrefix))
+                stringResource(
+                    if (tradeType == TradeType.Sell) {
+                        R.string.trade_error_operation_min_nominals_and_amount_sell
+                    } else {
+                        R.string.trade_error_operation_min_nominals_and_amount
+                    },
+                    nominalAmount.toPlainString(),
+                    minAmount.formatCurrency(currencyPrefix),
+                )
+            } ?: stringResource(
+                if (tradeType == TradeType.Sell) {
+                    R.string.trade_error_amount_not_enough_for_min_sell
+                } else {
+                    R.string.trade_error_amount_not_enough_for_min
+                },
+                minAmount.formatCurrency(currencyPrefix),
+            )
         is TradeValidationError.OperationAmountAboveMax ->
             stringResource(R.string.trade_error_insufficient_balance)
     }
